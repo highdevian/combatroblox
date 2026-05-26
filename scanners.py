@@ -896,7 +896,12 @@ def scan_scripts() -> dict:
         except (PermissionError, OSError):
             continue
 
-    desc = f"Arquivos .lua/.luau/.txt em pastas comuns ({checked} analisado(s))"
+    if SCRIPTS_STRICT_MODE:
+        ext_desc = ".lua/.luau/.txt"
+    else:
+        ext_desc = ".lua/.luau"
+
+    desc = f"Arquivos {ext_desc} em pastas comuns ({checked} analisado(s))"
     return _result("Scripts (Lua/Luau)", desc, items)
 
 
