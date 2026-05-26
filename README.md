@@ -2,6 +2,14 @@
 
 Ferramenta de auditoria local para Windows que executa checagens forenses e de processo para identificar indícios de executores e utilitários associados a cheating em Roblox.
 
+## Comece Aqui (Simples)
+
+Se você vai compartilhar com outras pessoas, manda este guia:
+
+- [TUTORIAL.md](TUTORIAL.md)
+
+Ele tem passo a passo para usuário leigo com comandos de copiar e colar.
+
 ## Aviso Importante
 
 Este projeto é para uso defensivo, auditoria e investigação em ambiente autorizado.
@@ -25,6 +33,14 @@ Você é responsável por cumprir as leis locais e políticas da sua organizaç�
 
 ```bash
 pip install -r requirements.txt
+```
+
+## Tutorial Rápido (1 minuto)
+
+```powershell
+cd "C:\Users\SEU_USUARIO\Desktop\combat-roblox"
+python -m pip install -r requirements.txt
+python telador.py
 ```
 
 ## Uso
