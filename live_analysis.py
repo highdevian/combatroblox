@@ -124,15 +124,17 @@ def _is_dll_signed(path: str) -> bool | None:
 # ============================ Helpers ============================
 
 def _result(name, description, items, error=None):
+    # Itens meta_only (ex: cabeçalho de processo) não contam como DLL suspeita
+    real_items = [i for i in items if not i.get("meta_only")]
     if error:
         status = "error"
         summary = f"Erro: {error}"
-    elif not items:
+    elif not real_items:
         status = "clean"
         summary = "Nenhuma DLL suspeita"
     else:
         status = "suspicious"
-        summary = f"{len(items)} DLL(s) suspeita(s)"
+        summary = f"{len(real_items)} DLL(s) suspeita(s)"
 
     return {
         "name": name, "description": description, "status": status,
@@ -140,10 +142,10 @@ def _result(name, description, items, error=None):
     }
 
 
-def _item(label, detail, severity, matched, timestamp=""):
+def _item(label, detail, severity, matched, timestamp="", meta_only=False):
     return {
         "label": label, "detail": detail, "severity": severity,
-        "matched": matched, "timestamp": timestamp,
+        "matched": matched, "timestamp": timestamp, "meta_only": meta_only,
     }
 
 
@@ -236,11 +238,12 @@ def scan_roblox_dll_injection() -> dict:
         except (ValueError, OSError):
             pass
 
-        # Header sobre o processo (informativo, sem severity)
+        # Header sobre o processo (informativo, não conta como DLL suspeita)
         items.append(_item(
             label=f"[PROCESSO] PID {pid} — {name}",
             detail=f"Iniciado em {ts_created}  |  exe: {exe}",
             severity="low", matched="roblox-running", timestamp=ts_created,
+            meta_only=True,
         ))
 
         for m in mmaps:

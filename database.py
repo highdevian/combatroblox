@@ -343,7 +343,7 @@ SUSPICIOUS_DOMAINS = {
     "deltaexploits.gg":     "high",
     "scriptware.com":       "high",
     "evonexecutor.com":     "high",
-    "v3rmillion.net":       "medium",
+    "v3rmillion.net":       "low",
     "rscripts.net":         "low",
     "scriptblox.com":       "low",
     "robloxscripts.com":    "low",
@@ -556,7 +556,6 @@ ROBLOX_LOG_PATTERNS = [
     "Hyperion",
     "AntiTamper",
     "ProcessUntrusted",
-    "RBXCRASH",
 ]
 
 # ----------------------------- Anti-evasão -----------------------------
@@ -659,7 +658,7 @@ SCRIPT_RED_FLAGS = {
     "getgenv()":            "high",
     "getsenv":              "medium",
     "getrenv":              "medium",
-    "fireserver":           "low",
+    # fireserver removido — é API padrão de RemoteEvent, não exclusiva de executor
     "writefile(":           "low",
 
     # ===== Mais funções de executor 2024+ =====

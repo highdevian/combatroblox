@@ -222,11 +222,13 @@ def scan_clock() -> dict:
             try:
                 install_date, _ = winreg.QueryValueEx(key, "InstallDate")
                 install_dt = datetime.fromtimestamp(install_date)
-                if install_dt > datetime.now() - timedelta(days=2):
+                # 2 dias era amplo demais — fresh install + jogar no mesmo dia é
+                # suspeito; comprar PC novo não é. Só flagga se instalado nas últimas 6h.
+                if install_dt > datetime.now() - timedelta(hours=6):
                     items.append(_item(
                         label="Windows instalado recentemente",
-                        detail=f"InstallDate = {install_dt} (últimas 48h)",
-                        severity="medium", matched="install-recent",
+                        detail=f"InstallDate = {install_dt} (últimas 6h)",
+                        severity="low", matched="install-recent",
                     ))
             finally:
                 winreg.CloseKey(key)

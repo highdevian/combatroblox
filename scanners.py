@@ -777,10 +777,11 @@ def scan_defender_exclusions() -> dict:
 
                 keyword, severity = _match_keyword(name)
                 if not keyword:
-                    # Exclusão de Downloads/Desktop/Roblox raiz já é suspeito por si só
+                    # Só Downloads e raiz do Roblox são suspeitos genericamente;
+                    # \desktop e \appdata são amplos demais (IDEs, projetos, etc.)
                     lower = name.lower()
-                    if any(s in lower for s in (r"\downloads", r"\desktop", r"\roblox", r"\appdata")):
-                        keyword, severity = "exclusão genérica suspeita", "medium"
+                    if any(s in lower for s in (r"\downloads\\", r"\roblox\\")):
+                        keyword, severity = "exclusão genérica suspeita", "low"
                 if not keyword:
                     continue
                 items.append(_item(
@@ -919,7 +920,9 @@ def scan_cleaners() -> dict:
       - Event Log foi limpa
     """
     items = []
-    cutoff = datetime.now() - timedelta(days=7)
+    # 7 dias era largo demais — qualquer usuário que faz limpeza semanal
+    # virava HIGH. Só bumpamos se a ferramenta rodou nas últimas 2 horas.
+    cutoff = datetime.now() - timedelta(hours=2)
 
     # 1. Procura nos mesmos lugares dos executores
     for base_template in PATHS_TO_SCAN_FOR_EXECUTORS:
@@ -949,7 +952,7 @@ def scan_cleaners() -> dict:
 
                     items.append(_item(
                         label=f"[{('PASTA' if os.path.isdir(full) else 'ARQUIVO')}] {entry}",
-                        detail=f"{full}{'  ⚠ uso recente (últimos 7d)' if recent else ''}",
+                        detail=f"{full}{'  ⚠ uso recente (últimas 2h)' if recent else ''}",
                         severity=severity, matched=cleaner_kw, timestamp=ts,
                     ))
                     break
@@ -959,12 +962,13 @@ def scan_cleaners() -> dict:
     if os.path.isdir(pf):
         try:
             pf_files = [f for f in os.listdir(pf) if f.lower().endswith(".pf")]
-            # PCs normais tem 100-500 .pf. < 30 é altamente suspeito
-            if len(pf_files) < 30:
+            # PCs normais tem 100-500 .pf. < 8 é sinal de limpeza intencional;
+            # < 30 dispara em fresh install e PCs de uso leve — muito falso-positivo.
+            if len(pf_files) < 8:
                 items.append(_item(
                     label=f"Prefetch quase vazia ({len(pf_files)} arquivos)",
-                    detail=r"C:\Windows\Prefetch tem menos de 30 entries — normal é 100-500",
-                    severity="high", matched="prefetch-wiped",
+                    detail=r"C:\Windows\Prefetch tem menos de 8 entries — normal é 100-500",
+                    severity="medium", matched="prefetch-wiped",
                 ))
         except (PermissionError, OSError):
             pass

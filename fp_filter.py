@@ -107,6 +107,14 @@ WHITELIST_PATH_SUBSTRINGS = [
     r"\microsoft\edgewebview\\",
     r"\microsoft sdks\\",
     r"\windows kits\\",
+    # Cloud sync e apps comuns (não são cheats)
+    r"\onedrive\\",
+    r"\google\chrome\\",
+    r"\google drive\\",
+    r"\dropbox\\",
+    r"\microsoft\edge\\",
+    r"\mozilla firefox\\",
+    r"\mozilla\\firefox\\",
 ]
 
 
@@ -306,8 +314,10 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
             original_sev = item.get("severity", "low")
             reasons = []
 
-            # 1. Whitelist por path
-            wl, wl_reason = is_whitelisted_path(item.get("detail", ""))
+            # 1. Whitelist por path — checa label (o caminho real) e detail
+            wl, wl_reason = is_whitelisted_path(
+                item.get("label", "") + " " + item.get("detail", "")
+            )
             if wl:
                 stats["items_whitelisted"] += 1
                 # Skip totalmente — não adiciona ao output
