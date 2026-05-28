@@ -965,6 +965,88 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         .sidebar { position: relative; width: 100%; height: auto; }
         .main-content { max-width: 100%; }
     }
+
+    /* === Custom scrollbar === */
+    * { scrollbar-width: thin; scrollbar-color: #ff4d4f #0a0a0c; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #0a0a0c; }
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #ff4d4f, #ffb020);
+        border-radius: 10px; border: 2px solid #0a0a0c;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, #ff6668, #ffc040);
+    }
+    ::-webkit-scrollbar-corner { background: #0a0a0c; }
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #ff4d4f55; border: none; }
+
+    /* === Espaçamento refinado === */
+    body {
+        font-size: 14px; line-height: 1.5;
+    }
+    .main-content {
+        padding: 32px 40px 24px;
+        max-width: calc(100% - 260px);
+    }
+    .card {
+        padding: 24px 28px; margin-bottom: 16px;
+        border-radius: 10px;
+    }
+    .card h2 { font-size: 17px; margin: 0; line-height: 1.4; }
+    .card .desc {
+        margin: 8px 0 12px; font-size: 13px; line-height: 1.55;
+    }
+    .card .summary { margin: 8px 0 16px; font-size: 13px; }
+    .card-head { padding: 4px 0; gap: 16px; }
+    details > summary { padding: 4px 0; }
+    details[open] > summary { margin-bottom: 4px; }
+    table { margin-top: 4px; }
+    th, td { padding: 10px 12px; }
+    .stats { gap: 12px; margin: 8px 0 4px; }
+    .stat { padding: 16px 24px; min-width: 96px; }
+    .stat .num { font-size: 26px; line-height: 1.2; margin-bottom: 4px; }
+    .stat > div:last-child { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+    .page-header { margin-bottom: 20px; padding-bottom: 16px; }
+    .page-header h1 { font-size: 28px; letter-spacing: 4px; }
+
+    /* Sidebar refinements */
+    .sidebar { padding: 24px 0 32px; }
+    .sidebar-head { padding: 0 24px 20px; }
+    .sidebar-head h3 { font-size: 17px; letter-spacing: 3px; margin: 0 0 14px; }
+    .sidebar-nav { padding: 16px 0 8px; }
+    .nav-group { margin-bottom: 24px; }
+    .nav-group-title {
+        padding: 10px 24px; font-size: 10px; letter-spacing: 2px;
+    }
+    .nav-link {
+        padding: 9px 24px; font-size: 13px; line-height: 1.4;
+        margin: 1px 0;
+    }
+    .nav-badge { padding: 2px 9px; font-size: 10px; margin-left: 8px; }
+
+    /* Charts spacing */
+    .charts-grid { gap: 16px; margin-top: 8px; }
+    .chart-card { padding: 20px; }
+    .chart-card h3 { margin: 0 0 16px; font-size: 12px; letter-spacing: 1.5px; }
+    .donut-legend { margin-top: 16px; gap: 20px; }
+    .bars { gap: 10px; }
+    .bar-row { font-size: 12px; }
+    .bar-label { padding-right: 4px; }
+    .bar-track { height: 14px; border-radius: 4px; }
+
+    /* Timeline refinement */
+    .timeline .tl-range { margin: 12px 0 6px; padding: 0 4px; }
+    .timeline .tl-track { margin: 8px 0 16px; height: 44px; }
+
+    /* Sections code refinement */
+    code { padding: 2px 7px; font-size: 12px; }
+    .empty { padding: 12px 0; font-size: 13px; }
+
+    /* FP-stats and high-confidence padding */
+    .fp-stats, .high-confidence { padding: 24px 28px; }
+    .verdict-sub { margin: -4px 0 18px; }
+    .overview .big-verdict { font-size: 32px; margin: 18px 0 10px; }
     """
 
     html_doc = f"""<!DOCTYPE html>
