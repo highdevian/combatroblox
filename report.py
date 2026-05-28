@@ -41,6 +41,7 @@ def _render_section(finding: dict) -> str:
     summary = _escape(finding["summary"])
 
     rows = []
+    sev_rank = {"high": 3, "medium": 2, "low": 1}
     for item in finding.get("items", []):
         sev = item.get("severity", "low")
         color = SEVERITY_COLORS.get(sev, "#888")
@@ -48,13 +49,11 @@ def _render_section(finding: dict) -> str:
         fp_reason = item.get("fp_reason")
         orig_sev = item.get("original_severity")
 
-        # Badge de rebaixamento
         downgrade_badge = ""
         if orig_sev and orig_sev != sev:
             downgrade_badge = (f'<span class="fp-badge" title="{_escape(fp_reason or "")}">'
                                 f'↓ era {_escape(orig_sev.upper())}</span>')
 
-        # Confidence bar
         conf_html = ""
         if conf is not None:
             conf_color = "#3fbf7f" if conf >= 70 else ("#ffb020" if conf >= 40 else "#888")
@@ -62,32 +61,32 @@ def _render_section(finding: dict) -> str:
                           f'style="width:{conf}%; background:{conf_color}"></div>'
                           f'<span class="conf-val">{conf}</span></div>')
 
-        # Detail com fp_reason inline (se houver)
         detail_text = item.get('detail', '')
         if fp_reason:
             detail_text = f"{detail_text}\n[FP-filter: {fp_reason}]"
 
+        ts_val = item.get('timestamp', '') or ''
         rows.append(f"""
-        <tr class="row-{sev}">
-            <td class="sev"><span class="sev-dot" style="background:{color}"></span>{_escape(sev.upper())}{downgrade_badge}</td>
+        <tr class="row-{sev}" data-sev="{sev_rank.get(sev, 0)}" data-conf="{conf or 0}" data-ts="{_escape(ts_val)}">
+            <td class="sev"><span class="sev-dot" style="background:{color}" aria-hidden="true"></span>{_escape(sev.upper())}{downgrade_badge}</td>
             <td class="label">{_escape(item.get('label', ''))}</td>
             <td class="detail"><code>{_escape(detail_text)}</code></td>
             <td class="match"><code>{_escape(item.get('matched', ''))}</code></td>
             <td class="conf">{conf_html}</td>
-            <td class="ts">{_escape(item.get('timestamp', ''))}</td>
+            <td class="ts"><time>{_escape(ts_val)}</time></td>
         </tr>""")
 
     if rows:
         table = f"""
-        <table>
+        <table class="sortable">
             <thead>
                 <tr>
-                    <th>Severidade</th>
-                    <th>Item</th>
+                    <th class="sort-col" data-sort="sev" tabindex="0" role="button" aria-label="Ordenar por severidade">Severidade <span class="sort-indicator">↓</span></th>
+                    <th class="sort-col" data-sort="label" tabindex="0" role="button" aria-label="Ordenar por item">Item</th>
                     <th>Detalhe</th>
-                    <th>Match</th>
-                    <th>Conf.</th>
-                    <th>Quando</th>
+                    <th class="sort-col" data-sort="match" tabindex="0" role="button" aria-label="Ordenar por match">Match</th>
+                    <th class="sort-col" data-sort="conf" tabindex="0" role="button" aria-label="Ordenar por confidence">Conf.</th>
+                    <th class="sort-col" data-sort="ts" tabindex="0" role="button" aria-label="Ordenar por data">Quando</th>
                 </tr>
             </thead>
             <tbody>{''.join(rows)}</tbody>
@@ -449,11 +448,21 @@ def _render_sidebar(findings: list, verdict: dict = None) -> str:
     for f in findings:
         n_items = len(f.get("items", []))
         slug = f["name"].lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
+        # Mini-mapa: dot mostra pior severidade da section
+        items = f.get("items", [])
+        worst = "none"
+        if any(i.get("severity") == "high" for i in items):
+            worst = "high"
+        elif any(i.get("severity") == "medium" for i in items):
+            worst = "medium"
+        elif any(i.get("severity") == "low" for i in items):
+            worst = "low"
+        mini_dot = f'<span class="mini-sev mini-{worst}" aria-hidden="true"></span>'
         if n_items > 0:
             badge = f'<span class="nav-badge">{n_items}</span>'
-            scanner_links.append(f'<a href="#scan-{slug}" class="nav-link nav-hit">{_escape(f["name"])}{badge}</a>')
+            scanner_links.append(f'<a href="#scan-{slug}" class="nav-link nav-hit">{mini_dot}<span class="nav-link-label">{_escape(f["name"])}</span>{badge}</a>')
         else:
-            scanner_links.append(f'<a href="#scan-{slug}" class="nav-link nav-clean">{_escape(f["name"])}</a>')
+            scanner_links.append(f'<a href="#scan-{slug}" class="nav-link nav-clean">{mini_dot}<span class="nav-link-label">{_escape(f["name"])}</span></a>')
 
     score_badge = ""
     if verdict:
@@ -558,16 +567,21 @@ def _render_charts(findings: list, verdict: dict) -> str:
 
 
 def _render_empty_state() -> str:
-    """Tela limpa bonita quando 0 hits totais."""
+    """Sistema limpo — SVG vector, sem emoji."""
     return """
-    <section class="card empty-state">
-        <div class="empty-icon">✅</div>
-        <h2>Tudo limpo</h2>
-        <p>Nenhum hit nas 34 categorias de detecção. Este sistema não apresenta
-        indícios de uso de executores Roblox conhecidos, scripts de exploit,
+    <section class="card empty-state" aria-label="Sistema limpo">
+        <svg class="empty-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="32" cy="32" r="28" fill="none" stroke="#3fbf7f" stroke-width="2" opacity="0.4"/>
+            <circle cx="32" cy="32" r="22" fill="none" stroke="#3fbf7f" stroke-width="1.5" opacity="0.25"/>
+            <path d="M20 33 L29 42 L45 25" fill="none" stroke="#3fbf7f"
+                  stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2>Sistema limpo</h2>
+        <p>Nenhum hit nas categorias de detecção. Este sistema não apresenta
+        indícios de executores Roblox conhecidos, scripts de exploit,
         ou ferramentas de cheating.</p>
-        <p class="empty-sub">Lembre-se: detecção heurística pode ter falso-negativo (cheat novo,
-        renomeado). Faça SS visual também.</p>
+        <p class="empty-sub">Detecção é heurística — cheat novo ou renomeado pode escapar.
+        Conduza SS visual também.</p>
     </section>
     """
 
@@ -616,17 +630,29 @@ def _render_high_confidence(high_confidence: dict) -> str:
 
 
 def _render_controls() -> str:
-    """Barra de search e filtros de severidade."""
+    """Barra de search, filtros, e ações em massa."""
     return """
-    <section class="card controls">
+    <section class="card controls" role="search">
         <div class="controls-row">
-            <input type="text" id="search" placeholder="🔍 Filtrar (ex: krnl, wave, .lua, downloads...)" />
-            <div class="filters">
-                <button class="filter-btn" data-sev="high"   style="--c:#ff4d4f">High</button>
-                <button class="filter-btn" data-sev="medium" style="--c:#ffb020">Medium</button>
-                <button class="filter-btn" data-sev="low"    style="--c:#ffe066">Low</button>
-                <button id="show-all" class="filter-btn solid">Mostrar tudo</button>
+            <label for="search" class="sr-only">Buscar nos hits</label>
+            <input type="text" id="search"
+                   placeholder="Buscar (krnl, wave, .lua, downloads...)   ·   atalho: /"
+                   aria-label="Buscar nos hits" />
+            <div class="filters" role="group" aria-label="Filtrar por severidade">
+                <button class="filter-btn" data-sev="high"   aria-pressed="true" style="--c:#ff4d4f">High</button>
+                <button class="filter-btn" data-sev="medium" aria-pressed="true" style="--c:#ffb020">Medium</button>
+                <button class="filter-btn" data-sev="low"    aria-pressed="true" style="--c:#ffe066">Low</button>
+                <button id="show-all" class="filter-btn solid">Reset</button>
+                <span class="control-divider" aria-hidden="true"></span>
+                <button id="expand-all"   class="filter-btn ghost" type="button">Expandir tudo</button>
+                <button id="collapse-all" class="filter-btn ghost" type="button">Recolher</button>
             </div>
+        </div>
+        <div class="controls-meta" aria-live="polite">
+            <span id="visible-count"></span>
+            <span class="kbd-hint">
+                <kbd>/</kbd> buscar · <kbd>J</kbd>/<kbd>K</kbd> próximo/anterior · <kbd>Esc</kbd> limpar
+            </span>
         </div>
     </section>
     """
@@ -782,7 +808,131 @@ CONTROLS_JS = """
         observer.observe(card);
     });
 
-    // Ripple e magnet hover removidos — viravam ruído visual.
+    // ============== Filtered counter ==============
+    function updateVisibleCount() {
+        const all = document.querySelectorAll('tbody tr');
+        const visible = Array.from(all).filter(tr => {
+            const display = window.getComputedStyle(tr).display;
+            return display !== 'none';
+        }).length;
+        const el = document.getElementById('visible-count');
+        if (el) {
+            el.textContent = all.length === visible
+                ? `${all.length.toLocaleString('pt-BR')} hits`
+                : `${visible.toLocaleString('pt-BR')} de ${all.length.toLocaleString('pt-BR')} hits visíveis`;
+        }
+    }
+    updateVisibleCount();
+    // Hook nas mudanças de filtro
+    const originalSearch = search;
+    if (originalSearch) {
+        originalSearch.addEventListener('input', () => setTimeout(updateVisibleCount, 0));
+    }
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => setTimeout(updateVisibleCount, 0));
+    });
+
+    // ============== Expand / Collapse all ==============
+    function setAllDetails(open) {
+        document.querySelectorAll('section.card details').forEach(d => d.open = open);
+    }
+    const expandBtn = document.getElementById('expand-all');
+    const collapseBtn = document.getElementById('collapse-all');
+    if (expandBtn) expandBtn.addEventListener('click', () => setAllDetails(true));
+    if (collapseBtn) collapseBtn.addEventListener('click', () => setAllDetails(false));
+
+    // ============== Column sort ==============
+    function sortTable(table, colKey, asc) {
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const getKey = (row) => {
+            if (colKey === 'sev')  return parseInt(row.dataset.sev || '0', 10);
+            if (colKey === 'conf') return parseInt(row.dataset.conf || '0', 10);
+            if (colKey === 'ts')   return row.dataset.ts || '';
+            // label / match: pega texto da td correspondente
+            const idx = { label: 1, match: 3 }[colKey];
+            return row.children[idx]?.textContent.trim().toLowerCase() || '';
+        };
+        rows.sort((a, b) => {
+            const ka = getKey(a), kb = getKey(b);
+            if (typeof ka === 'number') return asc ? ka - kb : kb - ka;
+            return asc ? ka.localeCompare(kb) : kb.localeCompare(ka);
+        });
+        rows.forEach(r => tbody.appendChild(r));
+    }
+
+    document.querySelectorAll('table.sortable').forEach(table => {
+        const headers = table.querySelectorAll('th.sort-col');
+        headers.forEach(th => {
+            const action = () => {
+                const key = th.dataset.sort;
+                const wasAsc = th.classList.contains('sort-asc');
+                headers.forEach(h => h.classList.remove('sort-active', 'sort-asc'));
+                th.classList.add('sort-active');
+                if (!wasAsc) th.classList.add('sort-asc');
+                sortTable(table, key, !wasAsc);
+            };
+            th.addEventListener('click', action);
+            th.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    action();
+                }
+            });
+        });
+    });
+
+    // ============== Keyboard navigation ==============
+    let currentCardIdx = -1;
+    const cardsWithHits = Array.from(document.querySelectorAll('section.card[id^="scan-"]'))
+        .filter(c => c.querySelector('tbody tr'));
+
+    function scrollToCard(idx) {
+        if (idx < 0 || idx >= cardsWithHits.length) return;
+        currentCardIdx = idx;
+        const card = cardsWithHits[idx];
+        const details = card.querySelector('details');
+        if (details) details.open = true;
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Highlight curto
+        card.style.transition = 'outline 0.4s';
+        card.style.outline = '2px solid rgba(255,77,79,0.4)';
+        card.style.outlineOffset = '2px';
+        setTimeout(() => { card.style.outline = ''; }, 800);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        // Skip se em input/textarea
+        if (e.target.matches('input, textarea')) {
+            // Esc no search reseta
+            if (e.key === 'Escape' && e.target.id === 'search') {
+                e.target.value = '';
+                e.target.dispatchEvent(new Event('input'));
+                e.target.blur();
+            }
+            return;
+        }
+        if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            const s = document.getElementById('search');
+            if (s) { s.focus(); s.select(); }
+        } else if (e.key === 'j' || e.key === 'J') {
+            e.preventDefault();
+            scrollToCard(Math.min(currentCardIdx + 1, cardsWithHits.length - 1));
+        } else if (e.key === 'k' || e.key === 'K') {
+            e.preventDefault();
+            scrollToCard(Math.max(currentCardIdx - 1, 0));
+        } else if (e.key === 'Escape') {
+            // Reset filters
+            const showAll = document.getElementById('show-all');
+            if (showAll) showAll.click();
+        } else if (e.key === 'e' || e.key === 'E') {
+            // E expand all, Shift+E collapse
+            if (e.shiftKey) setAllDetails(false);
+            else setAllDetails(true);
+        }
+    });
 })();
 </script>
 """
@@ -1587,6 +1737,139 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         font-size: 12px;
         border-radius: 4px;
     }
+
+    /* ================================================================
+       === Functional pass — usability features
+       ================================================================ */
+
+    /* Skip link (a11y) */
+    .skip-link {
+        position: absolute; top: -100px; left: 0; z-index: 9999;
+        background: var(--c-red); color: #000;
+        padding: 12px 20px; font-weight: 600;
+        text-decoration: none;
+        transition: top 0.15s;
+    }
+    .skip-link:focus { top: 0; }
+
+    /* Screen reader only */
+    .sr-only {
+        position: absolute; width: 1px; height: 1px;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+
+    /* Controls meta row */
+    .controls-meta {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: 14px;
+        font-size: 12px; color: var(--c-text-soft);
+        flex-wrap: wrap; gap: 8px;
+    }
+    #visible-count { font-variant-numeric: tabular-nums; }
+    .control-divider {
+        width: 1px; height: 20px;
+        background: var(--c-border);
+        margin: 0 4px;
+    }
+    .filter-btn.ghost {
+        background: transparent;
+        color: var(--c-text-mute);
+        border: 1px solid var(--c-border);
+    }
+    .filter-btn.ghost:hover {
+        color: var(--c-text);
+        border-color: var(--c-bg-4);
+        opacity: 1;
+    }
+
+    /* Keyboard hints */
+    .kbd-hint { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    kbd {
+        display: inline-block;
+        padding: 2px 6px;
+        background: var(--c-bg-1);
+        border: 1px solid var(--c-border);
+        border-bottom-width: 2px;
+        border-radius: 3px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        color: var(--c-text);
+        line-height: 1;
+    }
+
+    /* Mini-mapa de severidade na sidebar */
+    .nav-link {
+        display: flex; align-items: center; gap: 8px;
+    }
+    .nav-link-label {
+        flex: 1; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .mini-sev {
+        width: 6px; height: 6px;
+        border-radius: 50%; flex-shrink: 0;
+    }
+    .mini-high   { background: var(--c-red);    }
+    .mini-medium { background: var(--c-orange); }
+    .mini-low    { background: var(--c-yellow); }
+    .mini-none   { background: transparent; border: 1px solid var(--c-border); }
+
+    /* Zebra stripes sutis nas tabelas */
+    tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.012);
+    }
+
+    /* Sort headers */
+    .sortable th.sort-col {
+        cursor: pointer;
+        user-select: none;
+        transition: color 0.12s, background 0.12s;
+    }
+    .sortable th.sort-col:hover {
+        color: var(--c-text);
+        background: var(--c-bg-3);
+    }
+    .sort-indicator {
+        opacity: 0.4;
+        font-size: 10px;
+        margin-left: 4px;
+        transition: opacity 0.15s, transform 0.15s;
+    }
+    th.sort-col.sort-active .sort-indicator { opacity: 1; }
+    th.sort-col.sort-asc .sort-indicator { transform: rotate(180deg); }
+
+    /* Empty state SVG */
+    .empty-svg {
+        width: 80px; height: 80px;
+        margin: 0 auto 12px;
+        display: block;
+    }
+
+    /* Focus styles refinados */
+    .nav-link:focus-visible {
+        outline: none;
+        background: rgba(255, 77, 79, 0.08);
+        box-shadow: inset 3px 0 0 var(--c-red);
+    }
+    button:focus-visible, [tabindex]:focus-visible {
+        outline: 2px solid var(--c-red);
+        outline-offset: 1px;
+    }
+
+    /* Hidden state pra elementos filtrados (com transition smooth) */
+    [data-hidden="true"] {
+        display: none !important;
+    }
+
+    /* Print refinements */
+    @media print {
+        .controls, .controls-meta, .skip-link, .kbd-hint,
+        .sort-indicator, .lightbox, .toast { display: none !important; }
+        details { open: ""; }
+        details > summary::before { display: none; }
+        .empty-svg circle { stroke: #3fbf7f; }
+    }
     """
 
     html_doc = f"""<!DOCTYPE html>
@@ -1597,8 +1880,9 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     <style>{CSS}{extra_css}</style>
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Pular pro conteúdo</a>
     {sidebar_html}
-    <main class="main-content">
+    <main class="main-content" id="main-content" tabindex="-1">
     <header class="page-header">
         <h1>TELADOR BR</h1>
         <div class="sub">Relatório gerado em {sys_info.get('scan_time', '')}</div>
