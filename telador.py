@@ -44,6 +44,7 @@ import report_signing
 import diff_tool
 import redaction
 import report
+import report_md
 
 
 # --------------------------- ANSI / UTF-8 setup ---------------------------
@@ -86,7 +87,7 @@ BANNER = r"""
 
 def print_banner():
     print(f"{RED}{BANNER}{RESET}")
-    print(f"{GREY}  Versão 3.2.2  ·  FP refinados (RBXCRASH/IDE/PS context)  ·  Verdict ajustado{RESET}\n")
+    print(f"{GREY}  Versão 3.3.0  ·  34 scanners  ·  Markdown export  ·  Quick mode{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -355,6 +356,8 @@ def main():
     parser.add_argument("--diff",          type=str, default=None, help="Compara este SS com um .tsr anterior")
     parser.add_argument("--no-redact",     action="store_true", help="Desliga redação de credenciais/emails/tokens no relatório")
     parser.add_argument("--force-screenshot", action="store_true", help="Captura tela mesmo se gerenciador de senhas estiver aberto")
+    parser.add_argument("--md",            action="store_true", help="Também salva relatório em Markdown (colável no Discord)")
+    parser.add_argument("--quick",         action="store_true", help="Modo rápido: só scanners base (pula forensics/persistence/live/etc)")
     parser.add_argument("--no-parallel",   action="store_true", help="Rodar sequencial (debug)")
     parser.add_argument("--threads",       type=int, default=4, help="Threads em paralelo (default 4)")
     parser.add_argument("--json",          action="store_true", help="Também salvar relatório JSON")
@@ -410,14 +413,19 @@ def main():
         print(f"{GREEN}● Modo de scripts: anti-falso-positivo{RESET}")
 
     sys_info = scanners.system_info()
-    chain = assemble_scanners(
-        skip_forensics=args.no_forensics,
-        skip_antievasion=args.no_antievasion,
-        skip_persistence=args.no_persistence,
-        skip_live=args.no_live,
-        skip_history=args.no_history,
-        skip_peripherals=args.no_peripherals,
-    )
+    # --quick: só scanners base, skip todos os extras
+    if args.quick:
+        chain = list(scanners.ALL_SCANNERS)
+        print(f"{CYAN}[QUICK]{RESET} {GREY}Modo rápido — só {len(chain)} scanners base{RESET}")
+    else:
+        chain = assemble_scanners(
+            skip_forensics=args.no_forensics,
+            skip_antievasion=args.no_antievasion,
+            skip_persistence=args.no_persistence,
+            skip_live=args.no_live,
+            skip_history=args.no_history,
+            skip_peripherals=args.no_peripherals,
+        )
 
     if args.no_parallel:
         findings = run_scanners(chain, only=only_list)
@@ -477,6 +485,13 @@ def main():
     if args.json:
         json_path = save_json(findings, sys_info)
         print(f"{GREEN}✓ Relatório JSON:{RESET} {json_path}")
+
+    # Markdown export
+    if args.md:
+        md_path = report_md.generate_markdown_report(
+            findings, sys_info, verdict=verdict_obj, high_confidence=high_confidence
+        )
+        print(f"{GREEN}✓ Relatório Markdown:{RESET} {md_path}  {GREY}(colável no Discord){RESET}")
 
     # Salva .tsr (formato comparável + assinado HMAC)
     tsr_path = None

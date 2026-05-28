@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-05-28
+
+QoL release — Markdown export + quick mode.
+
+### Added
+
+#### 📋 Markdown export (`report_md.py`)
+- Nova flag `--md` salva relatório em `.md` colável **direto no Discord**.
+- Inclui veredito, score, stats, cross-correlation, e top hits por
+  fonte. Cap em ~6KB pra não estourar limite de mensagem.
+
+#### ⚡ Modo rápido (`--quick`)
+- Roda só os 15 scanners base (skip forensics/persistence/live/
+  history/peripherals/anti-evasion). ~1s vs ~5s do scan completo.
+- Útil pra SS rápida em volume.
+
 ## [3.2.2] - 2026-05-28
 
 False-positive precision pass — relatório de PC limpo agora dá LIMPO.

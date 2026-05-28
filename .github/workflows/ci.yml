@@ -30,4 +30,4 @@ jobs:
 
       - name: Import smoke test
         run: |
-          python -c "import antievasion, capture, command_history, database, diff_tool, forensics, fp_filter, live_analysis, pe_analysis, peripherals, persistence, redaction, report, report_signing, scanners, telador; print('Smoke imports OK')"
+          python -c "import antievasion, capture, command_history, database, diff_tool, forensics, fp_filter, live_analysis, pe_analysis, peripherals, persistence, redaction, report, report_md, report_signing, scanners, telador; print('Smoke imports OK')"
