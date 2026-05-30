@@ -376,6 +376,10 @@ def compute_verdict(findings: list) -> dict:
 
     for f in findings:
         for item in f["items"]:
+            # Itens meta_only são contexto (ex: cabeçalho "[PROCESSO] Roblox
+            # rodando") — não são hits. Não devem somar score nem contagem.
+            if item.get("meta_only"):
+                continue
             sev = item.get("severity", "low")
             conf = item.get("confidence", 50)
             weight = SEVERITY_WEIGHT.get(sev, 0)
