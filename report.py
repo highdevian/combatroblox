@@ -265,7 +265,6 @@ header .sub { color: #888; margin-top: 6px; }
     font-weight: 700; font-size: 11px; letter-spacing: 1px;
 }
 .status-suspicious { border-color: #ff4d4f44; }
-.status-suspicious h2::before { content: "⚠ "; color: #ff4d4f; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a2a2e; vertical-align: top; }
 th { background: #232327; color: #aaa; font-weight: 600; text-transform: uppercase; font-size: 11px; }
@@ -495,7 +494,7 @@ def _render_sidebar(findings: list, verdict: dict = None) -> str:
     return f"""
     <aside class="sidebar">
         <div class="sidebar-head">
-            <div class="wordmark"><span class="wm-prompt">&gt;_</span> TELADOR<span class="wm-cursor">_</span></div>
+            <div class="wordmark"><span class="wm-prompt">&gt;_</span> TELADOR</div>
             <div class="wordmark-sub">roblox screenshare · análise forense local</div>
             {score_badge}
         </div>
@@ -2032,7 +2031,6 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         letter-spacing: 1px; line-height: 1;
     }
     .wm-prompt { color: var(--c-green); margin-right: 2px; }
-    .wm-cursor { color: var(--c-amber); opacity: 0.55; }
     .wordmark-sub {
         color: var(--c-text-soft); font-size: 10.5px;
         margin: 6px 0 4px; letter-spacing: 0.3px;
@@ -2049,11 +2047,9 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         color: var(--c-text);
         font-size: 14px; text-transform: lowercase; letter-spacing: 0.5px;
     }
-    /* Prefixo de seção estilo prompt */
-    .card > details > summary h2::after,
-    .card > h2::after { content: ""; }
-    .card h2::before { content: "// "; color: var(--c-amber); opacity: 0.6; }
-    .status-suspicious h2::before { content: "!! "; color: var(--c-red); opacity: 1; }
+    /* Sem prefixos decorativos nos títulos — texto direto. */
+    .card h2::before { content: none; }
+    .status-suspicious h2::before { content: none; }
 
     /* Sidebar: barra de terminal */
     .sidebar { background: var(--c-bg-0); border-right: 1px solid var(--c-border); }
@@ -2062,7 +2058,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         color: var(--c-text-faint); text-transform: lowercase;
         font-size: 10px; letter-spacing: 1px;
     }
-    .nav-group-title::before { content: "─ "; color: var(--c-amber); opacity: 0.4; }
+    .nav-group-title::before { content: none; }
     .nav-link { color: var(--c-text-mute); font-size: 12px; border-radius: 3px; }
     .nav-link:hover { background: rgba(232,179,57,0.06); color: var(--c-text); }
     .nav-link.nav-hit { color: var(--c-text); }
@@ -2091,7 +2087,6 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         color: var(--c-text-soft); font-size: 11px; margin-left: 6px;
     }
     .term-body { padding: 14px; }
-    .term-body .prompt { color: var(--c-green); }
     .term-body .h1line { color: var(--c-amber); font-weight: 700; font-size: 16px; }
     .page-header h1 {
         all: unset; color: var(--c-amber); font-weight: 700;
@@ -2166,8 +2161,8 @@ def generate_html_report(findings: list[dict], sys_info: dict,
             <span class="term-bar-title">telador — relatório de verificação</span>
         </div>
         <div class="term-body">
-            <div class="h1line"><span class="prompt">&gt;_</span> TELADOR</div>
-            <div class="sub"><span class="prompt">scan://</span>{_escape(sys_info.get('host', '?'))} · {_escape(sys_info.get('scan_time', ''))}</div>
+            <div class="h1line">TELADOR</div>
+            <div class="sub">{_escape(sys_info.get('host', '?'))} · {_escape(sys_info.get('scan_time', ''))}</div>
         </div>
     </header>
     <span id="summary"></span>{summary_html}
