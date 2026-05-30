@@ -223,13 +223,14 @@ EXECUTOR_PROCESS_NAMES = {
     "wave.exe":             "high",
     "solara.exe":           "high",
     "velocity.exe":         "high",
-    "electron.exe":         "high",
-    "sentinel.exe":         "high",
+    # electron.exe removido — framework Electron (dev) usa esse nome em dev mode.
+    # sentinel.exe removido — Thales/Gemalto Sentinel LDK/HASP (licenciamento
+    #   em software corporativo/CAD/engenharia) é comuníssimo. "sentinel exploit" cobre.
+    # swift.exe removido — Swift (linguagem/transfer tools). "swift executor"/"swift x" cobrem.
     "trigon.exe":           "high",
     "argon.exe":            "high",
     "zorara.exe":           "high",
     "vegax.exe":            "high",
-    "swift.exe":            "high",
     "nezur.exe":            "high",
     "nihon.exe":            "high",
     "hydrogen.exe":         "high",
@@ -259,29 +260,23 @@ EXECUTOR_PROCESS_NAMES = {
     "empyrean.exe":               "high",
     "valyse.exe":                 "high",
     "bunni.exe":                  "high",
-    "cosmic.exe":                 "high",
     "acrylix.exe":                "high",
     "marin.exe":                  "high",
-    "coral.exe":                  "high",
     "furk.exe":                   "high",
     "furkos.exe":                 "high",
-    "sense.exe":                  "high",
     "karambit.exe":               "high",
     "drumix.exe":                 "high",
-    "omega.exe":                  "high",
     "omegax.exe":                 "high",
-    "apex.exe":                   "high",
     "stellar.exe":                "high",
     "sploitware.exe":             "high",
     "ccdownloader.exe":           "high",
     "cellura.exe":                "high",
     "hexus.exe":                  "high",
-    "verbose.exe":                "high",
-    "ninja.exe":                  "high",
     "valex.exe":                  "high",
-    "pylon.exe":                  "high",
-    "fenix.exe":                  "high",
-    "ronin.exe":                  "high",
+    # Removidos (nomes genéricos demais p/ exact-match HIGH — cobertos por
+    # keyword "<nome> executor"): cosmic.exe, coral.exe, sense.exe (RGB/periférico),
+    # omega.exe, apex.exe (Apex Legends), verbose.exe, ninja.exe (Ninja build
+    # system — dev C++/CMake), pylon.exe, fenix.exe, ronin.exe.
     # Bootstrappers genéricos
     "exec-bootstrapper.exe":      "medium",
     "robloxexec.exe":             "high",
@@ -714,9 +709,11 @@ SCRIPT_RED_FLAGS = {
     "syn_request":          "high",
     "getnamecallmethod":    "high",
     "setnamecallmethod":    "high",
-    "firetouchinterest":    "high",
-    "fireclickdetector":    "high",
-    "fireproximityprompt":  "high",
+    # fire* rebaixados p/ medium — são APIs NATIVAS do Roblox (Instance:Fire*)
+    # usadas em jogos legítimos no Studio, não exclusivas de executor.
+    "firetouchinterest":    "medium",
+    "fireclickdetector":    "medium",
+    "fireproximityprompt":  "medium",
     "decompile(":           "high",
     "getscripts(":          "high",
     "getloadedmodules":     "high",

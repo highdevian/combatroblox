@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.1] - 2026-05-30
+
+Auditoria de falsos positivos — patch sem mudança de funcionalidade,
+só precisão de detecção.
+
+### Fixed
+
+- **MACs Hyper-V removidos** (`00:15:5D`, `00:03:FF`). O adaptador
+  vEthernet do WSL2/Docker Desktop/Windows Sandbox/VBS usa esses
+  prefixos na máquina física — `scan_vm` dava `VM Detection HIGH` em
+  Win10/11 legítimo. Era o FP de maior alcance.
+- **Keywords substring removidas** (`xeno`, `cryptic`, `empyrean`,
+  `calamari`, `nihon`): casavam por substring no path/cmdline completo
+  e pegavam jogos legítimos (Cryptic Studios → Star Trek Online/
+  Neverwinter; Xenoblade; Nihon Falcom). Variantes específicas
+  (`xeno executor`, `cryptic exec`, `nihon.exe`, etc.) preservadas.
+- **`compute_verdict` ignora `meta_only`**: o cabeçalho de contexto
+  "[PROCESSO] RobloxPlayerBeta.exe" somava +1 LOW no score em todo PC
+  com Roblox aberto.
+- **Process names genéricos removidos** (exact-match HIGH que pegava
+  software legítimo): `electron.exe` (framework dev), `sentinel.exe`
+  (Sentinel LDK/HASP licenciamento), `swift.exe`, `ninja.exe` (Ninja
+  build system — dev C++/CMake), `apex.exe`, `cosmic.exe`, `coral.exe`,
+  `sense.exe`, `omega.exe`, `verbose.exe`, `pylon.exe`, `fenix.exe`,
+  `ronin.exe`. Todos cobertos por keyword `<nome> executor`.
+- **APIs nativas do Roblox rebaixadas** (`high` → `medium`):
+  `firetouchinterest`, `fireclickdetector`, `fireproximityprompt` —
+  usadas em jogos legítimos no Studio, não exclusivas de executor.
+
 ## [3.6.0] - 2026-05-28
 
 Detecção de PC formatado pra SS — clássica fuga de cheater experiente.
