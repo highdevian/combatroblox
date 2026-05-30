@@ -32,7 +32,8 @@ EXECUTOR_KEYWORDS = {
     "vegax":            "high",
     "swift executor":   "high",
     "nezur":            "high",
-    "nihon":            "high",
+    # "nihon" (solto) removido — substring pega Nihon Falcom (dev de Ys/Trails)
+    # e pastas de jogos JP. "nihon.exe" exact-match cobre o executor.
     "calamari executor":"high",
     "pandadev":         "high",
     "frontier executor":"high",
@@ -56,7 +57,8 @@ EXECUTOR_KEYWORDS = {
     "scriptware":       "high",
     "protosmasher":     "high",
     "sirhurt":          "high",
-    "calamari":         "high",
+    # "calamari" (solto) removido — palavra comum (comida / Splatoon "Calamari Inkantation").
+    # "calamari executor" cobre o executor real.
     "byfron bypass":    "high",
     "hyperion bypass":  "high",
     "bypass roblox":    "high",
@@ -76,19 +78,22 @@ EXECUTOR_KEYWORDS = {
 
     # ===== Executores 2024-2026 =====
     # Xeno (open-source, muito popular)
-    "xeno":             "high",
+    # "xeno" (solto) removido — substring pega Xenoblade, Xenonauts, XenoBot,
+    # e pastas/saves de jogos da série Xeno. Variantes abaixo cobrem o executor.
     "xeno.exe":         "high",
     "xeno executor":    "high",
     "xeno hub":         "high",
     "xeno.now":         "high",
     "xenoexec":         "high",
     # Cryptic
-    "cryptic":          "high",
+    # "cryptic" (solto) removido — FP garantido: Cryptic Studios (Star Trek
+    # Online, Neverwinter, Champions Online) cria pasta "Cryptic Studios".
+    # Variantes "cryptic exec/executor/hub" cobrem o executor.
     "cryptic exec":     "high",
     "cryptic executor": "high",
     "cryptic hub":      "high",
     # Empyrean
-    "empyrean":         "high",
+    # "empyrean" (solto) removido — aparece em nomes de mods/jogos. "empyrean exec" cobre.
     "empyrean exec":    "high",
     # Valyse
     "valyse":           "high",
@@ -644,8 +649,10 @@ VM_MAC_PREFIXES = {
     "00:1C:14": "VMware",
     "00:50:56": "VMware",
     "08:00:27": "VirtualBox",
-    "00:03:FF": "Microsoft Hyper-V",
-    "00:15:5D": "Microsoft Hyper-V",
+    # Hyper-V (00:03:FF / 00:15:5D) REMOVIDO: o adaptador vEthernet do
+    # WSL2, Docker Desktop, Windows Sandbox e VBS usa esses prefixos na
+    # MÁQUINA FÍSICA. Em Win10/11 com WSL/Docker/Sandbox isso gerava
+    # "VM Detection HIGH" em PC legítimo. FP grave e comum.
     "00:1C:42": "Parallels",
     "52:54:00": "QEMU/KVM",
 }
