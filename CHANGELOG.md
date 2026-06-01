@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.11.5] - 2026-06-01
+
+### Changed
+
+- Animação de digitação do título mais lenta (0,55s para 1,2s), em ritmo
+  de digitação mais natural.
+
 ## [3.11.4] - 2026-06-01
 
 Animações temáticas de terminal no relatório (sóbrias, de entrada).

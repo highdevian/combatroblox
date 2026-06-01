@@ -2155,7 +2155,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
             display: inline-block; overflow: hidden; white-space: nowrap;
             vertical-align: bottom;
             width: 7ch;
-            animation: typing 0.55s steps(7, end) 0.15s both;
+            animation: typing 1.2s steps(7, end) 0.2s both;
         }
 
         /* Cursor de bloco piscando ao lado do título (assinatura de terminal) */
