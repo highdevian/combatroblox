@@ -119,7 +119,7 @@ def scan_dns_cache() -> dict:
             capture_output=True, text=True, timeout=15,
             encoding="cp850", errors="replace",
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+    except (OSError, subprocess.TimeoutExpired) as e:  # OSError cobre FileNotFound + winerror genérico
         return _result("DNS Cache", "Cache DNS do Windows", [], error=str(e))
 
     if result.returncode != 0:

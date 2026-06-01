@@ -288,3 +288,48 @@ def test_compute_sha256(tmp_path):
     p = tmp_path / "f.bin"
     p.write_bytes(b"conteudo de teste")
     assert pe_analysis.compute_sha256(str(p)) == hashlib.sha256(b"conteudo de teste").hexdigest()
+
+
+# --------------------------- Contrato de todos os scanners ---------------------------
+
+SCANNER_MODULES = [
+    "scanners", "forensics", "extra_forensics", "antievasion", "persistence",
+    "live_analysis", "command_history", "peripherals", "network_scanners",
+    "discord_cache", "fresh_install",
+]
+_REQUIRED_KEYS = {"name", "description", "status", "items", "summary", "error"}
+
+
+def test_all_scanners_honor_contract():
+    """
+    Executa TODOS os scanners registrados e garante que cada um:
+      - não crasha (têm try/except internos; o pipeline depende disso)
+      - retorna dict com as 6 chaves que report.py e fp_filter.py consomem
+      - 'items' é lista e 'status' é um dos valores esperados
+    Trava regressão: scanner novo mal-formado quebra aqui, não em produção.
+    """
+    import importlib
+    falhas = []
+    for mod_name in SCANNER_MODULES:
+        mod = importlib.import_module(mod_name)
+        listas = [getattr(mod, a) for a in dir(mod)
+                  if a.startswith("ALL_") and a.endswith("SCANNERS")]
+        assert listas, f"{mod_name} não expõe ALL_*_SCANNERS"
+        for lst in listas:
+            for fn in lst:
+                try:
+                    r = fn()
+                except Exception as e:  # noqa: BLE001 — o teste É pra pegar isso
+                    falhas.append(f"{mod_name}.{fn.__name__} crashou: {e!r}")
+                    continue
+                if not isinstance(r, dict):
+                    falhas.append(f"{mod_name}.{fn.__name__} não retornou dict")
+                    continue
+                faltando = _REQUIRED_KEYS - set(r)
+                if faltando:
+                    falhas.append(f"{mod_name}.{fn.__name__} sem chaves {faltando}")
+                if not isinstance(r.get("items"), list):
+                    falhas.append(f"{mod_name}.{fn.__name__} items não é lista")
+                if r.get("status") not in ("clean", "suspicious", "error"):
+                    falhas.append(f"{mod_name}.{fn.__name__} status inválido: {r.get('status')}")
+    assert not falhas, "Scanners fora do contrato:\n" + "\n".join(falhas)

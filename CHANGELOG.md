@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.11.3] - 2026-06-01
+
+Correção de bug encontrada por auditoria, e teste que a trava.
+
+### Fixed
+
+- **Scanners de subprocess podiam crashar com `OSError`.**
+  `scan_scheduled_tasks` (schtasks), `scan_dns_cache` (ipconfig) e
+  `scan_amcache` (reg) capturavam apenas `FileNotFoundError` e
+  `TimeoutExpired`. Um `OSError` genérico do subprocess (ex.: winerror 50
+  em ambientes sem console interativo) não era tratado, e o scanner
+  estourava em vez de retornar erro gracioso. Em produção o wrapper de
+  execução mascarava, mas qualquer chamada direta quebrava. Agora os três
+  capturam `OSError` (que já inclui `FileNotFoundError`).
+
+### Tests
+
+- Novo `test_all_scanners_honor_contract`: executa os 44 scanners e
+  garante que nenhum crasha e que todos retornam o contrato completo
+  (`name`/`description`/`status`/`items`/`summary`/`error`, com `items`
+  lista e `status` válido). Foi esse teste que pegou o bug acima.
+  26 testes no total.
+
 ## [3.11.2] - 2026-06-01
 
 Reduz falsos positivos de antivírus no executável (empacotamento).

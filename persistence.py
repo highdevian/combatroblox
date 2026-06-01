@@ -220,7 +220,7 @@ def scan_scheduled_tasks() -> dict:
         r.stdout = stdout_text
         r.stderr = stderr_text
         result = r
-    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+    except (OSError, subprocess.TimeoutExpired) as e:  # OSError cobre FileNotFound + winerror genérico
         return _result("Scheduled Tasks", "Tarefas agendadas do Windows", [], error=str(e))
 
     if result.returncode != 0:

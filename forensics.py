@@ -85,7 +85,7 @@ def scan_amcache():
             ["reg", "load", AMCACHE_TEMP_HIVE, AMCACHE_PATH],
             capture_output=True, text=True, timeout=15,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+    except (OSError, subprocess.TimeoutExpired) as e:  # OSError cobre FileNotFound + winerror genérico
         return _result("Amcache", "Hive forense de execução", [], error=str(e))
 
     if load.returncode != 0:
