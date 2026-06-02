@@ -215,7 +215,8 @@ def test_extra_forensics_registered():
     assert names == {"scan_shimcache", "scan_srum", "scan_script_hashes",
                      "scan_anti_forensics", "scan_usn_journal",
                      "scan_prefetch_disabled", "scan_event_log_gap",
-                     "scan_shadow_copy_wipe", "scan_powershell_history_cleared"}
+                     "scan_shadow_copy_wipe", "scan_powershell_history_cleared",
+                     "scan_kernel_drivers"}
 
 
 # ============= scan_prefetch_disabled =============
@@ -353,6 +354,149 @@ Event[3]
     assert r["status"] == "suspicious"
     assert r["items"][0]["severity"] == "medium"
     assert "4 shadow copies apagadas em 30s" in r["items"][0]["label"]
+
+
+# ============= scan_kernel_drivers =============
+
+def test_driver_path_normalization():
+    """Resolve \\SystemRoot\\ e \\??\\ pra path real."""
+    import extra_forensics as ef
+    assert ef._normalize_driver_path(r"\SystemRoot\System32\drivers\foo.sys").lower() \
+        == r"c:\windows\system32\drivers\foo.sys"
+    # ImagePath quoteado com argumentos é comum em userspace services; aqui o
+    # foco é só o caminho do arquivo, então o teste cobre o caso limpo.
+    assert ef._normalize_driver_path(r"\??\C:\tmp\evil.sys").lower() \
+        == r"c:\tmp\evil.sys"
+
+
+def test_driver_whitelist_covers_system32_root():
+    """cdd.dll em System32 raiz é whitelistado (não disparou bug do FP)."""
+    import extra_forensics as ef
+    assert ef._is_driver_path_whitelisted(r"c:\windows\system32\cdd.dll")
+    assert ef._is_driver_path_whitelisted(r"c:\windows\system32\drivers\tcpip.sys")
+    assert ef._is_driver_path_whitelisted(r"c:\windows\system32\driverstore\filerepository\foo\bar.sys")
+    # Fora da whitelist
+    assert not ef._is_driver_path_whitelisted(r"c:\users\bob\desktop\rwdrv.sys")
+    assert not ef._is_driver_path_whitelisted(r"c:\programdata\suspect\bar.sys")
+
+
+def test_driver_user_path_token():
+    """Pasta de usuário é flagada."""
+    import extra_forensics as ef
+    assert ef._has_user_path_token(r"c:\users\bob\appdata\local\temp\foo.sys")
+    assert ef._has_user_path_token(r"c:\users\bob\downloads\rwdrv.sys")
+    assert ef._has_user_path_token(r"c:\users\bob\desktop\evil.sys")
+    assert not ef._has_user_path_token(r"c:\windows\system32\drivers\tcpip.sys")
+    assert not ef._has_user_path_token(r"c:\programdata\amd\amdrm.sys")
+
+
+def test_scan_kernel_drivers_flags_byovd_name(monkeypatch):
+    """Driver com nome conhecido de BYOVD vira high mesmo se path parece OK."""
+    import extra_forensics as ef
+    # Simula registry retornando um driver "rwdrv" plantado em path normal
+    monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
+                        lambda: iter([("rwdrv", r"C:\Windows\System32\drivers\rwdrv.sys")]))
+    r = ef.scan_kernel_drivers()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "high"
+    assert "byovd" in r["items"][0]["matched"]
+
+
+def test_scan_kernel_drivers_flags_user_path(monkeypatch):
+    """Driver fora da whitelist em path de usuário = high."""
+    import extra_forensics as ef
+    monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
+                        lambda: iter([("evilthing", r"C:\Users\bob\Desktop\evil.sys")]))
+    r = ef.scan_kernel_drivers()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "high"
+    assert "userpath" in r["items"][0]["matched"]
+
+
+def test_scan_kernel_drivers_unsigned_flag(monkeypatch):
+    """Driver fora da whitelist, em path COMUM (não user folder), sem assinatura = high.
+    Usa path mockado em C:\\ProgramData (path neutro: não-system, não-user)."""
+    import extra_forensics as ef
+    fake_path = r"C:\ProgramData\custom\driver.sys"
+    monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
+                        lambda: iter([("custom", fake_path)]))
+    monkeypatch.setattr(ef.os.path, "isfile",
+                        lambda p: p.lower() == fake_path.lower())
+    monkeypatch.setattr(ef, "_check_driver_signed", lambda p: False)
+    r = ef.scan_kernel_drivers()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "high"
+    assert "unsigned" in r["items"][0]["matched"]
+
+
+def test_scan_kernel_drivers_signed_is_clean(monkeypatch):
+    """Driver fora da whitelist, mas ASSINADO = não dispara (FP control)."""
+    import extra_forensics as ef
+    fake_path = r"C:\ProgramData\custom\driver.sys"
+    monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
+                        lambda: iter([("custom", fake_path)]))
+    monkeypatch.setattr(ef.os.path, "isfile",
+                        lambda p: p.lower() == fake_path.lower())
+    monkeypatch.setattr(ef, "_check_driver_signed", lambda p: True)
+    r = ef.scan_kernel_drivers()
+    assert r["status"] == "clean"
+
+
+def test_scan_kernel_drivers_orphan_is_low(monkeypatch):
+    """Driver registrado mas arquivo sumiu (CPU-Z, HWInfo) = low (FP comum)."""
+    import extra_forensics as ef
+    monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
+                        lambda: iter([("cpuz162", r"C:\inexistente\foo.sys")]))
+    r = ef.scan_kernel_drivers()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "low"
+    assert "orphan" in r["items"][0]["matched"]
+
+
+def test_scan_kernel_drivers_signing_check_failure_is_silent(monkeypatch):
+    """_check_driver_signed retornando None (não conseguiu checar) NÃO dispara
+    high — protege contra FP em sistema com WinVerifyTrust quebrado."""
+    import extra_forensics as ef
+    fake_path = r"C:\ProgramData\custom\driver.sys"
+    monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
+                        lambda: iter([("custom", fake_path)]))
+    monkeypatch.setattr(ef.os.path, "isfile",
+                        lambda p: p.lower() == fake_path.lower())
+    monkeypatch.setattr(ef, "_check_driver_signed", lambda p: None)
+    r = ef.scan_kernel_drivers()
+    assert r["status"] == "clean"
+
+
+# ============= --high-only filter =============
+
+def test_filter_items_for_display_off_keeps_everything():
+    """Sem --high-only, lista intocada."""
+    import telador
+    items = [{"severity": "low"}, {"severity": "medium"}, {"severity": "high"}]
+    assert telador._filter_items_for_display(items, False) == items
+
+
+def test_filter_items_for_display_on_keeps_only_high_and_critical():
+    """Com --high-only, só passam high e critical. Items originais preservados."""
+    import telador
+    items = [
+        {"severity": "low", "label": "A"},
+        {"severity": "medium", "label": "B"},
+        {"severity": "high", "label": "C"},
+        {"severity": "critical", "label": "D"},
+        {"severity": "low", "label": "E"},
+    ]
+    out = telador._filter_items_for_display(items, True)
+    assert [it["label"] for it in out] == ["C", "D"]
+    # Lista original não foi mutada
+    assert len(items) == 5
+
+
+def test_filter_items_for_display_missing_severity_defaults_to_low():
+    """Item sem campo 'severity' é tratado como low (não passa no --high-only)."""
+    import telador
+    items = [{"label": "X"}]
+    assert telador._filter_items_for_display(items, True) == []
 
 
 # ============= scan_powershell_history_cleared =============

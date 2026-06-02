@@ -95,7 +95,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}roblox screenshare · análise forense local{RESET}")
-    print(f"{GREY}  v3.13.1  ·  49 scanners  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.14.0  ·  50 scanners  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -171,7 +171,7 @@ def _run_one(fn) -> dict:
         }
 
 
-def run_scanners_parallel(chain: list, only: list = None, max_workers: int = 4) -> list:
+def run_scanners_parallel(chain: list, only: list = None, max_workers: int = 4, high_only: bool = False) -> list:
     """Roda scanners em paralelo (até max_workers ao mesmo tempo)."""
     to_run = []
     for fn in chain:
@@ -218,13 +218,17 @@ def run_scanners_parallel(chain: list, only: list = None, max_workers: int = 4) 
             with _print_lock:
                 print(f"{CYAN}[{completed:>2}/{total}]{RESET} {BOLD}{label}{RESET}... "
                       f"{tag} {GREY}({dur:.1f}s){RESET}")
-                for item in result["items"][:3]:
+                shown = _filter_items_for_display(result["items"], high_only)
+                for item in shown[:3]:
                     sev = item.get("severity", "low")
                     color = severity_to_color(sev)
                     print(f"      {color}● [{sev.upper()}]{RESET} {item['label']}  "
                           f"{GREY}→ match: {item['matched']}{RESET}")
-                if len(result["items"]) > 3:
-                    print(f"      {GREY}... +{len(result['items']) - 3} mais{RESET}")
+                if len(shown) > 3:
+                    print(f"      {GREY}... +{len(shown) - 3} mais{RESET}")
+                hidden = len(result["items"]) - len(shown)
+                if high_only and hidden > 0 and not shown:
+                    print(f"      {GREY}({hidden} item(s) abaixo de high ocultados){RESET}")
 
     elapsed = time.time() - start_total
     print(f"\n{GREY}  Total: {elapsed:.1f}s (paralelo){RESET}")
@@ -272,7 +276,18 @@ def cross_correlate(findings: list) -> dict:
     return high_confidence
 
 
-def run_scanners(chain: list, only: list = None) -> list:
+_HIGH_LEVELS = ("high", "critical")
+
+
+def _filter_items_for_display(items, high_only: bool):
+    """Aplica o filtro do --high-only só na saída do console. Items originais
+    nunca são alterados — relatório HTML/JSON e veredicto continuam completos."""
+    if not high_only:
+        return items
+    return [it for it in items if it.get("severity", "low") in _HIGH_LEVELS]
+
+
+def run_scanners(chain: list, only: list = None, high_only: bool = False) -> list:
     findings = []
     total = len(chain)
 
@@ -304,13 +319,19 @@ def run_scanners(chain: list, only: list = None) -> list:
 
         print(f"{tag} {GREY}({dur:.1f}s){RESET}")
 
-        for item in result["items"][:5]:
+        shown = _filter_items_for_display(result["items"], high_only)
+        for item in shown[:5]:
             sev = item.get("severity", "low")
             color = severity_to_color(sev)
             print(f"      {color}● [{sev.upper()}]{RESET} {item['label']}  "
                   f"{GREY}→ match: {item['matched']}{RESET}")
-        if len(result["items"]) > 5:
-            print(f"      {GREY}... +{len(result['items']) - 5} mais (ver relatório HTML){RESET}")
+        if len(shown) > 5:
+            print(f"      {GREY}... +{len(shown) - 5} mais (ver relatório HTML){RESET}")
+        # No modo --high-only, sinaliza quando há items escondidos pra não
+        # parecer que o scanner ficou "vazio" embora tenha achados de baixa.
+        hidden = len(result["items"]) - len(shown)
+        if high_only and hidden > 0 and not shown:
+            print(f"      {GREY}({hidden} item(s) abaixo de high ocultados — ver HTML){RESET}")
 
         findings.append(result)
 
@@ -364,6 +385,7 @@ def main():
     parser.add_argument("--no-history",    action="store_true", help="Pular PowerShell/RunMRU/TypedPaths")
     parser.add_argument("--no-peripherals",action="store_true", help="Pular detecção de macros de mouse")
     parser.add_argument("--strict",        action="store_true", help="Desliga filtro de falsos positivos (modo paranoia)")
+    parser.add_argument("--high-only",     action="store_true", help="Mostra no console apenas itens de severidade alta/crítica (relatorio HTML/JSON nao muda)")
     parser.add_argument("--no-pe",         action="store_true", help="Pula PE analysis dos executáveis")
     parser.add_argument("--save-tsr",      type=str, default=None, help="Salva relatório em .tsr (JSON+HMAC)")
     parser.add_argument("--diff",          type=str, default=None, help="Compara este SS com um .tsr anterior")
@@ -459,9 +481,10 @@ def main():
         )
 
     if args.no_parallel:
-        findings = run_scanners(chain, only=only_list)
+        findings = run_scanners(chain, only=only_list, high_only=args.high_only)
     else:
-        findings = run_scanners_parallel(chain, only=only_list, max_workers=args.threads)
+        findings = run_scanners_parallel(chain, only=only_list, max_workers=args.threads,
+                                         high_only=args.high_only)
 
     # Filtro de falsos positivos (a menos que --strict)
     fp_stats = None

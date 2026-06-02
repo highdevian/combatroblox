@@ -996,6 +996,250 @@ def scan_powershell_history_cleared() -> dict:
     return _result("Histórico do PowerShell", desc, items)
 
 
+# ============================ 10. Drivers do kernel (anti-rootkit / BYOVD) ============================
+#
+# Cheats avançados pra Roblox (e qualquer jogo com anti-cheat sério) operam em
+# KERNEL MODE — porque user-mode anti-cheat não consegue ler kernel. O loader
+# carrega um driver .sys que:
+#   - patcheia o anti-cheat (Hyperion) pra ignorar processos cheat
+#   - lê memória do jogo direto, sem passar pelo anti-cheat
+#   - esconde processos via DKOM (Direct Kernel Object Manipulation)
+#   - bypass do PsSetCreateProcessNotifyRoutine
+#
+# Modos comuns:
+#   (a) Drop de driver não-assinado em pasta de user (cheater preguiçoso)
+#   (b) BYOVD ("Bring Your Own Vulnerable Driver") — usa um driver LEGÍTIMO
+#       e assinado mas com vulnerabilidade conhecida (ex: GIGABYTE gdrv, ENE
+#       enetechio, Intel iqvw64e, Asus AsIO, MSI RTCore64) pra ganhar exec
+#       em ring 0. Esses drivers ficam registrados em HKLM\SYSTEM\.\Services
+#       e ficam visíveis no ImagePath.
+#   (c) kdmapper / similar — manual map de driver não-assinado via driver
+#       vulnerável; o cheat .sys nunca passa pelo Service Manager mas o
+#       LOADER (rwdrv, capcom, gdrv) fica registrado.
+#
+# Estratégia de detecção (user-mode, sem driver próprio):
+#   1. Enumerar HKLM\SYSTEM\CurrentControlSet\Services com Type=1/2.
+#   2. Whitelist por path: system32\drivers, driverstore, winsxs cobrem
+#      ~99% dos drivers legítimos. Se está num desses, ignora.
+#   3. Para o que sobra (drivers fora do path-padrão):
+#      - Nome bate base de drivers conhecidos como BYOVD/cheat-loader → alta.
+#      - Path em pasta de usuário (Temp, Desktop, Downloads, AppData) → alta.
+#      - Path normal, mas arquivo existe e NÃO está assinado → alta.
+#      - Path normal mas arquivo NÃO existe (entrada órfã) → baixa
+#        (FP comum: CPU-Z, ferramentas que carregam driver on-demand).
+
+# Type=1 (kernel driver), Type=2 (filesystem driver). 3 (manual)/4 (disabled)
+# também são drivers, mas sem ImagePath inicializado às vezes.
+_DRIVER_TYPES = (1, 2)
+
+# Drivers famosos por uso em cheating (BYOVD ou loader de cheat). Lista
+# conservadora; falsos positivos aqui custam caro (usuário legítimo de OBS,
+# MSI Afterburner, etc.), então só entram nomes com track-record sólido em
+# CVE-2018-19320 / kdmapper / hwid spoofer / kernel cheat.
+SUSPECT_DRIVER_NAMES = {
+    "winring0", "winring0x64",       # CPU/SMBus IO; CVE-2020-14979; banido EAC
+    "rwdrv", "rwdrv_x64",             # kdmapper loader
+    "gdrv", "gdrv2",                  # GIGABYTE — CVE-2018-19320, BYOVD popular
+    "enetechio", "enetechio64",       # ENE — kdmapper alvo
+    "eneio", "ene_pchwio",            # ENE variantes
+    "iqvw64e", "iqvw32e",             # Intel — CVE BYOVD
+    "winio",                          # genérico, abusado
+    "asio", "asio64",                 # Asus — vuln BYOVD
+    "asrdrv101", "asrdrv102",         # ASRock RGBLed — BYOVD
+    "rtcore64",                       # MSI Afterburner — CVE-2019-16098
+    "hwrwdrv",                        # Hwinfo write
+    "amifldrv",                       # AMI BIOS
+    "atszio",                         # Asus
+    "mhyprot2",                       # Genshin Impact anti-cheat, abusado
+    "capcom",                         # Capcom.sys — BYOVD lendário
+    "physmem",                        # genérico de leitura de física
+}
+
+# Backslash literal precisa ser escapado com \\ aqui — `r"...\\"` em Python
+# resulta em 2 backslashes consecutivos (raw strings não permitem terminar
+# com backslash único), o que NUNCA bate um path real.
+_DRIVER_WHITELIST_PREFIXES = (
+    "c:\\windows\\system32\\drivers",
+    "c:\\windows\\system32\\driverstore",
+    "c:\\windows\\system32\\",        # cobre cdd.dll, win32k.sys, etc.
+    "c:\\windows\\system32",          # sem o sep, defensivo
+    "c:\\windows\\syswow64\\",
+    "c:\\windows\\winsxs",
+    "c:\\windows\\inf",
+    "c:\\program files\\windowsapps",
+    "c:\\program files\\windowsdefender",
+    "c:\\program files (x86)\\windowsdefender",
+)
+
+_DRIVER_USER_PATH_TOKENS = (
+    "\\users\\",
+    "\\appdata\\",
+    "\\temp\\",
+    "\\downloads\\",
+    "\\desktop\\",
+    "\\public\\",
+)
+
+
+def _normalize_driver_path(impath: str) -> str:
+    """Resolve \\SystemRoot\\, \\??\\, %SystemRoot%, etc. para path real.
+    Usa strings non-raw porque raw strings em Python não podem terminar em
+    backslash único, e r"...\\" gera 2 backslashes (bug que mascarou
+    whitelist no PC do dev — CDD em System32 raiz)."""
+    if not impath:
+        return ""
+    p = impath.strip().strip('"')
+    # \SystemRoot\ → C:\Windows\
+    p = p.replace("\\SystemRoot", "C:\\Windows").replace("\\systemroot", "C:\\Windows")
+    p = p.replace("%SystemRoot%", "C:\\Windows").replace("%systemroot%", "C:\\Windows")
+    # \??\ é prefixo NT do Object Manager; strip pra deixar só o path Windows
+    if p.startswith("\\??\\"):
+        p = p[4:]
+    elif p.startswith("\\??/"):
+        p = p[4:]
+    # Path relativo (System32\drivers\foo.sys sem prefixo) — assume Windows root
+    if p.lower().startswith(("system32", "drivers")):
+        p = os.path.join("C:\\Windows", p)
+    return os.path.normpath(p)
+
+
+def _is_driver_path_whitelisted(path_lower: str) -> bool:
+    return any(path_lower.startswith(pfx) for pfx in _DRIVER_WHITELIST_PREFIXES)
+
+
+def _has_user_path_token(path_lower: str) -> bool:
+    return any(tok in path_lower for tok in _DRIVER_USER_PATH_TOKENS)
+
+
+def _enumerate_kernel_drivers():
+    """Generator: (service_name, image_path_str) para cada kernel/fs driver."""
+    if not HAS_WINREG:
+        return
+    try:
+        services = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Services")
+    except OSError:
+        return
+    try:
+        i = 0
+        while True:
+            try:
+                name = winreg.EnumKey(services, i)
+            except OSError:
+                break
+            i += 1
+            try:
+                k = winreg.OpenKey(services, name)
+            except OSError:
+                continue
+            try:
+                try:
+                    svctype, _ = winreg.QueryValueEx(k, "Type")
+                except OSError:
+                    continue
+                if svctype not in _DRIVER_TYPES:
+                    continue
+                try:
+                    impath, _ = winreg.QueryValueEx(k, "ImagePath")
+                except OSError:
+                    impath = ""
+                yield name, impath
+            finally:
+                winreg.CloseKey(k)
+    finally:
+        winreg.CloseKey(services)
+
+
+def _check_driver_signed(path: str):
+    """True/False/None — reusa o _is_dll_signed do live_analysis (WinVerifyTrust).
+    Falha silenciosa retorna None (não bloqueia o scanner)."""
+    try:
+        import live_analysis
+        return live_analysis._is_dll_signed(path)
+    except Exception:  # noqa: BLE001 — qualquer erro vira "desconhecido"
+        return None
+
+
+def scan_kernel_drivers() -> dict:
+    """
+    Enumera drivers de kernel/fs registrados e flaga os fora do path padrão
+    do Windows. Pega rootkit, cheat driver direto e loaders BYOVD que
+    sobrevivem com a entrada de Service mesmo após o .sys ser removido.
+    """
+    desc = "Drivers do kernel suspeitos (anti-rootkit, BYOVD, cheat loader)"
+    if not HAS_WINREG:
+        return _result("Drivers do kernel", desc, [], error="winreg indisponível")
+
+    items = []
+    suspect_seen = set()  # dedupe por (name, path)
+
+    for name, impath in _enumerate_kernel_drivers():
+        path = _normalize_driver_path(impath)
+        path_lower = path.lower()
+        name_lower = name.lower()
+
+        # (a) Nome bate base de driver BYOVD/cheat conhecido — flag IMEDIATA,
+        # independente do path (esses drivers nunca deveriam estar carregados
+        # em jogador comum).
+        if name_lower in SUSPECT_DRIVER_NAMES:
+            key = ("byovd", name_lower)
+            if key not in suspect_seen:
+                suspect_seen.add(key)
+                items.append(_item(
+                    label=f"Driver de kernel suspeito: {name}",
+                    detail=f"{path or '(sem ImagePath)'}  ·  nome bate base de drivers "
+                           f"conhecidos por uso em BYOVD / cheat loader / kernel rootkit. "
+                           f"Esses drivers raramente são carregados em uso doméstico legítimo.",
+                    severity="high", matched=f"driver-byovd:{name_lower}",
+                ))
+            continue
+
+        # Whitelist por path: 99% dos drivers legítimos caem aqui
+        if path_lower and _is_driver_path_whitelisted(path_lower):
+            continue
+        if not path_lower:
+            continue  # sem ImagePath: pula
+
+        # (b) Path em pasta de usuário — flag forte
+        if _has_user_path_token(path_lower):
+            items.append(_item(
+                label=f"Driver carregado de pasta de usuário: {name}",
+                detail=f"{path}  ·  drivers legítimos ficam em "
+                       f"C:\\Windows\\System32\\drivers ou DriverStore. Carregar de "
+                       f"%TEMP%/%APPDATA%/Desktop é assinatura de cheat-loader.",
+                severity="high", matched=f"driver-userpath:{name_lower}",
+            ))
+            continue
+
+        # Path "comum" mas fora da whitelist (ex: C:\ProgramData\xxx, C:\tools\yyy):
+        # verifica existência e assinatura.
+        if os.path.isfile(path):
+            signed = _check_driver_signed(path)
+            if signed is False:
+                items.append(_item(
+                    label=f"Driver não assinado: {name}",
+                    detail=f"{path}  ·  WinVerifyTrust reportou assinatura inválida ou "
+                           f"ausente. Windows 64-bit exige driver assinado; quem carrega "
+                           f"não-assinado usou Test Mode ou bypass de assinatura.",
+                    severity="high", matched=f"driver-unsigned:{name_lower}",
+                ))
+            # signed is True ou None: ignora (assinado = legítimo; None = não
+            # consegui checar, evita FP)
+        else:
+            # Driver órfão: registrado mas arquivo não existe. Caso comum em
+            # ferramentas que carregam driver on-demand (CPU-Z, HWInfo) e
+            # removem depois sem limpar registry. Baixa.
+            items.append(_item(
+                label=f"Driver órfão registrado: {name}",
+                detail=f"{path}  ·  serviço registrado mas .sys não está mais no disco. "
+                       f"Comum em ferramentas que carregam driver on-demand (CPU-Z, HWInfo). "
+                       f"Também ocorre após uso de kdmapper que limpou o .sys.",
+                severity="low", matched=f"driver-orphan:{name_lower}",
+            ))
+
+    return _result("Drivers do kernel", desc, items)
+
+
 ALL_EXTRA_FORENSIC_SCANNERS = [
     scan_shimcache,
     scan_srum,
@@ -1006,4 +1250,5 @@ ALL_EXTRA_FORENSIC_SCANNERS = [
     scan_event_log_gap,
     scan_shadow_copy_wipe,
     scan_powershell_history_cleared,
+    scan_kernel_drivers,
 ]

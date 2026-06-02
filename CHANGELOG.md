@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.14.0] - 2026-06-02
+
+Scanner avançado anti-rootkit + flag de console pra triagem rápida. 50 scanners.
+
+### Added
+
+- `scan_kernel_drivers`: enumera drivers de kernel/filesystem registrados em
+  `HKLM\SYSTEM\CurrentControlSet\Services` e flaga os fora do path padrão
+  do Windows. Cobre o cenário mais avançado de bypass:
+
+  - Drivers com nome bate base de **BYOVD conhecidos** (winring0, rwdrv,
+    gdrv, EneTechIo, iqvw64e, RTCore64, capcom, mhyprot2 e outros usados
+    em kdmapper / cheat loader / kernel rootkit): severidade alta.
+  - Drivers em **pasta de usuário** (`%TEMP%`, `%APPDATA%`, Desktop,
+    Downloads): severidade alta. Drivers legítimos NUNCA carregam de
+    pasta de usuário.
+  - Drivers fora do path padrão mas em path comum (ex: `C:\ProgramData\`):
+    verifica assinatura via WinVerifyTrust; **não-assinado** = alta.
+    Assinado ou checagem indisponível = ignora.
+  - Driver registrado mas arquivo ausente (entrada órfã): baixa. Comum em
+    ferramentas que carregam driver on-demand (CPU-Z, HWInfo).
+
+  Whitelist agressiva por path cobre os ~99% de drivers em
+  `System32\drivers`, `DriverStore`, `WinSxS`, `WindowsApps` e
+  `WindowsDefender`, mantendo o scanner rápido (0,02 s para 431 drivers
+  em PC de teste) e sem ruído.
+
+- Flag `--high-only` no console: filtra a saída pra mostrar apenas itens de
+  severidade alta/crítica. Útil pra triagem rápida durante uma SS — quando
+  o supervisor quer decisão binária e não precisa do contexto de baixa
+  severidade. O relatório HTML e o JSON `.tsr` continuam completos.
+
+### Fixed
+
+- `_normalize_driver_path` usava raw strings com `\\` no final, gerando
+  prefixos com dois backslashes que nunca batiam path real. Causava:
+  - Whitelist falhando para drivers legítimos em System32 raiz
+    (`cdd.dll`, `win32k.sys`).
+  - Paths NT (`\??\C:\...`) ficando com `\` extra antes de `C:`, fazendo
+    `os.path.isfile` falhar e classificar incorretamente como "órfão".
+
+  Strings agora explicitamente escapadas (`"\\users\\"`, etc.).
+
+### Tests
+
+- 13 testes novos (kernel drivers + `--high-only`): cobre normalização de
+  path NT, whitelist de System32 raiz, BYOVD por nome, path de usuário,
+  não-assinado, assinado (FP control), órfão, e falha silenciosa do
+  verificador de assinatura. Total: 58 testes.
+
+### Changed
+
+- Contagem de scanners: 49 para 50.
+
 ## [3.13.1] - 2026-06-02
 
 ### Added
