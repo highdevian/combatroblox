@@ -866,10 +866,50 @@ CONTROLS_JS = """
         btn.addEventListener('click', () => setTimeout(updateVisibleCount, 0));
     });
 
+    // ============== Accordion animation ==============
+    (function() {
+        const anims = new WeakMap();
+        function animateDetails(det, opening) {
+            const prev = anims.get(det);
+            if (prev) { prev.cancel(); anims.delete(det); }
+            if (opening) {
+                det.open = true;
+                const full = det.scrollHeight + 'px';
+                const top  = det.querySelector('summary').scrollHeight + 'px';
+                det.style.overflow = 'hidden';
+                const a = det.animate([{ height: top }, { height: full }],
+                    { duration: 220, easing: 'cubic-bezier(0.16,1,0.3,1)' });
+                anims.set(det, a);
+                a.onfinish = () => { det.style.overflow = ''; det.style.height = ''; anims.delete(det); };
+            } else {
+                const start = det.scrollHeight + 'px';
+                const end   = det.querySelector('summary').scrollHeight + 'px';
+                det.style.overflow = 'hidden';
+                det.style.height   = start;
+                const a = det.animate([{ height: start }, { height: end }],
+                    { duration: 180, easing: 'ease-in' });
+                anims.set(det, a);
+                a.onfinish = () => { det.open = false; det.style.overflow = ''; det.style.height = ''; anims.delete(det); };
+            }
+        }
+        document.querySelectorAll('section.card details').forEach(det => {
+            det.querySelector('summary').addEventListener('click', e => {
+                e.preventDefault();
+                animateDetails(det, !det.open);
+            });
+        });
+        // Expose for expand/collapse-all (no animation — instant)
+        window._setAllDetails = function(open) {
+            document.querySelectorAll('section.card details').forEach(d => {
+                const prev = anims.get(d);
+                if (prev) { prev.cancel(); d.style.overflow = ''; d.style.height = ''; anims.delete(d); }
+                d.open = open;
+            });
+        };
+    })();
+
     // ============== Expand / Collapse all ==============
-    function setAllDetails(open) {
-        document.querySelectorAll('section.card details').forEach(d => d.open = open);
-    }
+    function setAllDetails(open) { window._setAllDetails(open); }
     const expandBtn = document.getElementById('expand-all');
     const collapseBtn = document.getElementById('collapse-all');
     if (expandBtn) expandBtn.addEventListener('click', () => setAllDetails(true));
