@@ -215,7 +215,7 @@ def test_extra_forensics_registered():
     assert names == {"scan_shimcache", "scan_srum", "scan_script_hashes",
                      "scan_anti_forensics", "scan_usn_journal",
                      "scan_prefetch_disabled", "scan_event_log_gap",
-                     "scan_shadow_copy_wipe"}
+                     "scan_shadow_copy_wipe", "scan_powershell_history_cleared"}
 
 
 # ============= scan_prefetch_disabled =============
@@ -353,6 +353,72 @@ Event[3]
     assert r["status"] == "suspicious"
     assert r["items"][0]["severity"] == "medium"
     assert "4 shadow copies apagadas em 30s" in r["items"][0]["label"]
+
+
+# ============= scan_powershell_history_cleared =============
+
+def _patch_psreadline(monkeypatch, tmp_path, content_bytes, pf_count):
+    """Aponta o scanner pra um arquivo temporário e fixa o Prefetch."""
+    import extra_forensics as ef
+    f = tmp_path / "ConsoleHost_history.txt"
+    if content_bytes is not None:
+        f.write_bytes(content_bytes)
+    monkeypatch.setattr(ef, "PSREADLINE_HISTORY", str(f))
+    monkeypatch.setattr(ef, "_count_dir", lambda *a, **kw: pf_count)
+    return f
+
+
+def test_ps_history_zero_bytes_is_high(monkeypatch, tmp_path):
+    """Arquivo existe mas tem 0 bytes = alguém esvaziou (high)."""
+    import extra_forensics as ef
+    _patch_psreadline(monkeypatch, tmp_path, b"", pf_count=150)
+    r = ef.scan_powershell_history_cleared()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "high"
+    assert "zerado" in r["items"][0]["label"]
+
+
+def test_ps_history_near_empty_on_historic_pc_is_medium(monkeypatch, tmp_path):
+    """< 50 bytes + PC histórico = média (limpeza recente seguida de uso mínimo)."""
+    import extra_forensics as ef
+    _patch_psreadline(monkeypatch, tmp_path, b"ls\ncd\n", pf_count=150)
+    r = ef.scan_powershell_history_cleared()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "medium"
+
+
+def test_ps_history_near_empty_on_fresh_pc_is_clean(monkeypatch, tmp_path):
+    """< 50 bytes em PC fresh (Prefetch < 80) NÃO dispara — anti-FP."""
+    import extra_forensics as ef
+    _patch_psreadline(monkeypatch, tmp_path, b"ls\ncd\n", pf_count=30)
+    r = ef.scan_powershell_history_cleared()
+    assert r["status"] == "clean"
+
+
+def test_ps_history_normal_size_is_clean(monkeypatch, tmp_path):
+    """Arquivo com tamanho normal (>= 50 bytes) não dispara."""
+    import extra_forensics as ef
+    _patch_psreadline(monkeypatch, tmp_path, b"x" * 1000, pf_count=150)
+    r = ef.scan_powershell_history_cleared()
+    assert r["status"] == "clean"
+
+
+def test_ps_history_missing_on_historic_pc_is_low(monkeypatch, tmp_path):
+    """Arquivo ausente + PC histórico = low (FP possível: usuário de CMD/bash)."""
+    import extra_forensics as ef
+    _patch_psreadline(monkeypatch, tmp_path, None, pf_count=150)
+    r = ef.scan_powershell_history_cleared()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "low"
+    assert "não existe" in r["items"][0]["label"]
+
+
+def test_ps_history_missing_on_fresh_pc_is_clean(monkeypatch, tmp_path):
+    """Arquivo ausente em PC fresh = normal (clean)."""
+    import extra_forensics as ef
+    _patch_psreadline(monkeypatch, tmp_path, None, pf_count=20)
+    r = ef.scan_powershell_history_cleared()
+    assert r["status"] == "clean"
 
 
 def test_shadow_copy_spread_over_days_is_clean(monkeypatch):

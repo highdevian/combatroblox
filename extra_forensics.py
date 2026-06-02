@@ -915,6 +915,87 @@ def scan_shadow_copy_wipe() -> dict:
     return _result("Shadow copy wipe", desc, items)
 
 
+# ============================ 9. Histórico do PowerShell zerado ============================
+#
+# O PSReadLine guarda toda linha digitada em PowerShell num arquivo único
+# (ConsoleHost_history.txt), append-only, por padrão até 4096 linhas. É o que
+# pega "cara rodou comando suspeito no PS antes da SS". Forma comum de bypass:
+# apagar o arquivo ou esvaziar o conteúdo. Clear-History limpa a sessão atual,
+# mas o ARQUIVO continua — quem realmente quer esconder edita ou deleta.
+#
+# Sinais:
+#   (a) Arquivo existe + size == 0: alguém esvaziou agora. Severidade alta.
+#   (b) Arquivo existe + size < 50 bytes + PC histórico (Prefetch >= 80):
+#       restaram só 1-2 comandos curtos. Severidade média.
+#   (c) Arquivo NÃO existe + Prefetch >= 80: também suspeito (alguém apagou),
+#       mas FP em quem só usa CMD/bash. Severidade baixa.
+
+PSREADLINE_HISTORY = r"%APPDATA%\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+
+
+def scan_powershell_history_cleared() -> dict:
+    """
+    Detecta ConsoleHost_history.txt apagado, zerado ou anormalmente curto.
+    Distingue PC fresh de bypass cruzando com contagem de Prefetch.
+    """
+    desc = "Histórico do PowerShell (PSReadLine) apagado ou zerado"
+    path = os.path.expandvars(PSREADLINE_HISTORY)
+    items = []
+
+    # PC histórico? Mesma heurística do gap em log: Prefetch volumoso ⇒ não-fresh.
+    pf_count = _count_dir(r"C:\Windows\Prefetch", ext=".pf")
+    pc_historico = pf_count is not None and pf_count >= 80
+
+    if not os.path.exists(path):
+        # Sem o arquivo. Em PC fresh, nunca foi criado. Em PC histórico, pode
+        # ter sido apagado — ou o user só usa CMD/bash (FP real). Severidade
+        # baixa pra refletir essa ambiguidade.
+        if pc_historico:
+            items.append(_item(
+                label="ConsoleHost_history.txt não existe",
+                detail=f"Arquivo {path} ausente, mas Prefetch tem {pf_count} entradas "
+                       f"(PC histórico). Pode ter sido apagado, ou o usuário usa "
+                       f"apenas CMD/Git Bash (FP comum).",
+                severity="low", matched="ps-history:missing",
+            ))
+        return _result("Histórico do PowerShell", desc, items)
+
+    try:
+        size = os.path.getsize(path)
+        mtime = os.path.getmtime(path)
+    except OSError as e:
+        return _result("Histórico do PowerShell", desc, [],
+                       error=f"sem acesso ao arquivo: {e}")
+
+    age_days = (time.time() - mtime) / 86400.0
+
+    if size == 0:
+        # Arquivo zerado: deliberado. Não acontece em uso normal — PowerShell
+        # nem cria o arquivo se nunca foi usado, e quando é usado, append.
+        items.append(_item(
+            label="ConsoleHost_history.txt zerado",
+            detail=f"Arquivo de histórico do PowerShell existe mas tem 0 bytes "
+                   f"(modificado há {age_days:.1f} dias). Esvaziar o arquivo "
+                   f"requer ação deliberada — não acontece em uso normal.",
+            severity="high", matched="ps-history:zeroed",
+            timestamp=datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S"),
+        ))
+    elif size < 50 and pc_historico:
+        # Arquivo tem 1-2 linhas curtas num PC com muito uso. Provavelmente foi
+        # zerado recentemente e voltou a receber comandos da sessão de pós-limpa.
+        items.append(_item(
+            label=f"ConsoleHost_history.txt com apenas {size} bytes",
+            detail=f"Arquivo de histórico extremamente curto ({size} bytes), num "
+                   f"PC com Prefetch volumoso ({pf_count} entradas). Compatível "
+                   f"com limpeza recente seguida de uso mínimo. Modificado há "
+                   f"{age_days:.1f} dias.",
+            severity="medium", matched="ps-history:near-empty",
+            timestamp=datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S"),
+        ))
+
+    return _result("Histórico do PowerShell", desc, items)
+
+
 ALL_EXTRA_FORENSIC_SCANNERS = [
     scan_shimcache,
     scan_srum,
@@ -924,4 +1005,5 @@ ALL_EXTRA_FORENSIC_SCANNERS = [
     scan_prefetch_disabled,
     scan_event_log_gap,
     scan_shadow_copy_wipe,
+    scan_powershell_history_cleared,
 ]

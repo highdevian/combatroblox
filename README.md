@@ -18,7 +18,7 @@
 [![License](https://img.shields.io/badge/License-MIT-3fbf7f?style=for-the-badge)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/highdevian/combatroblox?style=for-the-badge&color=888)](https://github.com/highdevian/combatroblox/commits/main)
 
-48 scanners em paralelo · 542 assinaturas de detecção · execução local, sem envio de dados
+49 scanners em paralelo · 542 assinaturas de detecção · execução local, sem envio de dados
 
 </div>
 
@@ -64,7 +64,7 @@ Como conferir você mesmo:
 
 ## O que faz
 
-### Scanners (48, em 11 categorias)
+### Scanners (49, em 11 categorias)
 
 | Categoria | Cobertura |
 |---|---|
@@ -78,7 +78,7 @@ Como conferir você mesmo:
 | Rede | Conexões TCP/UDP, cache de DNS, arquivo hosts, cache do Discord |
 | Anti-evasão | VM (VMware/VBox/Hyper-V/QEMU), Sandboxie, relógio alterado, formatação recente |
 | Forense | Amcache, BAM, JumpLists, ShimCache, SRUM, análise PE com comparação de hash, hash de scripts conhecidos |
-| Anti-forense | Detecção de formatação recente e de fontes históricas zeradas em conjunto; limpeza do log de Security; USN Journal (exec criado/apagado no disco — sobrevive ao arquivo ser apagado); Prefetch/SysMain desativados; gap suspeito no log de eventos (limpeza furtiva sem evento 1102); deleção em lote de shadow copies do VSS |
+| Anti-forense | Detecção de formatação recente e de fontes históricas zeradas em conjunto; limpeza do log de Security; USN Journal (exec criado/apagado no disco — sobrevive ao arquivo ser apagado); Prefetch/SysMain desativados; gap suspeito no log de eventos (limpeza furtiva sem evento 1102); deleção em lote de shadow copies do VSS; histórico do PowerShell (PSReadLine) apagado ou zerado |
 
 ### Filtro de falsos positivos
 - Detecta ambiente de desenvolvimento (Visual Studio, JetBrains, VS Code) e rebaixa ferramentas como Cheat Engine e IDA.

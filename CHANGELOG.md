@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.13.1] - 2026-06-02
+
+### Added
+
+- `scan_powershell_history_cleared`: detecta o arquivo `ConsoleHost_history.txt`
+  do PSReadLine apagado, zerado ou anormalmente curto. O PowerShell guarda
+  toda linha digitada nesse arquivo (append-only, até 4096 linhas) — é o
+  que pega "cara rodou comando suspeito no PS antes da SS". Esvaziar o
+  arquivo requer ação deliberada (`Clear-History` só limpa a sessão, não
+  o arquivo). 0 bytes = alta; < 50 bytes em PC histórico = média; ausente
+  em PC histórico = baixa (FP possível: usuário só de CMD/bash).
+
+- 6 testes novos cobrindo zerado, near-empty em PC fresh vs histórico,
+  tamanho normal, e ausente em ambos os contextos. Total: 46 testes.
+
+### Changed
+
+- Contagem de scanners: 48 para 49.
+
 ## [3.13.0] - 2026-06-02
 
 Três scanners novos focados em bypass que não deixa rastro óbvio. 48 scanners no total.
