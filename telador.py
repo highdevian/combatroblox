@@ -95,7 +95,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}roblox screenshare · análise forense local{RESET}")
-    print(f"{GREY}  v3.12.3  ·  45 scanners  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.13.0  ·  48 scanners  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")

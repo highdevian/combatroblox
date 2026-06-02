@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.13.0] - 2026-06-02
+
+Três scanners novos focados em bypass que não deixa rastro óbvio. 48 scanners no total.
+
+### Added
+
+- `scan_prefetch_disabled`: detecta `EnablePrefetcher` em 0 ou 2 (só boot)
+  e/ou serviço `SysMain` desativado. O padrão do Windows 11 é ambos
+  ligados; desativar é a forma "elegante" de impedir que execução nova
+  entre no Prefetch. Os dois desativados ao mesmo tempo é severidade
+  alta; só um é média (comum em guias antigas de SSD).
+
+- `scan_event_log_gap`: cruza a idade do evento mais antigo dos logs
+  `System` e `Application` com a contagem de `.pf` no Prefetch. Log com
+  menos de 6 h num PC com Prefetch volumoso (≥ 80 entradas) indica
+  `.evtx` deletado com o serviço EventLog parado — bypass furtivo que
+  não dispara o evento 1102. Severidade média. Threshold do Prefetch
+  evita falso positivo em instalação recente.
+
+- `scan_shadow_copy_wipe`: procura múltiplos eventos `VSS 8224` em janela
+  de 60 s (≥ 3). Um evento isolado é a deleção automática do Windows
+  quando precisa de espaço — não dispara. Uma rajada curta é compatível
+  com `vssadmin delete shadows /all`, que apaga histórico de snapshots
+  e destrói a timeline forense de versionamento de arquivos. Severidade
+  média.
+
+### Tests
+
+- 10 testes novos cobrindo os 3 scanners: configuração padrão limpa,
+  combinação de gatilhos, anti-FP de PC fresh, e distinção entre VSS
+  isolado (limpo) e rajada (suspeito). Total: 40 testes.
+
+### Changed
+
+- Contagem de scanners: 45 para 48.
+
 ## [3.12.3] - 2026-06-02
 
 ### Fixed

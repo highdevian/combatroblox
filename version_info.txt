@@ -4,8 +4,8 @@
 # aparece em Propriedades > Detalhes no Windows.
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(3, 12, 3, 0),
-    prodvers=(3, 12, 3, 0),
+    filevers=(3, 13, 0, 0),
+    prodvers=(3, 13, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -18,11 +18,11 @@ VSVersionInfo(
       StringTable('040904B0', [
         StringStruct('CompanyName', 'Telador BR (open source)'),
         StringStruct('FileDescription', 'Telador BR - ferramenta forense local de verificacao (SS) para Roblox'),
-        StringStruct('FileVersion', '3.12.3'),
+        StringStruct('FileVersion', '3.13.0'),
         StringStruct('InternalName', 'telador'),
         StringStruct('OriginalFilename', 'telador.exe'),
         StringStruct('ProductName', 'Telador BR'),
-        StringStruct('ProductVersion', '3.12.3'),
+        StringStruct('ProductVersion', '3.13.0'),
         StringStruct('LegalCopyright', 'MIT License - github.com/highdev0/combatroblox'),
         StringStruct('Comments', 'Read-only, 100% local, codigo aberto. github.com/highdev0/combatroblox')
       ])

@@ -213,7 +213,167 @@ def test_extra_forensics_registered():
     import extra_forensics
     names = {fn.__name__ for fn in extra_forensics.ALL_EXTRA_FORENSIC_SCANNERS}
     assert names == {"scan_shimcache", "scan_srum", "scan_script_hashes",
-                     "scan_anti_forensics", "scan_usn_journal"}
+                     "scan_anti_forensics", "scan_usn_journal",
+                     "scan_prefetch_disabled", "scan_event_log_gap",
+                     "scan_shadow_copy_wipe"}
+
+
+# ============= scan_prefetch_disabled =============
+
+def test_prefetch_disabled_both_off_is_high(monkeypatch):
+    """EnablePrefetcher=0 + SysMain.Start=4 = high (bypass deliberado)."""
+    import extra_forensics as ef
+    def fake_read(_h, key, _v):
+        if "PrefetchParameters" in key:
+            return 0
+        if "SysMain" in key:
+            return 4
+        return None
+    monkeypatch.setattr(ef, "_read_dword", fake_read)
+    r = ef.scan_prefetch_disabled()
+    assert r["status"] == "suspicious"
+    assert len(r["items"]) == 1
+    assert r["items"][0]["severity"] == "high"
+    assert "ao mesmo tempo" in r["items"][0]["label"]
+
+
+def test_prefetch_disabled_only_one_is_medium(monkeypatch):
+    """Só Prefetch=0 (ou só SysMain=4) é média — comum em guias antigas de SSD."""
+    import extra_forensics as ef
+    def fake_read(_h, key, _v):
+        if "PrefetchParameters" in key:
+            return 0
+        if "SysMain" in key:
+            return 2  # automatic
+        return None
+    monkeypatch.setattr(ef, "_read_dword", fake_read)
+    r = ef.scan_prefetch_disabled()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "medium"
+    assert "Prefetch desativado" in r["items"][0]["label"]
+
+
+def test_prefetch_default_win11_is_clean(monkeypatch):
+    """EnablePrefetcher=3 + SysMain.Start=2: padrão Win11, zero achado."""
+    import extra_forensics as ef
+    def fake_read(_h, key, _v):
+        if "PrefetchParameters" in key:
+            return 3
+        if "SysMain" in key:
+            return 2
+        return None
+    monkeypatch.setattr(ef, "_read_dword", fake_read)
+    r = ef.scan_prefetch_disabled()
+    assert r["status"] == "clean"
+    assert r["items"] == []
+
+
+def test_prefetch_partial_value_1_is_clean(monkeypatch):
+    """EnablePrefetcher=1 (só apps) também é legítimo — não dispara."""
+    import extra_forensics as ef
+    def fake_read(_h, key, _v):
+        return 1 if "PrefetchParameters" in key else 2
+    monkeypatch.setattr(ef, "_read_dword", fake_read)
+    r = ef.scan_prefetch_disabled()
+    assert r["status"] == "clean"
+
+
+# ============= scan_event_log_gap =============
+
+def test_event_log_gap_fresh_pc_is_clean(monkeypatch):
+    """PC fresh (Prefetch<80) NÃO dispara mesmo com log curto — anti-FP crítico."""
+    import extra_forensics as ef
+    monkeypatch.setattr(ef, "_count_dir", lambda *a, **kw: 30)  # PC fresh
+    monkeypatch.setattr(ef, "_oldest_event_age_hours", lambda log: 2.0)  # log curto
+    r = ef.scan_event_log_gap()
+    assert r["status"] == "clean", "PC fresh nunca deve disparar gap"
+
+
+def test_event_log_gap_historic_pc_short_log_flags(monkeypatch):
+    """PC com Prefetch volumoso + log < 6h = gap suspeito (média)."""
+    import extra_forensics as ef
+    monkeypatch.setattr(ef, "_count_dir", lambda *a, **kw: 150)  # PC histórico
+    def fake_age(log):
+        return 1.5 if log == "System" else 50.0  # System foi limpo, App ok
+    monkeypatch.setattr(ef, "_oldest_event_age_hours", fake_age)
+    r = ef.scan_event_log_gap()
+    assert r["status"] == "suspicious"
+    assert any("System" in it["label"] and it["severity"] == "medium"
+               for it in r["items"])
+
+
+def test_event_log_gap_long_history_is_clean(monkeypatch):
+    """PC histórico com logs longos (>6h): nada a flagar."""
+    import extra_forensics as ef
+    monkeypatch.setattr(ef, "_count_dir", lambda *a, **kw: 150)
+    monkeypatch.setattr(ef, "_oldest_event_age_hours", lambda log: 720.0)  # 30 dias
+    r = ef.scan_event_log_gap()
+    assert r["status"] == "clean"
+
+
+# ============= scan_shadow_copy_wipe =============
+
+def test_shadow_copy_single_event_is_clean(monkeypatch):
+    """1 evento 8224 isolado = limpeza automática do Windows, NÃO dispara
+    (esse é o estado normal — FP no PC do dev se disparasse)."""
+    import extra_forensics as ef
+    fake_out = b"""Event[0]
+  Date: 2026-06-02T14:48:49.000Z
+  Event ID: 8224
+"""
+    class FakeProc:
+        returncode = 0
+        stdout = fake_out
+    monkeypatch.setattr(ef.subprocess, "run", lambda *a, **kw: FakeProc())
+    r = ef.scan_shadow_copy_wipe()
+    assert r["status"] == "clean"
+
+
+def test_shadow_copy_burst_flags(monkeypatch):
+    """4 eventos 8224 em <60s = vssadmin delete shadows /all (média)."""
+    import extra_forensics as ef
+    fake_out = b"""Event[0]
+  Date: 2026-06-01T10:00:30.000Z
+  Event ID: 8224
+Event[1]
+  Date: 2026-06-01T10:00:20.000Z
+  Event ID: 8224
+Event[2]
+  Date: 2026-06-01T10:00:10.000Z
+  Event ID: 8224
+Event[3]
+  Date: 2026-06-01T10:00:00.000Z
+  Event ID: 8224
+"""
+    class FakeProc:
+        returncode = 0
+        stdout = fake_out
+    monkeypatch.setattr(ef.subprocess, "run", lambda *a, **kw: FakeProc())
+    r = ef.scan_shadow_copy_wipe()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "medium"
+    assert "4 shadow copies apagadas em 30s" in r["items"][0]["label"]
+
+
+def test_shadow_copy_spread_over_days_is_clean(monkeypatch):
+    """3 eventos 8224 mas espalhados em dias = automático, sem flag."""
+    import extra_forensics as ef
+    fake_out = b"""Event[0]
+  Date: 2026-06-02T14:48:49.000Z
+  Event ID: 8224
+Event[1]
+  Date: 2026-05-28T08:00:00.000Z
+  Event ID: 8224
+Event[2]
+  Date: 2026-05-15T12:00:00.000Z
+  Event ID: 8224
+"""
+    class FakeProc:
+        returncode = 0
+        stdout = fake_out
+    monkeypatch.setattr(ef.subprocess, "run", lambda *a, **kw: FakeProc())
+    r = ef.scan_shadow_copy_wipe()
+    assert r["status"] == "clean"
 
 
 def test_usn_reason_bits_language_independent():

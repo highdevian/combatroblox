@@ -643,10 +643,285 @@ def scan_usn_journal() -> dict:
     return _result("USN Journal", desc, items)
 
 
+# ============================ 6. Prefetch / SysMain desativados ============================
+#
+# O Prefetch é a principal fonte de "este exe rodou em tal hora" — é por isso
+# que a maioria dos cheaters tenta apagar arquivos .pf. Desativar Prefetch /
+# SysMain de uma vez é um nível acima: nada mais entra no Prefetch a partir
+# daquele ponto, então a evidência de execução para de existir antes mesmo
+# de ser criada. É a forma "elegante" de bypass.
+#
+# No Windows 10/11 o padrão é Prefetch=3 (app+boot) e SysMain=Automatic, com
+# o próprio Windows decidindo o que fazer em SSD vs HDD. Quem desativa hoje
+# repete conselhos de 2014 ou está escondendo execução. Severidade alta
+# quando os dois batem; média quando só um.
+
+# HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters
+# EnablePrefetcher: 0 = off, 1 = app only, 2 = boot only, 3 = both (padrão)
+PREFETCH_KEY = (r"SYSTEM\CurrentControlSet\Control\Session Manager"
+                r"\Memory Management\PrefetchParameters")
+
+# HKLM\SYSTEM\CurrentControlSet\Services\SysMain\Start
+# 2 = automatic (padrão), 3 = manual, 4 = disabled
+SYSMAIN_KEY = r"SYSTEM\CurrentControlSet\Services\SysMain"
+
+
+def _read_dword(hive, subkey, value_name):
+    """Lê um DWORD do registry. None se chave/valor não existe ou sem permissão."""
+    if not HAS_WINREG:
+        return None
+    try:
+        k = winreg.OpenKey(hive, subkey)
+    except OSError:
+        return None
+    try:
+        try:
+            data, _ = winreg.QueryValueEx(k, value_name)
+            return int(data) if data is not None else None
+        except OSError:
+            return None
+    finally:
+        winreg.CloseKey(k)
+
+
+def scan_prefetch_disabled() -> dict:
+    """
+    Detecta Prefetch desativado (EnablePrefetcher=0) e/ou SysMain desativado
+    (Start=4). Um dos sinais mais limpos de anti-forense: o padrão do Win11
+    é ambos ligados, e desligar exige ação deliberada.
+    """
+    desc = "Prefetch / SysMain desativados (anti-forense de execução)"
+    items = []
+
+    ep = _read_dword(winreg.HKEY_LOCAL_MACHINE if HAS_WINREG else None,
+                     PREFETCH_KEY, "EnablePrefetcher")
+    sm = _read_dword(winreg.HKEY_LOCAL_MACHINE if HAS_WINREG else None,
+                     SYSMAIN_KEY, "Start")
+
+    if ep is None and sm is None:
+        return _result("Prefetch/SysMain", desc, [],
+                       error="não foi possível ler o registry")
+
+    # Prefetch=0 ou 2 (só boot) significa que apps não geram Prefetch — é o
+    # que importa pra cheaters. 1 (só app) e 3 (ambos) registram apps. Já
+    # vimos 1 e 3 em produção como configs legítimas; 0 e 2 são raros.
+    prefetch_off = ep is not None and ep in (0, 2)
+    sysmain_off = sm is not None and sm == 4
+
+    detalhes = []
+    if ep is not None:
+        rotulo = {0: "off (0)", 1: "só apps (1)", 2: "só boot (2)",
+                  3: "completo (3, padrão)"}.get(ep, f"valor inesperado ({ep})")
+        if prefetch_off:
+            detalhes.append(f"EnablePrefetcher={rotulo}")
+    if sm is not None:
+        rotulo = {2: "automatic (padrão)", 3: "manual", 4: "disabled"}.get(
+            sm, f"valor inesperado ({sm})")
+        if sysmain_off:
+            detalhes.append(f"SysMain.Start={rotulo}")
+
+    # Os dois desativados ao mesmo tempo: bypass deliberado. Alta.
+    # Um só: comum em "guias de otimização" antigas. Média.
+    if prefetch_off and sysmain_off:
+        items.append(_item(
+            label="Prefetch e SysMain desativados ao mesmo tempo",
+            detail="; ".join(detalhes) + "  ·  padrão do Windows 11 tem os "
+                   "dois ligados; combinação é raríssima fora de uso intencional",
+            severity="high", matched="anti-forense:prefetch+sysmain-off",
+        ))
+    elif prefetch_off:
+        items.append(_item(
+            label="Prefetch desativado",
+            detail="; ".join(detalhes) + "  ·  apps não geram .pf mais; "
+                   "Prefetch antigo continua, mas execução nova não é registrada",
+            severity="medium", matched="anti-forense:prefetch-off",
+        ))
+    elif sysmain_off:
+        items.append(_item(
+            label="SysMain (SuperFetch) desativado",
+            detail="; ".join(detalhes) + "  ·  serviço que mantém o Prefetch; "
+                   "sem ele, a manutenção do .pf para. Comum em guias antigas de SSD.",
+            severity="medium", matched="anti-forense:sysmain-off",
+        ))
+
+    return _result("Prefetch/SysMain", desc, items)
+
+
+# ============================ 7. Gap no log de eventos ============================
+#
+# Limpar o log de Security gera evento 1102 (já coberto pelo scan_anti_forensics).
+# Mas há formas furtivas de zerar logs SEM disparar 1102: deletar o arquivo .evtx
+# com o serviço EventLog parado (bypass clássico) ou tools que fazem isso.
+#
+# O sintoma: o evento mais ANTIGO do log fica anormalmente recente. Num PC com
+# semanas de uso, o log de System tem registros de dias atrás. Se o mais antigo
+# é de horas atrás, alguém zerou.
+#
+# Distinguir de PC fresh: cruzo com a contagem do Prefetch. Win11 acabado de
+# instalar tem ~50 .pf; PC com semanas tem 100+. Se Prefetch>=80 (PC histórico)
+# mas log mais antigo < 6h → bypass furtivo. Severidade média.
+
+# regex tolerante: ISO (2026-06-02T18:30:45) ou com Z; o wevtutil pode emitir
+# em UTC, mas "horas atrás" não muda por timezone, então comparamos em UTC.
+_EVTX_DATE_RE = re.compile(
+    r"(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?")
+
+
+def _oldest_event_age_hours(log_name: str):
+    """
+    Retorna a idade (em horas) do evento mais antigo do log, ou None se erro.
+    Usa wevtutil em modo crescente (/rd:false) e lê só o primeiro evento.
+    """
+    try:
+        r = subprocess.run(
+            ["wevtutil", "qe", log_name, "/c:1", "/rd:false", "/f:text"],
+            capture_output=True, timeout=15)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if r.returncode != 0:
+        return None
+    out = _decode(r.stdout)
+    m = _EVTX_DATE_RE.search(out)
+    if not m:
+        return None
+    try:
+        ts = datetime(*map(int, m.groups()[:6]))
+    except (TypeError, ValueError):
+        return None
+    # Compara em UTC: wevtutil emite UTC (sufixo Z); datetime.utcnow é UTC.
+    # Pequeno erro de timezone é aceitável (cap de "horas" é grosso).
+    delta = (datetime.utcnow() - ts).total_seconds() / 3600.0
+    return max(delta, 0.0)
+
+
+def scan_event_log_gap() -> dict:
+    """
+    Cruza a idade do evento mais antigo dos logs System/Application com a
+    contagem de .pf no Prefetch. Log curto + Prefetch volumoso = limpeza
+    furtiva (deletou .evtx sem disparar 1102). Severidade média.
+    """
+    desc = "Log de eventos com gap suspeito (limpeza furtiva sem evento 1102)"
+    items = []
+
+    pf_count = _count_dir(r"C:\Windows\Prefetch", ext=".pf")
+    age_sys = _oldest_event_age_hours("System")
+    age_app = _oldest_event_age_hours("Application")
+
+    # Sem nenhuma das fontes legíveis: degrada limpo
+    if age_sys is None and age_app is None:
+        return _result("Gap em log de eventos", desc, [],
+                       error="wevtutil não acessível (precisa de admin para alguns logs)")
+
+    # Heurística anti-FP: precisa ter sinal de PC NÃO-fresh. Prefetch >= 80 .pf
+    # cobre PC com pelo menos algumas semanas de uso. PC recém-instalado raro
+    # passa de 50 nas primeiras horas.
+    if pf_count is None or pf_count < 80:
+        # Sem evidência de PC histórico — não dispara, pra evitar FP em
+        # instalação recente. Retorna clean explícito.
+        return _result("Gap em log de eventos", desc, [])
+
+    for nome, idade in (("System", age_sys), ("Application", age_app)):
+        if idade is None:
+            continue
+        if idade < 6.0:  # menos de 6h num PC com 80+ Prefetch entries
+            items.append(_item(
+                label=f"Log de {nome} começa há apenas {idade:.1f}h",
+                detail=f"Prefetch tem {pf_count} entradas (PC histórico), mas o "
+                       f"evento mais antigo do log de {nome} é de {idade:.1f}h "
+                       f"atrás. Compatível com .evtx deletado com o serviço "
+                       f"EventLog parado (não dispara o evento 1102).",
+                severity="medium", matched=f"event-log-gap:{nome.lower()}",
+            ))
+
+    return _result("Gap em log de eventos", desc, items)
+
+
+# ============================ 8. Volume Shadow Copy zeradas ============================
+#
+# `vssadmin delete shadows /all` apaga TODAS as cópias sombra do volume,
+# destruindo histórico de timeline forense (snapshots semanais do Windows
+# guardam versões antigas de arquivos). Cheaters fazem pra esconder mudanças.
+#
+# O evento 8224 do VSS sozinho NÃO é sinal — o Windows dispara naturalmente
+# quando precisa liberar espaço. O que é suspeito:
+#   (a) Múltiplos 8224 numa janela curta (delete shadows /all = ~N eventos
+#       em poucos segundos), VS um único 8224 (limpeza automática por espaço).
+#   (b) Volume com System Protection ativada mas SEM nenhuma shadow copy
+#       (vssadmin list shadows volta vazio). Requer admin.
+#
+# Por enquanto detecto (a). (b) exige admin e parser de duas saídas do
+# vssadmin — fica para outra iteração.
+
+
+def scan_shadow_copy_wipe() -> dict:
+    """
+    Detecta múltiplos eventos 8224 do VSS (deleção de shadow copies) em janela
+    curta — assinatura de `vssadmin delete shadows /all` vs. deleção automática
+    do Windows. Severidade média.
+    """
+    desc = "Shadow copies do VSS apagadas em lote (vssadmin delete shadows)"
+
+    try:
+        r = subprocess.run(
+            ["wevtutil", "qe", "Application",
+             "/q:*[System[Provider[@Name='VSS'] and (EventID=8224)]]",
+             "/c:30", "/rd:true", "/f:text"],
+            capture_output=True, timeout=15)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+        return _result("Shadow copy wipe", desc, [], error=f"wevtutil indisponível: {e}")
+
+    if r.returncode != 0:
+        # Permissão negada ou erro: degrade silencioso
+        return _result("Shadow copy wipe", desc, [],
+                       error="wevtutil não conseguiu ler o log Application")
+
+    text = _decode(r.stdout)
+    timestamps = []
+    for m in _EVTX_DATE_RE.finditer(text):
+        try:
+            ts = datetime(*map(int, m.groups()[:6]))
+            timestamps.append(ts)
+        except (TypeError, ValueError):
+            continue
+
+    if not timestamps:
+        return _result("Shadow copy wipe", desc, [])
+
+    # Ordena DECRESCENTE (mais recente primeiro) — o wevtutil já retorna assim,
+    # mas garantimos pra robustez.
+    timestamps.sort(reverse=True)
+
+    # Procura janela de 60s com >=3 eventos: assinatura de delete em lote.
+    # Limpeza automática do Windows distribui eventos no tempo (1 por vez).
+    items = []
+    janela_seg = 60.0
+    for i, t0 in enumerate(timestamps):
+        em_janela = [t for t in timestamps[i:] if (t0 - t).total_seconds() <= janela_seg]
+        if len(em_janela) >= 3:
+            mais_recente = em_janela[0]
+            mais_antigo = em_janela[-1]
+            spread = (mais_recente - mais_antigo).total_seconds()
+            items.append(_item(
+                label=f"{len(em_janela)} shadow copies apagadas em {spread:.0f}s",
+                detail=f"Eventos VSS 8224 em rajada de {spread:.0f}s a partir de "
+                       f"{mais_antigo.isoformat()}. Limpeza automática do Windows "
+                       f"distribui esses eventos no tempo; rajada curta é "
+                       f"compatível com 'vssadmin delete shadows /all'.",
+                severity="medium", matched="vss:bulk-delete",
+                timestamp=mais_recente.isoformat(),
+            ))
+            break  # uma rajada já basta de evidência
+
+    return _result("Shadow copy wipe", desc, items)
+
+
 ALL_EXTRA_FORENSIC_SCANNERS = [
     scan_shimcache,
     scan_srum,
     scan_script_hashes,
     scan_anti_forensics,
     scan_usn_journal,
+    scan_prefetch_disabled,
+    scan_event_log_gap,
+    scan_shadow_copy_wipe,
 ]
