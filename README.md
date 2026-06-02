@@ -12,11 +12,11 @@
 
 **Ferramenta forense local para SS em comunidades Roblox**
 
-[![Latest Release](https://img.shields.io/github/v/release/highdev0/combatroblox?style=for-the-badge&color=ff4d4f)](https://github.com/highdev0/combatroblox/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/highdev0/combatroblox/total?style=for-the-badge&color=ffb020)](https://github.com/highdev0/combatroblox/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/highdev0/combatroblox/ci.yml?style=for-the-badge&label=CI)](https://github.com/highdev0/combatroblox/actions)
+[![Latest Release](https://img.shields.io/github/v/release/highdevian/combatroblox?style=for-the-badge&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/highdevian/combatroblox/total?style=for-the-badge&color=ffb020)](https://github.com/highdevian/combatroblox/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?style=for-the-badge&label=CI)](https://github.com/highdevian/combatroblox/actions)
 [![License](https://img.shields.io/badge/License-MIT-3fbf7f?style=for-the-badge)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/highdev0/combatroblox?style=for-the-badge&color=888)](https://github.com/highdev0/combatroblox/commits/main)
+[![Last Commit](https://img.shields.io/github/last-commit/highdevian/combatroblox?style=for-the-badge&color=888)](https://github.com/highdevian/combatroblox/commits/main)
 
 48 scanners em paralelo · 542 assinaturas de detecção · execução local, sem envio de dados
 
@@ -26,7 +26,7 @@
 
 ## Comece aqui (mais simples)
 
-1. Baixe `telador.exe` da [última release](https://github.com/highdev0/combatroblox/releases/latest)
+1. Baixe `telador.exe` da [última release](https://github.com/highdevian/combatroblox/releases/latest)
 2. Clique direito → **Executar como administrador** (pra cobertura completa)
 3. Pronto. Relatório HTML abre no navegador automático
 
@@ -53,7 +53,7 @@ Como conferir você mesmo:
   binário:
 
   ```bash
-  git clone https://github.com/highdev0/combatroblox
+  git clone https://github.com/highdevian/combatroblox
   cd combatroblox
   pip install -r requirements.txt
   python telador.py
@@ -171,7 +171,7 @@ Vulnerabilidades: ver `SECURITY.md`.
 
 ## Sobre o Autor (About Me)
 
-Desenvolvido por Gabriel ([@highdev0](https://github.com/highdev0)).
+Desenvolvido por Gabriel ([@highdevian](https://github.com/highdevian)).
 
 ## Licença
 
