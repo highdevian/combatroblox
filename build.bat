@@ -56,6 +56,7 @@ python -m PyInstaller ^
     --console ^
     --name telador ^
     --noupx ^
+    --icon=icon.ico ^
     --version-file version_info.txt ^
     --hidden-import psutil ^
     --hidden-import winreg ^

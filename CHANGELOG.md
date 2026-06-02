@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.12.3] - 2026-06-02
+
+### Fixed
+
+- O `build.bat` agora passa `--icon=icon.ico` para o PyInstaller. O ícone
+  havia sido adicionado ao repositório em uma versão anterior, mas o script
+  de build apagava o `.spec` local (onde o `icon=` estava configurado) e
+  invocava o PyInstaller sem o argumento — então o `telador.exe` saía com
+  o ícone padrão do PyInstaller. A partir desta versão, o build oficial
+  embarca o ícone de terminal corretamente.
+
 ## [3.12.2] - 2026-06-02
 
 ### Changed
