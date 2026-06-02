@@ -121,16 +121,6 @@ def confirm_consent() -> bool:
     print(f"  {GREY}- Capturas de tela (desktop + janela do Roblox){RESET}\n")
     print(f"{GREY}Tudo é local. Nada é enviado pra internet.{RESET}\n")
 
-    if sys.stdin is None:
-        # Sem console (exe --windowed): usa diálogo GUI
-        import ctypes as _ctypes
-        result = _ctypes.windll.user32.MessageBoxW(
-            0,
-            "Tudo é local. Nada é enviado pra internet.\n\nIniciar a tela?",
-            "Telador BR",
-            0x00000004 | 0x00000020  # MB_YESNO | MB_ICONQUESTION
-        )
-        return result == 6  # IDYES
     resp = input(f"{YELLOW}Iniciar a tela? [s/N]: {RESET}").strip().lower()
     return resp in ("s", "sim", "y", "yes")
 
