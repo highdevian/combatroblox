@@ -22,7 +22,7 @@ import time
 import hashlib
 import threading
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     import winreg
@@ -788,9 +788,11 @@ def _oldest_event_age_hours(log_name: str):
         ts = datetime(*map(int, m.groups()[:6]))
     except (TypeError, ValueError):
         return None
-    # Compara em UTC: wevtutil emite UTC (sufixo Z); datetime.utcnow é UTC.
+    # Compara em UTC: wevtutil emite UTC (sufixo Z). Usamos now(UTC) naive
+    # (utcnow() foi deprecado no 3.12+ e será removido). ts já é naive.
     # Pequeno erro de timezone é aceitável (cap de "horas" é grosso).
-    delta = (datetime.utcnow() - ts).total_seconds() / 3600.0
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    delta = (now_utc - ts).total_seconds() / 3600.0
     return max(delta, 0.0)
 
 

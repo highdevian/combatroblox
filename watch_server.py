@@ -125,9 +125,26 @@ _server = None
 _server_thread = None
 
 
+def stop() -> None:
+    """Fecha o servidor local e libera o socket. Idempotente."""
+    global _server
+    if _server is not None:
+        try:
+            _server.shutdown()
+            _server.server_close()
+        except Exception:
+            pass
+        _server = None
+
+
 def start(total: int, open_browser: bool = True) -> str | None:
-    """Sobe o servidor local. Devolve a URL (http://127.0.0.1:PORTA) ou None."""
+    """Sobe o servidor local. Devolve a URL (http://127.0.0.1:PORTA) ou None.
+
+    Idempotente: se já havia um servidor (ex.: chamadas repetidas em teste),
+    fecha o anterior antes de subir o novo — evita vazar socket.
+    """
     global _server, _server_thread
+    stop()  # fecha qualquer servidor anterior
     with _lock:
         _state["total"] = total
         _state["done"] = 0

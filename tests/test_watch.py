@@ -18,6 +18,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import watch_server  # noqa: E402
 
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _close_server_after_test():
+    """Fecha o servidor após cada teste — sem isso o socket de escuta
+    fica aberto (ResourceWarning) já que cada start() sobe um novo."""
+    yield
+    watch_server.stop()
+
 
 def _finding(name, items):
     return {"name": name, "status": "suspicious" if items else "clean", "items": items}
