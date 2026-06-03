@@ -72,13 +72,57 @@ def _src_label(slug: str) -> str:
     return SOURCE_LABELS.get(slug, slug.replace("_", " ").title())
 
 
-# Verdict de cluster → (emoji, manchete, cor)
+# Verdict de cluster → (svg_key, manchete, cor)
+# Trocamos emoji nativo por SVG inline porque emoji 56px do SO Windows
+# fica horroroso e quebra a estética do relatório.
 CLUSTER_VERDICT_STYLE = {
-    "CONFIRMED": ("🔴", "EXECUTOR CONFIRMADO",  "#ff2a2a"),
-    "DETECTED":  ("🟠", "EXECUTOR DETECTADO",   "#ff5f56"),
-    "SUSPECT":   ("🟡", "EVIDÊNCIA SUSPEITA",   "#e8b339"),
-    "WEAK":      ("⚪", "PISTA FRACA",          "#9c8f6a"),
+    "CONFIRMED": ("shield-x",     "EXECUTOR CONFIRMADO", "#ff2a2a"),
+    "DETECTED":  ("alert-octagon","EXECUTOR DETECTADO",  "#ff5f56"),
+    "SUSPECT":   ("alert-triangle","EVIDÊNCIA SUSPEITA", "#e8b339"),
+    "WEAK":      ("circle-dashed","PISTA FRACA",         "#9c8f6a"),
 }
+
+
+# SVGs inline (24x24 stroke icons, estilo Lucide). Inline pra evitar
+# requests HTTP — relatório precisa funcionar offline.
+def _svg_icon(key: str, size: int = 56, color: str = "currentColor", with_pulse: bool = False) -> str:
+    """Devolve um <svg> inline. `with_pulse` adiciona animação CSS sutil."""
+    paths = {
+        # Shield com X dentro — CONFIRMED / cheat detectado sem dúvida
+        "shield-x": (
+            '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.79 17 5 19 5a1 1 0 0 1 1 1z"/>'
+            '<path d="m14.5 9-5 5"/><path d="m9.5 9 5 5"/>'
+        ),
+        # Octógono de alerta — DETECTED
+        "alert-octagon": (
+            '<path d="M12.7 2.7a2 2 0 0 0-1.4 0L4.05 6.05a2 2 0 0 0-1.41 1.41L2.7 11.3a2 2 0 0 0 0 1.4l3.4 7.25a2 2 0 0 0 1.41 1.41l3.84 1.34a2 2 0 0 0 1.4 0l7.25-3.4a2 2 0 0 0 1.41-1.41l1.34-3.84a2 2 0 0 0 0-1.4l-3.4-7.25a2 2 0 0 0-1.41-1.41z"/>'
+            '<line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>'
+        ),
+        # Triângulo de alerta — SUSPECT
+        "alert-triangle": (
+            '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>'
+            '<path d="M12 9v4"/><path d="M12 17h.01"/>'
+        ),
+        # Círculo tracejado — WEAK / fraco
+        "circle-dashed": (
+            '<path d="M10.1 2.18a9.93 9.93 0 0 1 3.8 0"/><path d="M13.9 21.82a9.94 9.94 0 0 1-3.8 0"/>'
+            '<path d="M17.61 3.65a9.96 9.96 0 0 1 2.74 2.74"/><path d="M21.84 10.1a9.93 9.93 0 0 1 0 3.8"/>'
+            '<path d="M20.35 17.61a9.96 9.96 0 0 1-2.74 2.74"/><path d="M6.39 20.35a9.96 9.96 0 0 1-2.74-2.74"/>'
+            '<path d="M2.16 13.9a9.93 9.93 0 0 1 0-3.8"/><path d="M3.65 6.39a9.96 9.96 0 0 1 2.74-2.74"/>'
+        ),
+        # Shield com check — LIMPO (clean)
+        "shield-check": (
+            '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.5 3.79 17 5 19 5a1 1 0 0 1 1 1z"/>'
+            '<path d="m9 12 2 2 4-4"/>'
+        ),
+    }
+    body = paths.get(key, paths["circle-dashed"])
+    cls = "hv-icon hv-icon-pulse" if with_pulse else "hv-icon"
+    return (
+        f'<svg class="{cls}" width="{size}" height="{size}" viewBox="0 0 24 24" '
+        f'fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round" '
+        f'stroke-linejoin="round" aria-hidden="true">{body}</svg>'
+    )
 
 
 def _render_hero_verdict(clusters: list, verdict: dict) -> str:
@@ -105,25 +149,33 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
     if actionable:
         # Tom geral do hero = pior cluster
         top = actionable[0]
-        emoji, headline, color = CLUSTER_VERDICT_STYLE[top.verdict]
+        icon_key, headline, color = CLUSTER_VERDICT_STYLE[top.verdict]
         # Confidence global = a do top cluster (mais relevante pro supervisor)
         global_conf = top.confidence_pct
         sub_msg = f"{len(actionable)} target(s) detectado(s)"
+        hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=True)
+        state_class = "hv-state-bad"
     elif suspect:
-        emoji, headline, color = ("🟡", "REVISAR — EVIDÊNCIA SUSPEITA", "#e8b339")
+        icon_key, headline, color = ("alert-triangle", "REVISAR — EVIDÊNCIA SUSPEITA", "#e8b339")
         global_conf = max((c.confidence_pct for c in suspect), default=0)
         sub_msg = f"{len(suspect)} alvo(s) com evidência parcial — sem confirmação cruzada"
+        hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=False)
+        state_class = "hv-state-warn"
     else:
-        # Sem cluster acionável — limpo
-        emoji, headline, color = ("🟢", "NENHUM EXECUTOR DETECTADO", "#3fbf7f")
+        # Sem cluster acionável — limpo. SVG shield-check em verde,
+        # sem pulse (não há urgência), com glow sutil.
+        icon_key, headline, color = ("shield-check", "NENHUM EXECUTOR DETECTADO", "#3fbf7f")
         global_conf = None
         sub_msg = "Nenhum target acima do limite de FP"
+        hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=False)
+        state_class = "hv-state-clean"
 
     # Renderiza cards apenas pra clusters acionáveis (top 6 — mais já é ruído)
     cards_html = ""
     cards = (confirmed + detected + suspect)[:6]
     for c in cards:
-        c_emoji, _, c_color = CLUSTER_VERDICT_STYLE[c.verdict]
+        c_icon_key, _, c_color = CLUSTER_VERDICT_STYLE[c.verdict]
+        c_icon_svg = _svg_icon(c_icon_key, size=18, color=c_color, with_pulse=False)
         # Lista de fontes únicas com label amigável
         src_lines = "".join(
             f'<li><span class="hv-check">✓</span> {_escape(_src_label(s))}</li>'
@@ -142,7 +194,7 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         <article class="hv-card" style="border-left-color: {c_color}">
             <header class="hv-card-head">
                 <div class="hv-target">
-                    <span class="hv-card-emoji">{c_emoji}</span>
+                    <span class="hv-card-icon">{c_icon_svg}</span>
                     <span class="hv-card-name">{_escape(c.label)}</span>
                     <span class="hv-kind">{_escape(c.kind)}</span>
                 </div>
@@ -176,8 +228,8 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         cards_wrapper = f'<div class="hv-cards">{cards_html}</div>'
 
     return f"""
-    <section class="hero-verdict">
-        <div class="hv-emoji">{emoji}</div>
+    <section class="hero-verdict {state_class}" style="--hv-accent: {color}">
+        <div class="hv-icon-wrap">{hero_icon}</div>
         <h1 class="hv-headline" style="color:{color}">{_escape(headline)}</h1>
         <div class="hv-sub">{_escape(sub_msg)}</div>
         {conf_block}
@@ -469,20 +521,62 @@ footer code { background: transparent; color: #888; }
     background: radial-gradient(ellipse at top, #1a1a1d 0%, #0e0e10 60%);
     border: 1px solid #2a2a2e;
     border-radius: 12px;
-    padding: 36px 28px 28px;
+    padding: 40px 28px 28px;
     margin: 0 0 28px;
     text-align: center;
     position: relative;
     overflow: hidden;
+    animation: hv-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+/* Glow ambient da cor do veredito */
 .hero-verdict::before {
     content: ""; position: absolute; inset: 0;
-    background: radial-gradient(circle at top, currentColor 0%, transparent 70%);
-    opacity: 0.05; pointer-events: none;
+    background: radial-gradient(circle at 50% 0%, var(--hv-accent, transparent) 0%, transparent 60%);
+    opacity: 0.08; pointer-events: none;
 }
-.hv-emoji {
-    font-size: 56px; line-height: 1; margin-bottom: 12px;
-    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+/* Borda colorida superior — assinatura visual sutil */
+.hero-verdict::after {
+    content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--hv-accent, #888), transparent);
+    opacity: 0.6;
+}
+.hv-state-clean { border-color: #3fbf7f33; }
+.hv-state-clean::before { opacity: 0.06; }
+.hv-state-warn  { border-color: #e8b33944; }
+.hv-state-bad   { border-color: #ff2a2a55; box-shadow: 0 0 60px -20px #ff2a2a40; }
+
+/* Container do SVG do hero — círculo de fundo + glow */
+.hv-icon-wrap {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 96px; height: 96px; margin: 0 auto 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--hv-accent, #888)15 0%, transparent 70%);
+    position: relative;
+}
+.hv-icon-wrap::before {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    border: 1px solid var(--hv-accent, #888); opacity: 0.25;
+}
+.hv-icon { display: block; }
+/* Pulse só nos estados ruins (CONFIRMED/DETECTED) — dá urgência */
+.hv-icon-pulse { animation: hv-pulse 2s ease-in-out infinite; }
+.hv-state-bad .hv-icon-wrap::after {
+    content: ""; position: absolute; inset: -6px; border-radius: 50%;
+    border: 1px solid var(--hv-accent); opacity: 0.4;
+    animation: hv-ring 2.2s ease-out infinite;
+}
+
+@keyframes hv-fade-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hv-pulse {
+    0%, 100% { transform: scale(1);    opacity: 1;   }
+    50%      { transform: scale(1.06); opacity: 0.92; }
+}
+@keyframes hv-ring {
+    0%   { transform: scale(0.9); opacity: 0.5; }
+    100% { transform: scale(1.6); opacity: 0;   }
 }
 .hv-headline {
     margin: 0 0 6px; font-size: 38px; font-weight: 900;
@@ -519,7 +613,11 @@ footer code { background: transparent; color: #888; }
     display: flex; align-items: baseline; gap: 8px;
     min-width: 0; flex: 1;
 }
-.hv-card-emoji { font-size: 14px; flex-shrink: 0; }
+.hv-card-icon {
+    display: inline-flex; align-items: center;
+    flex-shrink: 0; line-height: 0;
+}
+.hv-card-icon svg { display: block; }
 .hv-card-name {
     font-size: 17px; font-weight: 700; color: #fff;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
