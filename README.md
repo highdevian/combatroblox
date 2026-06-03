@@ -28,7 +28,11 @@ Roda no PC do suspeito, lê artefatos do Windows, e entrega um veredito de cheat
 2. Botão direito → **Executar como administrador** (sem admin, várias fontes falham)
 3. Aceita o aviso, espera ~3 segundos. Relatório HTML abre sozinho.
 
-Distribuição prática: zipa `telador.exe` + `INICIAR.bat`, manda no Discord, supervisor instrui dois cliques.
+**Sem mexer em terminal:** dois `.bat` de dois-cliques acompanham o projeto —
+`INICIAR.bat` (scan normal) e `TELADOR-AO-VIVO.bat` (abre o dashboard ao vivo
+do `--watch`). Bom pra supervisor que não quer linha de comando.
+
+Distribuição prática: zipa `telador.exe` + os `.bat`, manda no Discord, supervisor instrui dois cliques.
 
 ---
 
