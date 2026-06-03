@@ -1,0 +1,47 @@
+{
+  "version": "2026.06.03",
+  "updated": "2026-06-03",
+  "note": "Base de assinaturas atualizavel do Telador. Atualize via: telador.exe --update-sigs. Adicionar executor novo = um commit aqui, sem rebuildar o .exe. Severidades validas: high, medium, low.",
+  "executor_keywords": {
+    "solara": "high",
+    "solara executor": "high",
+    "xeno executor": "high",
+    "wave executor": "high",
+    "velocity executor": "high",
+    "ronix": "high",
+    "ronix executor": "high",
+    "krnl": "high",
+    "fluxus": "high",
+    "synapse x": "high",
+    "swift executor": "high",
+    "codex executor": "high",
+    "delta executor": "high",
+    "arceus x": "high"
+  },
+  "executor_process_names": {
+    "solara.exe": "high",
+    "xeno.exe": "high",
+    "wave.exe": "high",
+    "velocity.exe": "high",
+    "ronix.exe": "high",
+    "ronix-bootstrapper.exe": "high",
+    "krnl.exe": "high",
+    "fluxus.exe": "high"
+  },
+  "suspicious_domains": {
+    "solara.cc": "high",
+    "getsolara.dev": "high",
+    "xeno.now": "high",
+    "wave.cx": "high",
+    "ronix.cc": "high",
+    "ronix.gg": "high",
+    "velocityexploit.com": "high"
+  },
+  "suspicious_folder_names": {
+    "solara": "high",
+    "xeno": "high",
+    "wave": "high",
+    "velocity executor": "high",
+    "ronix": "high"
+  }
+}

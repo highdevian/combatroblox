@@ -54,6 +54,9 @@ Enumera drivers carregados em `HKLM\SYSTEM\...\Services` e flaga winring0, rwdrv
 **Dashboard ao vivo — sem mandar nada pra nuvem (`--watch`).**
 `telador.exe --watch` abre um painel no navegador que mostra os scanners reportando em tempo real e o veredito se formando. A diferença pras ferramentas comerciais: o servidor roda em `127.0.0.1` (loopback), na própria máquina — **nada sai do PC**. Você tem o "ao vivo" sem entregar os dados do suspeito pra um servidor de terceiro.
 
+**Assinaturas que não envelhecem (`--update-sigs`).**
+Executor novo sai toda semana. Em vez de rebuildar e redistribuir o `.exe` de 10 MB a cada um, a base de assinaturas é um arquivo atualizável: `telador.exe --update-sigs` baixa a lista mais recente do GitHub (poucos KB) e pronto. Adicionar um executor é **um commit**, não um release. E continua sendo opt-in — o scan normal nunca toca a rede.
+
 **Não envia nada pra lugar nenhum.**
 100% local, sem telemetria, sem cloud, sem update phone-home. Você pode rodar offline. Código aberto, dá pra auditar antes de mandar pro PC do suspeito.
 
@@ -107,6 +110,7 @@ Como conferir:
 ```bash
 telador.exe                          # default — roda tudo, gera HTML, abre no browser
 telador.exe --watch                  # dashboard local AO VIVO (127.0.0.1) — scanners e veredito em tempo real, nada sai do PC
+telador.exe --update-sigs            # baixa a base de assinaturas mais recente (comando de manutenção — o scan normal nunca toca a rede)
 telador.exe --quick                  # ~1s, só os 15 scanners base
 telador.exe --no-screenshot          # pula captura de tela
 telador.exe --high-only              # console mostra só severidade alta/crítica

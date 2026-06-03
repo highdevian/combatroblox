@@ -79,7 +79,9 @@ python -m PyInstaller ^
     --hidden-import extra_forensics ^
     --hidden-import evidence ^
     --hidden-import watch_server ^
+    --hidden-import sigupdate ^
     --hidden-import http.server ^
+    --hidden-import urllib.request ^
     --hidden-import hashlib ^
     --hidden-import hmac ^
     --collect-submodules psutil ^

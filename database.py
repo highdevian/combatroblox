@@ -1230,6 +1230,10 @@ _MERGE_TARGETS = {
 }
 _VALID_SEVERITIES = {"high", "medium", "low"}
 
+# Versão da base de assinaturas externa carregada (None se só embutidas).
+# Permite avisar o supervisor quando a lista local está velha.
+LOADED_SIG_VERSION = None
+
 
 def _signatures_path() -> str:
     """signatures.json ao lado do .exe (frozen) ou do módulo (dev)."""
@@ -1269,6 +1273,11 @@ def load_external_signatures(path: str = None) -> tuple[int, str | None]:
     if not isinstance(data, dict):
         return 0, "signatures.json ignorado (raiz não é objeto)"
 
+    global LOADED_SIG_VERSION
+    ver = data.get("version")
+    if isinstance(ver, str) and ver.strip():
+        LOADED_SIG_VERSION = ver.strip()
+
     added = 0
     for section_key, target in _MERGE_TARGETS.items():
         section = data.get(section_key)
@@ -1284,3 +1293,8 @@ def load_external_signatures(path: str = None) -> tuple[int, str | None]:
             target[k] = sev
             added += 1
     return added, None
+
+
+def signatures_path() -> str:
+    """Caminho público do signatures.json (ao lado do exe/módulo)."""
+    return _signatures_path()

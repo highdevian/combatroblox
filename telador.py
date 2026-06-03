@@ -96,7 +96,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
-    print(f"{GREY}  v3.16.0  ·  Confidence Engine  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.17.0  ·  Confidence Engine  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -411,6 +411,8 @@ def main():
     parser.add_argument("--quick",         action="store_true", help="Modo rápido: só scanners base (pula forensics/persistence/live/etc)")
     parser.add_argument("--watch",         action="store_true",
                         help="Abre um dashboard LOCAL ao vivo (127.0.0.1) mostrando scanners e veredito em tempo real. Nada sai do PC.")
+    parser.add_argument("--update-sigs",   action="store_true",
+                        help="Baixa a base de assinaturas mais recente do GitHub e sai. Comando de manutenção — o scan normal nunca toca a rede.")
     parser.add_argument("--no-parallel",   action="store_true", help="Rodar sequencial (debug)")
     parser.add_argument("--threads",       type=int, default=4, help="Threads em paralelo (default 4)")
     parser.add_argument("--json",          action="store_true", help="Também salvar relatório JSON")
@@ -425,12 +427,31 @@ def main():
 
     print_banner()
 
+    # --update-sigs: comando de manutenção. Baixa a base do GitHub e SAI.
+    # O scan normal nunca passa por aqui — só este modo explícito toca a rede.
+    if args.update_sigs:
+        print(f"{CYAN}[UPDATE]{RESET} Baixando base de assinaturas mais recente do GitHub...")
+        try:
+            import sigupdate
+            ok, msg = sigupdate.update_signatures()
+        except Exception as e:
+            ok, msg = False, f"erro inesperado ({e})"
+        if ok:
+            print(f"{GREEN}✓ {msg}{RESET}")
+            print(f"{GREY}  Pronto. Rode o telador normalmente — a base nova já vale.{RESET}")
+        else:
+            print(f"{YELLOW}✗ Não atualizou: {msg}{RESET}")
+            print(f"{GREY}  Sem problema — a base embutida no .exe continua valendo.{RESET}")
+        sys.exit(0 if ok else 1)
+
     # Mescla assinaturas externas (signatures.json) antes de qualquer scan.
     sig_added, sig_err = database.load_external_signatures()
     if sig_added:
         import matching
         matching.invalidate()  # recompila patterns com as assinaturas extras
-        print(f"{CYAN}[SIG]{RESET} {GREY}{sig_added} assinatura(s) extra(s) carregada(s) de signatures.json{RESET}")
+        ver = database.LOADED_SIG_VERSION
+        ver_txt = f" (versão {ver})" if ver else ""
+        print(f"{CYAN}[SIG]{RESET} {GREY}{sig_added} assinatura(s) extra(s) de signatures.json{ver_txt}{RESET}")
     elif sig_err:
         print(f"{YELLOW}[SIG]{RESET} {GREY}{sig_err}{RESET}")
 

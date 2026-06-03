@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.17.0] - 2026-06-03
+
+**Assinaturas atualizáveis sem rebuildar o `.exe`** — fecha o maior ponto
+fraco operacional: a base envelhecer.
+
+### Added
+
+- **`telador.exe --update-sigs`**: baixa a base de assinaturas mais recente
+  do GitHub (`signatures.json` do repo) e sai. Comando de manutenção
+  **separado** — o scan normal **nunca toca a rede**, preservando o
+  "100% local". Adicionar um executor novo agora é **um commit no
+  `signatures.json`**, não um rebuild + redistribuição do binário de 10 MB.
+
+- **Versionamento da base**: o `signatures.json` tem campo `version`, e o
+  Telador mostra qual versão carregou no console. Permite saber se a base
+  local está velha.
+
+- **`signatures.json` publicado no repo**: arquivo-fonte da base
+  atualizável (executores estabelecidos, severidades validadas).
+
+### Robustez (zero-estresse por design)
+
+- Atualização **opt-in** — fora do `--update-sigs`, nenhum byte sai do PC.
+- Timeout curto; qualquer falha de rede degrada graciosamente (base
+  embutida continua valendo).
+- Valida que o conteúdo baixado é JSON com estrutura de assinaturas
+  **antes** de salvar. Download corrompido/vazio **nunca** substitui a
+  base local boa (escrita atômica via arquivo temp + rename).
+- Sem dependência nova: `urllib` da stdlib.
+
+- Novo módulo `sigupdate.py`. 6 testes novos (98 no total), incluindo o
+  caso crítico "download ruim não apaga a base boa".
+
 ## [3.16.0] - 2026-06-03
 
 **Dashboard local ao vivo (`--watch`)** — a vantagem que ferramentas
