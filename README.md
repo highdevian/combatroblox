@@ -18,7 +18,7 @@
 [![License](https://img.shields.io/badge/License-MIT-3fbf7f?style=for-the-badge)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/highdevian/combatroblox?style=for-the-badge&color=888)](https://github.com/highdevian/combatroblox/commits/main)
 
-50 scanners em paralelo · 542 assinaturas de detecção · execução local, sem envio de dados
+**Confidence Engine** · correlação de evidências entre múltiplas fontes forenses · veredito único por executor detectado · execução 100% local, sem envio de dados
 
 </div>
 

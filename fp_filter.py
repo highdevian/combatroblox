@@ -131,7 +131,11 @@ def is_whitelisted_path(path: str) -> tuple[bool, str | None]:
 
 # ============================ Time decay ============================
 
-SEVERITY_ORDER = ["low", "medium", "high"]
+# Ordem da mais fraca pra mais forte. `critical` foi adicionado pra cobrir
+# evidências de altíssima confiança (hash conhecido de executor, driver BYOVD
+# carregado, etc). _downgrade nunca tira de critical em 1 nível — ele vira
+# high. Quem quiser eliminar tem que mandar levels=2+ explicitamente.
+SEVERITY_ORDER = ["low", "medium", "high", "critical"]
 
 
 def _downgrade(severity: str, levels: int = 1) -> str:
@@ -256,7 +260,10 @@ def adjust_for_dev_env(item: dict, is_dev: bool) -> tuple[dict, str | None]:
 
 # ============================ Confidence score ============================
 
-SEVERITY_WEIGHT = {"high": 10, "medium": 4, "low": 1}
+# Pesos por severidade. `critical` é deliberadamente maior que 2× `high` —
+# evidência crítica (hash conhecido, BYOVD ativo) deve sozinha disparar
+# veredicto positivo mesmo sem cross-correlation com outras fontes.
+SEVERITY_WEIGHT = {"critical": 25, "high": 10, "medium": 4, "low": 1}
 
 
 def compute_confidence(item: dict) -> int:
@@ -268,7 +275,8 @@ def compute_confidence(item: dict) -> int:
       - Rebaixado por FP filter? (confidence cai)
     """
     sev = item.get("severity", "low")
-    base = SEVERITY_WEIGHT.get(sev, 0) * 10  # 10/40/100
+    # base: low=10, medium=40, high=100, critical=100 (capado)
+    base = min(100, SEVERITY_WEIGHT.get(sev, 0) * 10)
 
     # Timestamp recente boosta um pouco
     ts = _parse_timestamp(item.get("timestamp", ""))
@@ -369,7 +377,7 @@ def compute_verdict(findings: list) -> dict:
     Cada hit pontua baseado em severidade + confidence + recência.
     """
     total_score = 0
-    high_count = med_count = low_count = 0
+    crit_count = high_count = med_count = low_count = 0
     most_recent_hit = None
     highest_confidence = 0
 
@@ -384,7 +392,9 @@ def compute_verdict(findings: list) -> dict:
             weight = SEVERITY_WEIGHT.get(sev, 0)
             total_score += weight * (conf / 100)
 
-            if sev == "high":
+            if sev == "critical":
+                crit_count += 1
+            elif sev == "high":
                 high_count += 1
             elif sev == "medium":
                 med_count += 1
@@ -402,7 +412,13 @@ def compute_verdict(findings: list) -> dict:
     # evidência de cheat. Cross-correlation > pontuação isolada.
     sources_with_hits = sum(1 for f in findings if f.get("items"))
 
-    if total_score >= 50 and sources_with_hits >= 3:
+    # Critical hits são prova forense forte (hash conhecido, BYOVD ativo, etc).
+    # 1 crítico já confirma. 2+ críticos cravam mesmo sem outras fontes.
+    if crit_count >= 2 or (crit_count >= 1 and sources_with_hits >= 2):
+        verdict, color = "CHEATER CONFIRMADO", "#ff4d4f"
+    elif crit_count >= 1:
+        verdict, color = "ALTAMENTE SUSPEITO", "#ff4d4f"
+    elif total_score >= 50 and sources_with_hits >= 3:
         verdict, color = "CHEATER CONFIRMADO", "#ff4d4f"
     elif total_score >= 25 and sources_with_hits >= 2:
         verdict, color = "ALTAMENTE SUSPEITO", "#ff4d4f"
@@ -417,6 +433,7 @@ def compute_verdict(findings: list) -> dict:
         "verdict": verdict,
         "color": color,
         "score": round(total_score, 1),
+        "critical": crit_count,
         "high": high_count,
         "medium": med_count,
         "low": low_count,

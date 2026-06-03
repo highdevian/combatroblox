@@ -84,7 +84,19 @@ EXECUTOR_KEYWORDS = {
     "roblox account manager": "low",
     "ram-master":       "low",
 
-    # ===== Executores 2024-2026 =====
+    # ===== Top 5 priorizados 2024-2026 (Solara/Xeno/Wave/Velocity/Ronix) =====
+    # Variantes redundantes propositais — pega o cheater independente de
+    # qual fonte (Prefetch/Amcache/BAM/Browser) está mais explícita.
+
+    # Solara — keywords adicionais (process/dom já estão nas suas seções)
+    "solara hub":       "high",
+    "solara.cc":        "high",
+    "solara.gg":        "high",
+    "solara.dev":       "high",
+    "getsolara":        "high",
+    "solaraexec":       "high",
+    "solara-bootstrapper":"high",
+
     # Xeno (open-source, muito popular)
     # "xeno" (solto) removido — substring pega Xenoblade, Xenonauts, XenoBot,
     # e pastas/saves de jogos da série Xeno. Variantes abaixo cobrem o executor.
@@ -92,7 +104,47 @@ EXECUTOR_KEYWORDS = {
     "xeno executor":    "high",
     "xeno hub":         "high",
     "xeno.now":         "high",
+    "xeno.lat":         "high",
+    "xeno.gg":          "high",
+    "xeno.cc":          "high",
+    "xeno.dev":         "high",
     "xenoexec":         "high",
+    "xeno-bootstrapper":"high",
+    "xenobootstrapper": "high",
+
+    # Wave — keywords adicionais
+    "wave hub":         "high",
+    "wave.gg":          "high",
+    "wave.cc":          "high",
+    "getwave":          "high",
+    "waveexec":         "high",
+    "waveexecutor":     "high",
+    "wave-bootstrapper":"high",
+
+    # Velocity — keywords adicionais
+    "velocity exec":    "high",
+    "velocity hub":     "high",
+    "velocity.exe":     "high",
+    "velocity.cx":      "high",
+    "velocity.gg":      "high",
+    "velocity.cc":      "high",
+    "velocityexec":     "high",
+    "velocityexploit":  "high",
+    "getvelocity":      "high",
+
+    # Ronix — AUSENTE na base anterior. Adicionado completo.
+    "ronix":            "high",
+    "ronix executor":   "high",
+    "ronix exec":       "high",
+    "ronix hub":        "high",
+    "ronix.exe":        "high",
+    "ronix.cc":         "high",
+    "ronix.gg":         "high",
+    "ronix.lat":        "high",
+    "ronix.dev":        "high",
+    "ronixexec":        "high",
+    "ronix-bootstrapper":"high",
+
     # Cryptic
     # "cryptic" (solto) removido — FP garantido: Cryptic Studios (Star Trek
     # Online, Neverwinter, Champions Online) cria pasta "Cryptic Studios".
@@ -263,6 +315,23 @@ EXECUTOR_PROCESS_NAMES = {
     "xeno-bootstrapper.exe":      "high",
     "xenobootstrapper.exe":       "high",
     "xenolauncher.exe":           "high",
+    # Ronix (faltava completamente)
+    "ronix.exe":                  "high",
+    "ronix-bootstrapper.exe":     "high",
+    "ronixbootstrapper.exe":      "high",
+    "ronixlauncher.exe":          "high",
+    "ronixexec.exe":              "high",
+    # Velocity (faltavam variantes)
+    "velocity-bootstrapper.exe":  "high",
+    "velocitybootstrapper.exe":   "high",
+    "velocitylauncher.exe":       "high",
+    # Wave (faltavam variantes)
+    "wavelauncher.exe":           "high",
+    "waveexec.exe":               "high",
+    # Solara (faltavam variantes)
+    "solarabootstrapper.exe":     "high",
+    "solaralauncher.exe":         "high",
+    "solaraexec.exe":             "high",
     "cryptic.exe":                "high",
     "cryptic-bootstrapper.exe":   "high",
     "empyrean.exe":               "high",
@@ -360,7 +429,37 @@ SUSPICIOUS_DOMAINS = {
     "xeno.now":             "high",
     "xeno.lat":             "high",
     "xeno.gg":              "high",
+    "xeno.cc":              "high",
+    "xeno.dev":             "high",
     "xenoexec.com":         "high",
+    "getxeno.gg":           "high",
+    "getxeno.com":          "high",
+    # Ronix — domínios (faltavam completamente)
+    "ronix.cc":             "high",
+    "ronix.gg":             "high",
+    "ronix.lat":            "high",
+    "ronix.dev":            "high",
+    "ronix.now":            "high",
+    "ronixexec.com":        "high",
+    "getronix.com":         "high",
+    "getronix.gg":          "high",
+    # Velocity — domínios adicionais
+    "velocity.cx":          "high",
+    "velocity.gg":          "high",
+    "velocity.cc":          "high",
+    "velocity.lat":         "high",
+    "velocityexec.com":     "high",
+    "getvelocity.com":      "high",
+    "getvelocity.gg":       "high",
+    # Wave — domínios adicionais
+    "wave.gg":              "high",
+    "wave.cc":              "high",
+    "wave.dev":             "high",
+    # Solara — domínios adicionais
+    "solara.cc":            "high",
+    "solara.lat":           "high",
+    "solara.dev":           "high",
+    "getsolara.com":        "high",
     "crypticexec.com":      "high",
     "cryptic.gg":           "high",
     "cryptic-exec.com":     "high",

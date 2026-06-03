@@ -51,6 +51,7 @@ import diff_tool
 import redaction
 import report
 import report_md
+import evidence as ev_engine
 
 
 # --------------------------- ANSI / UTF-8 setup ---------------------------
@@ -94,8 +95,8 @@ BANNER = r"""
 
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
-    print(f"{GREEN}  >_ {RESET}{GREY}roblox screenshare · análise forense local{RESET}")
-    print(f"{GREY}  v3.14.0  ·  50 scanners  ·  100% local{RESET}\n")
+    print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
+    print(f"{GREY}  v3.15.0  ·  Confidence Engine  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -126,7 +127,7 @@ def confirm_consent() -> bool:
 
 
 def severity_to_color(sev: str) -> str:
-    return {"high": RED, "medium": YELLOW, "low": MAGENTA}.get(sev, GREY)
+    return {"critical": RED, "high": RED, "medium": YELLOW, "low": MAGENTA}.get(sev, GREY)
 
 
 def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
@@ -345,6 +346,9 @@ def print_overview(findings: list) -> None:
     print(f"{BOLD}                            RESUMO{RESET}")
     print(f"{BOLD}═══════════════════════════════════════════════════════════════{RESET}\n")
 
+    crit_n = verdict.get("critical", 0)
+    if crit_n:
+        print(f"  {RED}{BOLD}CRIT  {RESET}  {crit_n:>3}   (prova forense forte — hash/BYOVD)")
     print(f"  {RED}HIGH  {RESET}  {verdict['high']:>3}   (match direto de executor conhecido)")
     print(f"  {YELLOW}MEDIUM{RESET}  {verdict['medium']:>3}   (ferramenta auxiliar ou bypass)")
     print(f"  {MAGENTA}LOW   {RESET}  {verdict['low']:>3}   (palavra-chave ambígua)")
@@ -513,7 +517,7 @@ def main():
         enriched = sum(1 for f in findings for i in f["items"] if i.get("pe_info"))
         print(f"{GREEN}{enriched} executável(is) analisado(s){RESET}")
 
-    # Cross-correlation: keywords que apareceram em 3+ fontes
+    # Cross-correlation legado (por keyword): mantido por compat com HTML atual
     high_confidence = cross_correlate(findings)
     if high_confidence:
         print(f"\n{RED}{BOLD}>>> CROSS-CORRELATION: ALTA CONFIANÇA <<<{RESET}")
@@ -523,6 +527,30 @@ def main():
             for src in info["sources"]:
                 print(f"      {GREY}- {src}{RESET}")
 
+    # Confidence Engine: agrupa evidências por target (executor/byovd/etc)
+    # e gera veredictos por cluster. É o que vai protagonizar o relatório
+    # novo. Aqui no console, mostramos só os clusters CONFIRMED e DETECTED
+    # — os WEAK/SUSPECT ficam pro HTML.
+    evidences = ev_engine.findings_to_evidences(findings)
+    clusters  = ev_engine.build_clusters(evidences)
+    cluster_summary = ev_engine.summarize_clusters(clusters)
+
+    if cluster_summary["n_confirmed"] or cluster_summary["n_detected"]:
+        print(f"\n{RED}{BOLD}>>> CONFIDENCE ENGINE: TARGETS DETECTADOS <<<{RESET}")
+        for c in clusters:
+            if c.verdict not in ("CONFIRMED", "DETECTED"):
+                continue
+            color = RED if c.verdict == "CONFIRMED" else YELLOW
+            print(f"  {color}● [{c.verdict}]{RESET} {BOLD}{c.label}{RESET} "
+                  f"{GREY}({c.kind}){RESET}  "
+                  f"{color}{c.confidence_pct}%{RESET} confidence  "
+                  f"{GREY}score={c.score:.1f} · {c.n_sources} fonte(s){RESET}")
+            for src in sorted(c.sources):
+                # 1 hit por fonte é o caso comum; se tiver mais, mostra contagem
+                n = sum(1 for e in c.evidences if e.source == src)
+                hint = f" ×{n}" if n > 1 else ""
+                print(f"      {GREY}✓ {src}{hint}{RESET}")
+
     print_overview(findings)
 
     # 3. HTML report
@@ -531,7 +559,8 @@ def main():
                                              screenshots=screenshots,
                                              high_confidence=high_confidence,
                                              verdict=verdict_obj,
-                                             fp_stats=fp_stats)
+                                             fp_stats=fp_stats,
+                                             clusters=clusters)
     print(f"{GREEN}✓ Relatório HTML:{RESET} {html_path}")
 
     json_path = None

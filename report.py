@@ -19,6 +19,7 @@ except ImportError:
 # Paleta "terminal forense": vermelho de terminal, âmbar (cor de marca),
 # bege apagado pro low, verde pro estado limpo.
 SEVERITY_COLORS = {
+    "critical": "#ff2a2a",
     "high":   "#ff5f56",
     "medium": "#e8b339",
     "low":    "#9c8f6a",
@@ -29,6 +30,160 @@ STATUS_BADGE = {
     "suspicious": ("SUSPEITO", "#ff5f56"),
     "error":      ("SKIP",     "#6a6a6a"),
 }
+
+# Labels amigáveis pra fontes do Confidence Engine — o supervisor vê isso,
+# não o slug interno. Ex: "kernel_drivers" → "Kernel Drivers".
+SOURCE_LABELS = {
+    "prefetch":           "Prefetch",
+    "amcache":            "Amcache",
+    "bam":                "BAM (Background Activity)",
+    "usn_journal":        "USN Journal",
+    "shimcache":          "ShimCache",
+    "userassist":         "UserAssist",
+    "muicache":           "MuiCache",
+    "jumplists":          "JumpLists",
+    "srum":               "SRUM",
+    "kernel_drivers":     "Kernel Drivers",
+    "live_processes":     "Processos rodando",
+    "live_dll_injection": "DLL injetadas",
+    "roblox_logs":        "Roblox Logs",
+    "roblox_bytecode":    "Roblox Bytecode",
+    "bloxstrap":          "Bloxstrap",
+    "browser_history":    "Browser History",
+    "downloads":          "Downloads",
+    "dns_cache":          "DNS Cache",
+    "discord_cache":      "Discord Cache",
+    "anti_forense":       "Anti-forense detectado",
+    "anti_evasion":       "Anti-VM / Sandbox",
+    "powershell_history": "PowerShell history",
+    "command_history":    "Command history",
+    "persistence":        "Persistência (Startup/Tasks)",
+    "peripherals":        "Macros (mouse/teclado)",
+    "network":            "Rede",
+    "fresh_install":      "Instalação recente",
+    "scripts":            "Scripts (.lua/.luau)",
+    "recycle_bin":        "Lixeira",
+    "hidden_files":       "Arquivos ocultos",
+    "filesystem":         "Filesystem",
+}
+
+
+def _src_label(slug: str) -> str:
+    return SOURCE_LABELS.get(slug, slug.replace("_", " ").title())
+
+
+# Verdict de cluster → (emoji, manchete, cor)
+CLUSTER_VERDICT_STYLE = {
+    "CONFIRMED": ("🔴", "EXECUTOR CONFIRMADO",  "#ff2a2a"),
+    "DETECTED":  ("🟠", "EXECUTOR DETECTADO",   "#ff5f56"),
+    "SUSPECT":   ("🟡", "EVIDÊNCIA SUSPEITA",   "#e8b339"),
+    "WEAK":      ("⚪", "PISTA FRACA",          "#9c8f6a"),
+}
+
+
+def _render_hero_verdict(clusters: list, verdict: dict) -> str:
+    """Veredito-protagonista no topo do relatório.
+
+    Regra: o que o supervisor vê em 10 segundos.
+    - PC limpo (sem clusters ou só WEAK) → bloco verde gigante "LIMPO"
+    - 1+ CONFIRMED → "EXECUTOR CONFIRMADO" + Confidence% + cards dos clusters
+    - 1+ DETECTED → "EXECUTOR DETECTADO" + Confidence% + cards
+    - só SUSPECT → "REVISAR" amarelo
+
+    Cada card mostra: nome do target, badge de verdict, confidence%,
+    score, e a lista de fontes que detectaram (✓ Prefetch, ✓ Amcache...).
+    """
+    if not clusters:
+        clusters = []
+
+    # filtra só os que importam pro hero
+    confirmed = [c for c in clusters if c.verdict == "CONFIRMED"]
+    detected  = [c for c in clusters if c.verdict == "DETECTED"]
+    suspect   = [c for c in clusters if c.verdict == "SUSPECT"]
+
+    actionable = confirmed + detected
+    if actionable:
+        # Tom geral do hero = pior cluster
+        top = actionable[0]
+        emoji, headline, color = CLUSTER_VERDICT_STYLE[top.verdict]
+        # Confidence global = a do top cluster (mais relevante pro supervisor)
+        global_conf = top.confidence_pct
+        sub_msg = f"{len(actionable)} target(s) detectado(s)"
+    elif suspect:
+        emoji, headline, color = ("🟡", "REVISAR — EVIDÊNCIA SUSPEITA", "#e8b339")
+        global_conf = max((c.confidence_pct for c in suspect), default=0)
+        sub_msg = f"{len(suspect)} alvo(s) com evidência parcial — sem confirmação cruzada"
+    else:
+        # Sem cluster acionável — limpo
+        emoji, headline, color = ("🟢", "NENHUM EXECUTOR DETECTADO", "#3fbf7f")
+        global_conf = None
+        sub_msg = "Nenhum target acima do limite de FP"
+
+    # Renderiza cards apenas pra clusters acionáveis (top 6 — mais já é ruído)
+    cards_html = ""
+    cards = (confirmed + detected + suspect)[:6]
+    for c in cards:
+        c_emoji, _, c_color = CLUSTER_VERDICT_STYLE[c.verdict]
+        # Lista de fontes únicas com label amigável
+        src_lines = "".join(
+            f'<li><span class="hv-check">✓</span> {_escape(_src_label(s))}</li>'
+            for s in sorted(c.sources)
+        )
+        # Worst severity badge (critical → vermelho forte)
+        sev = c.worst_severity
+        sev_color = SEVERITY_COLORS.get(sev, "#888")
+
+        time_info = ""
+        if c.first_seen:
+            ts = c.first_seen.strftime("%Y-%m-%d %H:%M")
+            time_info = f'<div class="hv-time">Primeiro visto: <code>{_escape(ts)}</code></div>'
+
+        cards_html += f"""
+        <article class="hv-card" style="border-left-color: {c_color}">
+            <header class="hv-card-head">
+                <div class="hv-target">
+                    <span class="hv-card-emoji">{c_emoji}</span>
+                    <span class="hv-card-name">{_escape(c.label)}</span>
+                    <span class="hv-kind">{_escape(c.kind)}</span>
+                </div>
+                <div class="hv-card-verdict" style="color: {c_color}">{c.verdict}</div>
+            </header>
+            <div class="hv-card-meta">
+                <span class="hv-meta-pill" style="background: {c_color}20; color: {c_color}; border: 1px solid {c_color}50">
+                    Confidence {c.confidence_pct}%
+                </span>
+                <span class="hv-meta-pill">
+                    Score {c.score:.1f}
+                </span>
+                <span class="hv-meta-pill">
+                    {c.n_sources} fonte{'s' if c.n_sources != 1 else ''}
+                </span>
+                <span class="hv-meta-pill" style="color: {sev_color}">
+                    sev: {sev}
+                </span>
+            </div>
+            <ul class="hv-sources">{src_lines}</ul>
+            {time_info}
+        </article>"""
+
+    # Confidence string (esconde quando limpo)
+    conf_block = ""
+    if global_conf is not None:
+        conf_block = f'<div class="hv-conf">Confidence: <strong style="color:{color}">{global_conf}%</strong></div>'
+
+    cards_wrapper = ""
+    if cards_html:
+        cards_wrapper = f'<div class="hv-cards">{cards_html}</div>'
+
+    return f"""
+    <section class="hero-verdict">
+        <div class="hv-emoji">{emoji}</div>
+        <h1 class="hv-headline" style="color:{color}">{_escape(headline)}</h1>
+        <div class="hv-sub">{_escape(sub_msg)}</div>
+        {conf_block}
+        {cards_wrapper}
+    </section>
+    """
 
 
 def _escape(s) -> str:
@@ -190,17 +345,26 @@ def _render_summary(findings: list[dict], verdict: dict = None) -> str:
     score_html = f'<div class="stat"><div class="num" style="color:{verdict["color"]}">{verdict["score"]}</div><div>Score</div></div>'
     recent = verdict.get("most_recent_hit") or "—"
 
+    # `critical` opcional — só aparece se houver
+    crit_n = verdict.get("critical", 0)
+    crit_stat = ""
+    if crit_n:
+        crit_stat = f'<div class="stat"><div class="num" style="color:#ff2a2a">{crit_n}</div><div>Critical</div></div>'
+
     return f"""
     <section class="card overview">
-        <h2>Resumo</h2>
-        <div class="big-verdict" style="color:{verdict['color']}">{verdict['verdict']}</div>
-        <div class="verdict-sub">Hit mais recente: <code>{_escape(recent)}</code></div>
+        <div class="card-head">
+            <h2>Detalhes técnicos do veredito</h2>
+            <span class="text-verdict" style="color:{verdict['color']}">{_escape(verdict['verdict'])}</span>
+        </div>
+        <p class="desc">Estatísticas brutas do scan — abaixo do veredito por correlação acima. Hit mais recente: <code>{_escape(recent)}</code>.</p>
         <div class="stats">
+            {crit_stat}
             <div class="stat"><div class="num" style="color:#ff4d4f">{verdict['high']}</div><div>High</div></div>
             <div class="stat"><div class="num" style="color:#ffb020">{verdict['medium']}</div><div>Medium</div></div>
             <div class="stat"><div class="num" style="color:#ffe066">{verdict['low']}</div><div>Low</div></div>
             {score_html}
-            <div class="stat"><div class="num">{total}</div><div>Total</div></div>
+            <div class="stat"><div class="num">{total}</div><div>Hits totais</div></div>
             <div class="stat"><div class="num" style="color:#888">{errors}</div><div>Skips/Erros</div></div>
         </div>
     </section>
@@ -296,6 +460,103 @@ footer {
     text-align: center; color: #555; margin-top: 32px; font-size: 12px;
 }
 footer code { background: transparent; color: #888; }
+
+/* ============================ HERO VERDICT ============================
+   O bloco que o supervisor lê em <10s. Domina o topo do relatório.
+   Tudo o resto fica acessível mas SECUNDÁRIO visualmente.
+================================================================== */
+.hero-verdict {
+    background: radial-gradient(ellipse at top, #1a1a1d 0%, #0e0e10 60%);
+    border: 1px solid #2a2a2e;
+    border-radius: 12px;
+    padding: 36px 28px 28px;
+    margin: 0 0 28px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.hero-verdict::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at top, currentColor 0%, transparent 70%);
+    opacity: 0.05; pointer-events: none;
+}
+.hv-emoji {
+    font-size: 56px; line-height: 1; margin-bottom: 12px;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+}
+.hv-headline {
+    margin: 0 0 6px; font-size: 38px; font-weight: 900;
+    letter-spacing: 2px; text-transform: uppercase;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.4);
+}
+.hv-sub {
+    color: #aaa; font-size: 14px; margin-bottom: 18px;
+    letter-spacing: 0.5px;
+}
+.hv-conf {
+    font-size: 18px; color: #ccc; margin-bottom: 24px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+.hv-conf strong { font-size: 24px; font-weight: 800; }
+
+.hv-cards {
+    display: grid; gap: 14px; margin-top: 20px; text-align: left;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    max-width: 1100px; margin-left: auto; margin-right: auto;
+}
+.hv-card {
+    background: #0e0e10; border: 1px solid #2a2a2e;
+    border-left: 4px solid #888;
+    border-radius: 8px; padding: 16px 18px;
+    transition: transform 0.15s, border-color 0.15s;
+}
+.hv-card:hover { transform: translateY(-2px); }
+.hv-card-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 8px; margin-bottom: 12px;
+}
+.hv-target {
+    display: flex; align-items: baseline; gap: 8px;
+    min-width: 0; flex: 1;
+}
+.hv-card-emoji { font-size: 14px; flex-shrink: 0; }
+.hv-card-name {
+    font-size: 17px; font-weight: 700; color: #fff;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hv-kind {
+    font-size: 10px; color: #888; text-transform: uppercase;
+    letter-spacing: 1px; flex-shrink: 0;
+}
+.hv-card-verdict {
+    font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
+    flex-shrink: 0;
+}
+.hv-card-meta {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+}
+.hv-meta-pill {
+    background: #1a1a1d; border: 1px solid #2a2a2e;
+    color: #ccc; padding: 2px 8px; border-radius: 10px;
+    font-size: 10.5px; font-family: 'Consolas', monospace;
+}
+.hv-sources {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 4px 12px;
+}
+.hv-sources li {
+    color: #c8c8c8; font-size: 13px;
+    display: flex; align-items: center; gap: 6px;
+}
+.hv-check {
+    color: #3fbf7f; font-weight: 700; flex-shrink: 0;
+}
+.hv-time {
+    color: #777; font-size: 11px; margin-top: 10px;
+    border-top: 1px dashed #2a2a2e; padding-top: 8px;
+}
+.hv-time code { color: #aaa; }
 """
 
 
@@ -1017,8 +1278,14 @@ def generate_html_report(findings: list[dict], sys_info: dict,
                           high_confidence: dict = None,
                           verdict: dict = None,
                           fp_stats: dict = None,
+                          clusters: list = None,
                           output_path: str = None) -> str:
-    """Gera HTML e retorna o caminho do arquivo salvo."""
+    """Gera HTML e retorna o caminho do arquivo salvo.
+
+    `clusters` (opcional): lista de evidence.Cluster — quando passado, o
+    relatório inclui a seção de Confidence Engine no topo. Por enquanto
+    backward-compatible: se None, o relatório usa o caminho legado.
+    """
     if output_path is None:
         ts_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = os.path.join(
@@ -1031,6 +1298,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     if HAS_SIGNING:
         self_hash = report_signing.get_self_hash() or ""
 
+    hero_html = _render_hero_verdict(clusters or [], verdict or {})
     summary_html = _render_summary(findings, verdict)
     session_html = _render_session(sys_info, self_hash)
     fp_html = _render_fp_stats(fp_stats or {})
@@ -1997,6 +2265,10 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     @media (max-width: 720px) {
         .overview { grid-template-columns: 1fr; }
         .overview .big-verdict, .overview .verdict-sub { text-align: center; }
+.text-verdict {
+    font-size: 14px; font-weight: 800; letter-spacing: 1.5px;
+    font-family: 'Consolas', monospace;
+}
         .overview .stats { grid-column: 1; justify-content: center; }
     }
 
@@ -2253,13 +2525,15 @@ def generate_html_report(findings: list[dict], sys_info: dict,
             <span class="term-dot td-r"></span>
             <span class="term-dot td-y"></span>
             <span class="term-dot td-g"></span>
-            <span class="term-bar-title">telador — relatório de verificação</span>
+            <span class="term-bar-title">telador — relatório forense de screenshare</span>
         </div>
         <div class="term-body">
             <div class="h1line"><span class="typed">TELADOR</span><span class="term-cursor" aria-hidden="true"></span></div>
-            <div class="sub">{_escape(sys_info.get('host', '?'))} · {_escape(sys_info.get('scan_time', ''))}</div>
+            <div class="sub">Análise forense local · veredito por correlação de evidências</div>
+            <div class="sub" style="margin-top:6px; font-size:12px; color:#777">{_escape(sys_info.get('host', '?'))} · {_escape(sys_info.get('user', '?'))} · {_escape(sys_info.get('scan_time', ''))}</div>
         </div>
     </header>
+    <span id="verdict"></span>{hero_html}
     <span id="summary"></span>{summary_html}
     {session_html}
     {empty_html}

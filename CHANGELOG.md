@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.0] - 2026-06-03
+
+**Confidence Engine** — o salto arquitetural. Em vez de listar 50+ hits
+isolados, o Telador agora **agrupa evidências do mesmo executor em um único
+veredito por target**. O supervisor vê em <10s.
+
+### Added — Confidence Engine
+
+- **`evidence.py`**: novo módulo com modelo `Evidence` (observação atômica)
+  e `Cluster` (várias evidências sobre o mesmo target). Substitui o
+  `cross_correlate` legado baseado em keyword crua.
+
+- **Resolução de `target_id` em cascata**: SHA256 → path normalizado →
+  nome canônico do executor → raw. Variantes "solara", "Solara.exe",
+  "solara executor", "solara hub" convergem para um único cluster.
+
+- **Merge automático path→executor**: o mesmo Solara visto como
+  `path:c:\users\bob\solara\solara.exe` no Prefetch e `executor:solara`
+  no BAM vira **um** cluster com 2 fontes — não dois clusters duplicados.
+
+- **Score com diminishing returns por fonte + bônus de diversidade**:
+  5 hits da mesma fonte valem menos que 5 fontes diferentes batendo no
+  mesmo target. Score = `Σ (severity × source_weight / rank) × (1 + 0.3×(n_sources-1))`.
+
+- **Verdict por cluster** (`CONFIRMED` / `DETECTED` / `SUSPECT` / `WEAK`)
+  com **FP protection no DNA**: 1 fonte só nunca chega a CONFIRMED
+  (exceto critical). Elimina "Amcache acidentalmente bate 'solara'"
+  virar confirmação.
+
+- **`critical` agora pesa no score**: fix preventivo em `SEVERITY_WEIGHT`
+  (peso 25) e `SEVERITY_ORDER`. 1 critical + 2 fontes = CONFIRMADO. 2+
+  críticos cravam veredito.
+
+### Added — Hero verdict no relatório HTML
+
+- **Topo do relatório totalmente reformado**. Bloco "🔴 EXECUTOR CONFIRMADO
+  · Confidence 96%" com cards por cluster mostrando target, score, fontes
+  detectadas (✓ Prefetch, ✓ Amcache, ✓ BAM…). O supervisor entende o
+  resultado **antes** de rolar a página.
+
+- Cards responsivos com badge de verdict, severity, score numérico e
+  timestamp da primeira evidência.
+
+### Added — Assinaturas expandidas (top 5 executores)
+
+- **Ronix** adicionado do zero: keywords, processos, domínios, variantes.
+- **Solara**: hub, `.cc`, `.gg`, `.dev`, `solaraexec`, `solaralauncher`.
+- **Xeno**: `.cc`, `.dev`, `.lat`, `getxeno`, bootstrappers adicionais.
+- **Wave**: hub, `.gg`, `.cc`, `.dev`, `wavelauncher`, `waveexec`.
+- **Velocity**: hub, `.cx`, `.gg`, `.cc`, `.lat`, bootstrapper/launcher.
+
+### Changed
+
+- Banner do CLI: "Confidence Engine · 100% local" em vez de "50 scanners".
+- Header do relatório HTML: "Análise forense local · veredito por
+  correlação de evidências" em vez de contagem de scanners.
+- `_render_summary` rebaixado pra "Detalhes técnicos do veredito"
+  abaixo do hero (era o protagonista, agora é apoio).
+
+### Tests
+
+- **86 testes passando**, +28 novos cobrindo: canonização de aliases,
+  resolução de target_id em cascata, FP protection de single-source,
+  merge path→executor, diminishing returns, regressão do `critical`,
+  unificação dos top 5 executores.
+
 ## [3.14.0] - 2026-06-02
 
 Scanner avançado anti-rootkit + flag de console pra triagem rápida. 50 scanners.
