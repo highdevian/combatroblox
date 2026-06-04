@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.18.2] - 2026-06-03
+
+Release de consistência — publica correções de produção que já estavam
+no `main` mas não no binário (e que não tinham entrada no changelog).
+
+### Fixed
+
+- **`datetime.utcnow()` deprecado** em `scan_event_log_gap` (extra_forensics):
+  deprecado no Python 3.12+ e marcado pra remoção — quebraria numa versão
+  futura do Python. Trocado por `datetime.now(timezone.utc)`.
+- **Leak de socket** no `watch_server.start()`: cada chamada criava um
+  servidor novo sem fechar o anterior. Agora `start()` é idempotente
+  (fecha o anterior) e há uma função `stop()` pública.
+
+### Tests / infra (já no repo, sem efeito no binário)
+
+- Cobertura de teste: `report.py`, `redaction.py`, `report_signing.py`,
+  `diff_tool.py` (eram zero). **147 testes** no total.
+- CI: matriz Python 3.11/3.12/3.13, valida `signatures.dist.json`, cobre
+  os módulos novos no smoke de imports.
+
 ## [3.18.1] - 2026-06-03
 
 Auditoria de bug + melhoria de interface.
