@@ -81,7 +81,6 @@ EXECUTOR_KEYWORDS = {
     "xenos injector":   "medium",
     "manualmap":        "medium",
     "dll injector":     "medium",
-    "roblox account manager": "low",
     "ram-master":       "low",
 
     # ===== Top 5 priorizados 2024-2026 (Solara/Xeno/Wave/Velocity/Ronix) =====
@@ -313,6 +312,41 @@ EXECUTOR_KEYWORDS = {
     "roblox macro":       "high",
     "auto farm macro":    "high",
     "autofarm macro":     "high",
+
+    # ===== Evasão de ban e contas alt =====
+    # Gerenciadores de alt / multi-instância: MEDIUM (rodar várias contas
+    # não prova cheat, mas é sinal forte de botting/alt evasion num SS).
+    # NÃO inclui "fps unlocker"/"bloxstrap"/"fishstrap" (legítimos).
+    "roblox account manager": "medium",
+    "rbx account manager":    "medium",
+    "alt manager":            "medium",
+    "multi account manager":  "medium",
+    "multibloxy":             "medium",
+    "multi bloxy":            "medium",
+    "multiroblox":            "medium",
+    "multi roblox":           "medium",
+    "multirblx":              "medium",
+    "roblox multi instance":  "medium",
+    "roblox multiinstance":   "medium",
+    "rbxmulti":               "medium",
+    "roblox alt generator":   "high",
+    "alt generator":          "medium",
+    "account generator":      "medium",
+
+    # HWID spoofers — burlar BAN DE HARDWARE (Hyperion/Byfron). Sem uso
+    # legítimo pra jogador normal: HIGH. Expande a cobertura existente.
+    "hwid changer":           "high",
+    "hwid reset":             "high",
+    "serial spoofer":         "high",
+    "disk spoofer":           "high",
+    "smbios spoofer":         "high",
+    "mac spoofer":            "high",
+    "byfron spoofer":         "high",
+    "hyperion spoofer":       "high",
+    "roblox spoofer":         "high",
+    "cleaner spoofer":        "high",
+    "exodus spoofer":         "high",
+    "vanity spoofer":         "high",
 }
 
 EXECUTOR_PROCESS_NAMES = {
@@ -448,6 +482,23 @@ EXECUTOR_PROCESS_NAMES = {
     "fastclicker.exe":        "medium",
     "autokeyboard.exe":       "medium",
     "auto keyboard presser.exe": "medium",
+
+    # ===== Evasão de ban e contas alt (processos) =====
+    "roblox account manager.exe": "medium",
+    "rbxalt.exe":             "medium",
+    "altmanager.exe":         "medium",
+    "multibloxy.exe":         "medium",
+    "multiroblox.exe":        "medium",
+    "multirblx.exe":          "medium",
+    "rbxmulti.exe":           "medium",
+    # HWID spoofers (processos) — expande
+    "hwidchanger.exe":        "high",
+    "spooferpro.exe":         "high",
+    "serialspoofer.exe":      "high",
+    "smbiosspoofer.exe":      "high",
+    "macspoofer.exe":         "high",
+    "byfronspoofer.exe":      "high",
+    "robloxspoofer.exe":      "high",
 }
 
 SUSPICIOUS_DOMAINS = {

@@ -49,6 +49,9 @@ A maioria das ferramentas de SS olha só Prefetch. O Telador também detecta:
 - Gap suspeito em log de eventos sem o evento 1102 de limpeza
 - USN Journal: pega arquivo executado **mesmo depois de deletado** (o registro fica)
 
+**Pegar evasão de ban e contas alt.**
+Gerenciadores de alt e multi-instância (Roblox Account Manager, MultiBloxy, Multi Roblox) — sinal de botting/alt evasion. E HWID spoofers (hwid changer, byfron/hyperion spoofer, etc.) que servem só pra burlar ban de hardware do anticheat do Roblox. Ferramentas legítimas como FPS Unlocker e Bloxstrap não disparam.
+
 **Pegar autoclickers e macros.**
 Além do software de mouse com motor de macro (G HUB, Razer) e das red flags de conteúdo (no recoil, auto click, rapid fire), o Telador detecta as ferramentas de autoclique/macro standalone — OP Autoclicker, Speed Autoclicker, TinyTask, Macro Recorder, Pulover, MurGee e dezenas de variantes. Pega o rastro delas em Prefetch/Amcache/BAM/Downloads, mesmo que o cara tenha fechado e apagado.
 

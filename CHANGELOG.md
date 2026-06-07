@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.21.0] - 2026-06-07
+
+**Evasão de ban e contas alt** — o arsenal de quem leva ban e volta.
+
+### Added
+
+- **Gerenciadores de alt / multi-instância** (MEDIUM): Roblox Account
+  Manager, MultiBloxy, Multi Roblox, rbxmulti, alt manager, account
+  generator e variantes. Rodar várias contas não prova cheat, mas é sinal
+  forte de botting/alt evasion num SS — o Confidence Engine corrobora.
+  (O "roblox account manager" estava sub-avaliado como `low` → agora
+  `medium`.)
+- **HWID spoofers expandidos** (HIGH): hwid changer, serial/disk/smbios/
+  mac spoofer, byfron/hyperion/roblox spoofer, exodus, vanity, cleaner
+  spoofer + nomes de processo. Spoofar HWID não tem uso legítimo pra
+  jogador normal — é especificamente pra burlar ban de hardware.
+
+### Anti-FP
+
+- Frases específicas + word-boundary protegem: "fps unlocker", "bloxstrap",
+  "fishstrap" (legítimos), "alt account" (comum), "steam multi instance"
+  (outro jogo), "altair", "multimedia", "smbios info" → NÃO disparam.
+- Validado scan LIMPO na máquina. 5 testes novos (164 no total), incl.
+  lista de legítimos/comuns que não podem casar.
+
+### Como funciona
+
+- Entram nas listas que os scanners forenses já varrem → pegos
+  automaticamente em todas as fontes (Prefetch/Amcache/BAM/Downloads/
+  browser/USN/Lixeira/processos), sem código de scanner novo.
+
 ## [3.20.0] - 2026-06-07
 
 **Detecção de autoclickers / macros standalone** — pedido pela comunidade.
