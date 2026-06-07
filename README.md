@@ -49,6 +49,9 @@ A maioria das ferramentas de SS olha só Prefetch. O Telador também detecta:
 - Gap suspeito em log de eventos sem o evento 1102 de limpeza
 - USN Journal: pega arquivo executado **mesmo depois de deletado** (o registro fica)
 
+**Pegar launcher do Roblox modificado.**
+O `RobloxPlayerBeta.exe` oficial é sempre assinado pela Roblox. Se o binário no path de instalação está com a assinatura **quebrada**, foi patcheado (modificado pra injetar na inicialização) — sinal forte. O Telador também pega arquivo com nome de launcher do Roblox largado em Downloads/Desktop não-assinado (dropper disfarçado). Validado com 0 falso positivo num PC com Roblox + Studio legítimos.
+
 **Pegar executor mesmo renomeado (detecção comportamental).**
 Detecção por nome ("solara.exe") morre quando o cheater renomeia o arquivo — e ele sabe renomear, porque o código é aberto. Por isso o Telador também detecta pela **estrutura**: um `.exe` não-assinado largado na mesma pasta de um runtime web embutido (EBWebView/CEF), em local de usuário, é o fingerprint dos executores modernos (Solara/Wave/Velocity). Isso sobrevive a renomear o arquivo *e* a pasta. Validado com 0 falso positivo num PC real cheio de apps WebView2.
 

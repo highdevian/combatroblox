@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.19.0] - 2026-06-07
+
+**Detecção de launcher do Roblox modificado** — pedido pela comunidade de SS.
+
+### Added
+
+- **`scan_roblox_launcher_integrity`**: detecta launcher/player do Roblox
+  adulterado. Dois cenários:
+  - **Binário oficial adulterado**: `RobloxPlayerBeta.exe` (ou installer/
+    studio) no path de instalação com **assinatura digital QUEBRADA**. O
+    Roblox sempre assina seus binários — assinatura quebrada = arquivo
+    patcheado pra injetar na inicialização. Severidade HIGH.
+  - **Launcher falso**: arquivo com nome de launcher do Roblox numa pasta
+    de usuário (Downloads/Desktop/Temp) e não-assinado = dropper/executor
+    se passando por Roblox. Severidade HIGH.
+
+### Anti-FP
+
+- Validado empiricamente: 0 hits numa máquina com Roblox + Roblox Studio
+  legítimos (9 binários oficiais, todos assinados).
+- Só flaga assinatura **comprovadamente** quebrada (`False`), nunca
+  indeterminada (`None`).
+- Bloxstrap/Fishstrap (alternativas legítimas) usam o `RobloxPlayerBeta`
+  oficial assinado — não caem aqui.
+- Instalador oficial assinado baixado em Downloads é ignorado.
+- 7 testes novos (154 no total), incl. trava de regressão zero-FP na
+  máquina real.
+
+### Confidence Engine
+
+- Nova fonte `launcher_integrity` (peso 0.90 — binário oficial adulterado
+  é sinal forte).
+
 ## [3.18.2] - 2026-06-03
 
 Release de consistência — publica correções de produção que já estavam

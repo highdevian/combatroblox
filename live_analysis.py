@@ -620,9 +620,141 @@ def scan_executor_structure() -> dict:
     )
 
 
+# ============================ Integridade do launcher do Roblox ============================
+
+# Binários oficiais do Roblox — SEMPRE assinados pela Roblox Corporation.
+# Um destes com assinatura QUEBRADA = adulterado (patcheado pra injetar).
+_ROBLOX_OFFICIAL_BINARIES = {
+    "robloxplayerbeta.exe",
+    "robloxplayerlauncher.exe",
+    "robloxplayerinstaller.exe",
+    "robloxstudiobeta.exe",
+    "robloxstudiolauncherbeta.exe",
+    "robloxstudioinstaller.exe",
+}
+
+# Nomes que um dropper usaria pra se passar por launcher do Roblox.
+_ROBLOX_MASQUERADE_NAMES = _ROBLOX_OFFICIAL_BINARIES | {
+    "roblox.exe", "robloxplayer.exe", "robloxlauncher.exe",
+    "roblox launcher.exe", "roblox player.exe",
+}
+
+# Raiz oficial de instalação. Tudo com nome de launcher FORA daqui é suspeito.
+def _roblox_official_root() -> str:
+    return os.path.expandvars(r"%LOCALAPPDATA%\Roblox").lower().replace("/", "\\")
+
+# Pastas graváveis pelo usuário onde um launcher falso/dropper costuma cair.
+_LAUNCHER_WRONG_LOCATIONS = [
+    r"%USERPROFILE%\Downloads",
+    r"%USERPROFILE%\Desktop",
+    r"%USERPROFILE%\Documents",
+    r"%TEMP%",
+    r"%APPDATA%",
+    r"%LOCALAPPDATA%\Temp",
+]
+
+
+def scan_roblox_launcher_integrity() -> dict:
+    """
+    Detecta LAUNCHER DO ROBLOX MODIFICADO — o que a comunidade pediu.
+
+    Dois cenários:
+      1. Binário oficial do Roblox (RobloxPlayerBeta.exe etc) no path de
+         instalação, mas com ASSINATURA QUEBRADA → foi patcheado pra
+         injetar na inicialização. Sinal forte (HIGH): o Roblox SEMPRE
+         assina seus binários.
+      2. Arquivo com nome de launcher do Roblox numa pasta de usuário
+         (Downloads/Desktop/Temp) e NÃO-ASSINADO → dropper se passando
+         por launcher oficial. (Assinado em pasta de usuário = instalador
+         real baixado, não flaga.)
+
+    Anti-FP (validado: 9 binários oficiais nesta máquina, todos assinados):
+      - Só flaga assinatura COMPROVADAMENTE quebrada (False), nunca
+        indeterminada (None).
+      - Bloxstrap/Fishstrap (alternativas legítimas) usam o RobloxPlayerBeta
+        oficial assinado — não caem aqui.
+      - Instalador oficial assinado em Downloads é ignorado.
+    """
+    items = []
+    seen = set()
+
+    # --- Cenário 1: binário oficial adulterado (assinatura quebrada) ---
+    roblox_root = _roblox_official_root()
+    if os.path.isdir(roblox_root):
+        for dirpath, dirnames, filenames in os.walk(roblox_root):
+            if dirpath[len(roblox_root):].count(os.sep) > 5:
+                dirnames[:] = []
+                continue
+            for f in filenames:
+                if f.lower() not in _ROBLOX_OFFICIAL_BINARIES:
+                    continue
+                p = os.path.join(dirpath, f)
+                if p.lower() in seen:
+                    continue
+                seen.add(p.lower())
+                signed = _is_dll_signed(p)
+                if signed is False:  # comprovadamente quebrada/ausente
+                    try:
+                        mtime = _fmt_ts(os.path.getmtime(p))
+                    except OSError:
+                        mtime = ""
+                    items.append(_item(
+                        label=f"Launcher do Roblox ADULTERADO: {f}",
+                        detail=f"{p}\nBinário oficial do Roblox com assinatura digital "
+                               f"QUEBRADA/INVÁLIDA. O Roblox sempre assina seus binários — "
+                               f"assinatura quebrada = arquivo modificado (patcheado pra "
+                               f"injetar na inicialização). Sinal forte de bypass.",
+                        severity="high",
+                        matched=f"launcher-tampered:{f.lower()}",
+                        timestamp=mtime,
+                    ))
+
+    # --- Cenário 2: dropper se passando por launcher em pasta de usuário ---
+    for raw_loc in _LAUNCHER_WRONG_LOCATIONS:
+        loc = os.path.expandvars(raw_loc)
+        if not os.path.isdir(loc):
+            continue
+        try:
+            entries = os.listdir(loc)
+        except OSError:
+            continue
+        for name in entries:
+            if name.lower() not in _ROBLOX_MASQUERADE_NAMES:
+                continue
+            p = os.path.join(loc, name)
+            if not os.path.isfile(p) or p.lower() in seen:
+                continue
+            seen.add(p.lower())
+            # Já está fora do path oficial. Assinado = instalador real baixado
+            # (ignora). Não-assinado/quebrado = dropper disfarçado.
+            signed = _is_dll_signed(p)
+            if signed is False:
+                try:
+                    mtime = _fmt_ts(os.path.getmtime(p))
+                except OSError:
+                    mtime = ""
+                items.append(_item(
+                    label=f"Launcher do Roblox FALSO: {name}",
+                    detail=f"{p}\nArquivo com nome de launcher do Roblox numa pasta de "
+                           f"usuário, NÃO-ASSINADO. O launcher oficial fica em "
+                           f"%LOCALAPPDATA%\\Roblox\\Versions e é assinado. Um não-assinado "
+                           f"aqui é um dropper/executor se passando por Roblox.",
+                    severity="high",
+                    matched=f"launcher-fake:{name.lower()}",
+                    timestamp=mtime,
+                ))
+
+    return _result(
+        "Integridade do launcher do Roblox",
+        "Launcher/player oficial adulterado (assinatura quebrada) ou dropper disfarçado de Roblox",
+        items,
+    )
+
+
 ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_roblox_dll_injection,
     scan_process_tree,
     scan_overlay_windows,
     scan_executor_structure,
+    scan_roblox_launcher_integrity,
 ]
