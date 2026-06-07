@@ -8,6 +8,7 @@ Network forensics:
 import os
 import re
 import subprocess
+import matching
 
 from database import SUSPICIOUS_DOMAINS, EXECUTOR_PROCESS_NAMES
 
@@ -148,7 +149,7 @@ def scan_dns_cache() -> dict:
         matched_kw = None
         severity = None
         for sus_dom, sev in SUSPICIOUS_DOMAINS.items():
-            if sus_dom in domain:
+            if matching.domain_in_text(sus_dom, domain):
                 matched_kw, severity = sus_dom, sev
                 break
         if not matched_kw:

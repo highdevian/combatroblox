@@ -14,6 +14,7 @@ import os
 import struct
 import shutil
 import sqlite3
+import matching
 import tempfile
 import platform
 import getpass
@@ -391,7 +392,7 @@ def _check_browser_db(db_path: str, browser_name: str) -> list:
             for url, title, vtime in cur.fetchall():
                 target = f"{url or ''} {title or ''}".lower()
                 for domain, severity in SUSPICIOUS_DOMAINS.items():
-                    if domain in target:
+                    if matching.domain_in_text(domain, target):
                         # Chrome time: microseconds since 1601-01-01
                         try:
                             visit_dt = datetime(1601, 1, 1) + timedelta(microseconds=vtime)
@@ -417,7 +418,7 @@ def _check_browser_db(db_path: str, browser_name: str) -> list:
                 kw, severity = _match_keyword(target)
                 if not kw:
                     for domain, dsev in SUSPICIOUS_DOMAINS.items():
-                        if domain in target:
+                        if matching.domain_in_text(domain, target):
                             kw, severity = domain, dsev
                             break
                 if not kw:

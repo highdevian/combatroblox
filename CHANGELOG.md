@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.22.2] - 2026-06-07
+
+Continuação da auditoria de FP — matching de domínio por fronteira.
+
+### Fixed
+
+- **Domínio suspeito casava como substring de domínio maior**: `wave.gg`
+  flagava `soundwave.gg`, `heatwave.cc` flagava... etc. Agora o matching
+  exige fronteira de domínio real: `wave.gg` casa `wave.gg` e `sub.wave.gg`
+  (subdomínio legítimo), mas NÃO `soundwave.gg` nem `wave.ggames.com`.
+- Novo helper `matching.domain_in_text()` aplicado nos 3 pontos que
+  comparavam domínio (browser history visitas + downloads, e rede/DNS).
+
+### Testes
+
+- `test_fp_audit.py` ganhou casos de fronteira de domínio. 168 testes.
+
 ## [3.22.1] - 2026-06-07
 
 Auditoria de falso positivo — 3 colisões de marca corrigidas.

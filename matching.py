@@ -56,3 +56,35 @@ def match_keyword(text):
         if pat.search(text):
             return kw, sev
     return None, None
+
+
+def domain_in_text(domain: str, text: str) -> bool:
+    """
+    True se `domain` aparece em `text` como domínio DE VERDADE — não como
+    pedaço de um domínio maior.
+
+    Casa:   "wave.gg", "wave.gg/x", "https://wave.gg", "sub.wave.gg"
+    NÃO casa: "soundwave.gg", "wave.ggames.com"
+
+    Regra: a ocorrência precisa ter fronteira nos dois lados. À esquerda,
+    o char anterior não pode ser alfanumérico nem hífen (senão é parte de
+    um label maior tipo "sound-wave"); um ponto à esquerda é OK (subdomínio).
+    À direita, o char seguinte não pode ser alfanumérico (senão é outro TLD,
+    tipo ".ggames").
+    """
+    if not domain or not text:
+        return False
+    dlow = domain.lower()
+    tlow = text.lower()
+    start = 0
+    n = len(dlow)
+    while True:
+        i = tlow.find(dlow, start)
+        if i == -1:
+            return False
+        left_ok = (i == 0) or not (tlow[i - 1].isalnum() or tlow[i - 1] == "-")
+        j = i + n
+        right_ok = (j >= len(tlow)) or not tlow[j].isalnum()
+        if left_ok and right_ok:
+            return True
+        start = i + 1

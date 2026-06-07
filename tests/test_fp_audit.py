@@ -64,3 +64,33 @@ def test_executors_still_detected_via_variants():
         kw, sev = matching.match_keyword(text)
         assert kw == expected, f"{text!r} -> {kw!r} (esperado {expected!r}) — perdeu cobertura"
         assert sev == "high"
+
+
+# ----- Domínio: substring de domínio maior NÃO pode casar -----
+
+def test_domain_boundary_no_substring_fp():
+    """wave.gg não pode casar soundwave.gg etc. (era FP de substring)."""
+    cases_no = [
+        ("wave.gg", "soundwave.gg/music"),
+        ("wave.cc", "heatwave.cc"),
+        ("wave.dev", "mywave.dev"),
+        ("sense.gg", "nonsense.gg"),
+        ("coral.gg", "mycoral.gg"),
+    ]
+    for dom, text in cases_no:
+        assert not matching.domain_in_text(dom, text), \
+            f"FP de domínio: {dom!r} casou {text!r}"
+
+
+def test_domain_boundary_real_domains_match():
+    """Domínio real e subdomínio legítimo DEVEM casar."""
+    cases_yes = [
+        ("wave.gg", "wave.gg"),
+        ("wave.gg", "https://wave.gg/download"),
+        ("wave.gg", "data.wave.gg"),        # subdomínio real
+        ("solara.cc", "baixou de solara.cc hoje"),
+        ("xeno.now", "sub.xeno.now"),
+    ]
+    for dom, text in cases_yes:
+        assert matching.domain_in_text(dom, text), \
+            f"perdeu match de domínio: {dom!r} em {text!r}"
