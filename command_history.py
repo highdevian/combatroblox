@@ -52,16 +52,28 @@ def _item(label, detail, severity, matched, timestamp=""):
 
 
 def _match_in_line(line: str) -> tuple[str | None, str | None]:
-    """Procura red flag em uma linha. Retorna (matched, severity) ou (None, None)."""
+    """Procura red flag em uma linha. Retorna (matched, severity) ou (None, None).
+
+    Usa o matching CENTRAL pra keyword (word-boundary) e domínio (fronteira),
+    evitando o FP de substring (ex.: 'solara' em 'solarapanel', 'wave.gg' em
+    'soundwave.gg'). POWERSHELL_RED_FLAGS continua substring de propósito —
+    são fragmentos de comando ('iex', 'downloadstring')."""
+    import matching
     lower = line.lower()
+
+    def _first_domain():
+        for dom, sev in SUSPICIOUS_DOMAINS.items():
+            if matching.domain_in_text(dom, lower):
+                return dom, sev
+        return None, None
 
     # 1. PowerShell red flags
     for kw, sev in POWERSHELL_RED_FLAGS.items():
         if kw in lower:
             # Se tem URL suspeita junto, sobe pra HIGH
-            for dom in SUSPICIOUS_DOMAINS:
-                if dom in lower:
-                    return f"{kw} + {dom}", "high"
+            dom, _ = _first_domain()
+            if dom:
+                return f"{kw} + {dom}", "high"
 
             # Keywords HIGH que precisam de contexto: só permanecem HIGH
             # se tiver keyword de download na mesma linha. Senão, MEDIUM.
@@ -74,14 +86,14 @@ def _match_in_line(line: str) -> tuple[str | None, str | None]:
             return kw, sev
 
     # 2. URLs de cheat sem comando explícito (já é suspeito)
-    for dom, sev in SUSPICIOUS_DOMAINS.items():
-        if dom in lower:
-            return dom, sev
+    dom, dsev = _first_domain()
+    if dom:
+        return dom, dsev
 
-    # 3. Executor keywords no comando
-    for kw, sev in EXECUTOR_KEYWORDS.items():
-        if kw in lower:
-            return kw, sev
+    # 3. Executor keywords no comando (word-boundary, anti-FP)
+    kw, sev = matching.match_keyword(line)
+    if kw:
+        return kw, sev
 
     return None, None
 

@@ -94,3 +94,27 @@ def test_domain_boundary_real_domains_match():
     for dom, text in cases_yes:
         assert matching.domain_in_text(dom, text), \
             f"perdeu match de domínio: {dom!r} em {text!r}"
+
+
+# ----- word_in_text: fronteira de palavra para listas de substring -----
+
+def test_word_in_text_boundary():
+    assert matching.word_in_text("wipe", "wipe.exe")
+    assert matching.word_in_text("shred", "shred.exe")
+    assert not matching.word_in_text("wipe", "swipe.exe")     # era FP
+    assert not matching.word_in_text("shred", "shredder pics")  # era FP
+
+
+# ----- command_history não pode bypassar o matching central -----
+
+def test_command_history_uses_central_matching():
+    """command_history fazia substring de EXECUTOR_KEYWORDS/SUSPICIOUS_DOMAINS,
+    bypassando word-boundary. Agora usa o matching central — sem FP."""
+    import command_history as ch
+    # FPs que o substring causava:
+    assert ch._match_in_line("cd C:/solarapanel/docs")[0] is None
+    assert ch._match_in_line("visited soundwave.gg yesterday")[0] is None
+    # detecção real preservada:
+    assert ch._match_in_line("run solara.exe")[0] is not None
+    kw, sev = ch._match_in_line("iex(downloadstring https://solara.cc/x)")
+    assert kw is not None and sev == "high"

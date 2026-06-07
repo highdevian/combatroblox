@@ -101,18 +101,20 @@ def scan_discord_cache() -> dict:
                     continue
                 seen_urls.add(url)
 
-                # Match contra database
+                # Match contra database — usa matching central (fronteira de
+                # domínio + word-boundary de keyword), evita FP de substring.
+                import matching
                 matched_kw = None
                 severity = None
+                ulow = url.lower()
                 for dom, sev in SUSPICIOUS_DOMAINS.items():
-                    if dom in url:
+                    if matching.domain_in_text(dom, ulow):
                         matched_kw, severity = dom, sev
                         break
                 if not matched_kw:
-                    for kw, sev in EXECUTOR_KEYWORDS.items():
-                        if kw in url and len(kw) > 4:
-                            matched_kw, severity = kw, sev
-                            break
+                    kw, sev = matching.match_keyword(url)
+                    if kw:
+                        matched_kw, severity = kw, sev
 
                 if not matched_kw:
                     continue

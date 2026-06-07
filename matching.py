@@ -58,6 +58,25 @@ def match_keyword(text):
     return None, None
 
 
+_word_cache = {}
+
+
+def word_in_text(word: str, text: str) -> bool:
+    """Substring com fronteira de palavra — 'wipe' casa 'wipe.exe' mas NÃO
+    'swipe'. Pra listas matchadas por substring que têm termos curtos/comuns
+    (ex.: CLEANER_NAMES com 'wipe'/'shred'). Cacheia o pattern por palavra."""
+    if not word or not text:
+        return False
+    pat = _word_cache.get(word)
+    if pat is None:
+        esc = re.escape(word.lower())
+        pre = r"\b" if word[0].isalnum() else ""
+        suf = r"\b" if word[-1].isalnum() else ""
+        pat = re.compile(pre + esc + suf)
+        _word_cache[word] = pat
+    return bool(pat.search(text.lower()))
+
+
 def domain_in_text(domain: str, text: str) -> bool:
     """
     True se `domain` aparece em `text` como domínio DE VERDADE — não como

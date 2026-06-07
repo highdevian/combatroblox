@@ -944,7 +944,7 @@ def scan_cleaners() -> dict:
         for entry in entries:
             lower = entry.lower()
             for cleaner_kw, severity in CLEANER_NAMES.items():
-                if cleaner_kw in lower:
+                if matching.word_in_text(cleaner_kw, lower):
                     full = os.path.join(base, entry)
                     try:
                         mtime = os.path.getmtime(full)

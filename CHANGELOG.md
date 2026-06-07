@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.22.3] - 2026-06-07
+
+Auditoria de FP — parte 3. Achado o pior: scanners que bypassavam a
+proteção anti-FP central.
+
+### Fixed
+
+- **`command_history` (PowerShell/RunMRU/TypedPaths) e `discord_cache`
+  faziam substring de `EXECUTOR_KEYWORDS` e `SUSPICIOUS_DOMAINS`** — ou
+  seja, ignoravam TODA a proteção word-boundary/domínio que o resto do
+  programa usa. Isso reintroduzia FP (ex.: 'solara' casava 'solarapanel';
+  'wave.gg' casava 'soundwave.gg') exatamente nesses dois scanners. Agora
+  ambos usam `matching.match_keyword` + `matching.domain_in_text`.
+- **`CLEANER_NAMES` com 'wipe'/'shred' (substring)** casava 'swipe.exe' e
+  'shredder'. Novo helper `matching.word_in_text()` (fronteira de palavra)
+  aplicado — 'wipe' casa 'wipe.exe' mas não 'swipe'.
+
+### Testes
+
+- `test_fp_audit.py` cobre os 3 casos. 170 testes no total.
+
 ## [3.22.2] - 2026-06-07
 
 Continuação da auditoria de FP — matching de domínio por fronteira.
