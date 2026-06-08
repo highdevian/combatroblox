@@ -44,6 +44,7 @@ import discord_cache
 import network_scanners
 import fresh_install
 import removable_media
+import user_accounts
 import capture
 import fp_filter
 import pe_analysis
@@ -194,6 +195,7 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     chain.extend(discord_cache.ALL_DISCORD_SCANNERS)
     chain.extend(fresh_install.ALL_FRESH_INSTALL_SCANNERS)
     chain.extend(removable_media.ALL_REMOVABLE_SCANNERS)
+    chain.extend(user_accounts.ALL_USER_ACCOUNT_SCANNERS)
     return chain
 
 
