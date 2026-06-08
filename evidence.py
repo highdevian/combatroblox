@@ -85,6 +85,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "removable_media":      0.78,
     "user_accounts":        0.60,
     "defender_tampering":   0.80,
+    "clock_tampering":      0.70,
     "hidden_files":         0.65,
     "filesystem":           0.70,
 }
@@ -475,6 +476,7 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("conta de windows",      "user_accounts"),
         ("defender",              "defender_tampering"),
         ("exclusão",              "defender_tampering"),
+        ("relógio",               "clock_tampering"),
         ("dll injection",         "live_dll_injection"),
         ("process tree",          "live_processes"),
         ("process",               "live_processes"),
