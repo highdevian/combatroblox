@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.25.0] - 2026-06-08
+
+**Mídia removível**: detecção de cheat rodado de pendrive (USB) — o
+"trapaças em pen drives" dos cursos de telagem.
+
+### Added
+
+- **Detecção de mídia removível** (`removable_media.py`), dois scanners.
+  `scan_usb_history` lista dispositivos USB de armazenamento conectados nas
+  últimas 24h (via last-write do USBSTOR) como contexto de SS — pendrive
+  plugado perto do horário de jogo é vetor de cheat rodado de USB que
+  despluga sem deixar o .exe no disco. `scan_removable_drives` varre o
+  conteúdo de unidades removíveis plugadas agora e flagga arquivo de
+  executor conhecido (cheat ainda na USB durante a SS). Anti-FP: o histórico
+  é severidade baixa (contexto, não infla veredito) e o conteúdo só dispara
+  com match de keyword de executor. Source próprio (`removable_media`).
+
+### Por quê
+
+FAT32 de pendrive não tem USN journal — desplugar não deixa rastro NA USB.
+Mas o registro do host (USBSTOR) e os artefatos de execução do C: ainda
+contam a história. Validado em dados reais (timestamps de USBSTOR + GetDriveType).
+
 ## [3.24.0] - 2026-06-08
 
 **Anti-bypass**: detecção de processo suspenso — o truque de pausar o
