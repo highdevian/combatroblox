@@ -84,6 +84,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "recycle_bin":          0.75,
     "removable_media":      0.78,
     "user_accounts":        0.60,
+    "defender_tampering":   0.80,
     "hidden_files":         0.65,
     "filesystem":           0.70,
 }
@@ -472,6 +473,8 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("mídia removível",       "removable_media"),
         ("contas de usuário",     "user_accounts"),
         ("conta de windows",      "user_accounts"),
+        ("defender",              "defender_tampering"),
+        ("exclusão",              "defender_tampering"),
         ("dll injection",         "live_dll_injection"),
         ("process tree",          "live_processes"),
         ("process",               "live_processes"),
