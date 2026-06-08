@@ -40,6 +40,16 @@ Sem admin, "nada encontrado" não inocenta — é inconclusivo. O programa avisa
 - Anti-forense — Prefetch/SysMain off, VSS wipe, log de Segurança limpo, PowerShell
   apagado, USN journal (pega exec que foi deletado).
 
+Anti-bypass (os truques que os cursos de telagem ensinam pra burlar a SS):
+
+- Processo suspenso — cheat pausado (Process Hacker → Suspend) pra parecer inativo.
+- Cheat em pendrive — USB conectada recente + executor em mídia removível plugada
+  (rodou da USB e despluga, sem deixar o .exe no disco).
+- Outra conta de Windows — joga limpo numa conta e cheata em outra; enumera os perfis.
+- Defender adulterado — exclusão de pasta/executor ou proteção em tempo real desligada.
+- Relógio voltado pra trás — evento 4616: tira os artefatos do cheat da janela de tempo.
+- Limpadores / secure-delete — SDelete, Eraser, BleachBit & cia que rodaram (pré-limpeza).
+
 As evidências do mesmo executor são agrupadas num veredito por target (Confidence
 Engine), com % de confiança, em vez de cuspir 50 hits soltos pra você interpretar.
 
