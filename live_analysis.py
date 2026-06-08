@@ -751,10 +751,131 @@ def scan_roblox_launcher_integrity() -> dict:
     )
 
 
+# ============================ Processo suspenso (anti-bypass) ============================
+
+# Apps que o Windows (ou o próprio app) legitimamente deixam em estado suspenso:
+# UWP/Store em background, processos-filho de navegador, etc. Suspender esses é
+# rotina do SO — não é sinal. Whitelist generosa pra não virar tempestade de FP.
+_SUSPEND_WHITELIST = {
+    # Navegadores (suspendem abas/processos-filho)
+    "chrome.exe", "msedge.exe", "msedgewebview2.exe", "firefox.exe",
+    "brave.exe", "opera.exe", "opera_gx.exe", "iexplore.exe", "vivaldi.exe",
+    # Comunicação
+    "discord.exe", "discordcanary.exe", "discordptb.exe",
+    "slack.exe", "teams.exe", "msteams.exe", "whatsapp.exe", "telegram.exe",
+    # Plataformas / launchers
+    "steam.exe", "steamwebhelper.exe", "epicgameslauncher.exe",
+    # Shell / UWP comuns (o Windows suspende em background)
+    "explorer.exe", "searchhost.exe", "searchapp.exe", "searchindexer.exe",
+    "startmenuexperiencehost.exe", "shellexperiencehost.exe",
+    "textinputhost.exe", "applicationframehost.exe", "systemsettings.exe",
+    "widgets.exe", "widgetservice.exe", "phoneexperiencehost.exe",
+    "yourphone.exe", "gamebar.exe", "xboxgamebar.exe", "gamebarftserver.exe",
+    "lockapp.exe", "peopleexperiencehost.exe", "runtimebroker.exe",
+}
+
+# Processos suspensos vivendo em pasta de app empacotado (UWP/Store) ou system
+# app são esperados — o Windows suspende esses em background. Não flaga.
+_SUSPEND_SKIP_PATH_SUBSTR = (
+    "\\windowsapps\\", "\\appdata\\local\\packages\\",
+    "\\systemapps\\", "\\windows\\systemapps\\",
+)
+
+
+def scan_suspended_processes() -> dict:
+    """
+    Detecta processos em estado SUSPENSO (pausado) — método de anti-bypass.
+
+    Pausar o cheat durante a SS (Process Hacker → Suspend) faz ele parar de
+    aparecer como "rodando" e congela a atividade, mas o processo continua
+    carregado na memória. É um dos truques "anti-bypass" ensinados nos cursos
+    de telagem — e some quando o cara "reativa" o processo depois.
+
+    Conservador de propósito (anti-FP): o Windows suspende MUITO processo
+    legítimo (UWP em background, abas de navegador). Por isso só flaga quando,
+    ALÉM de suspenso, o processo é:
+      - de um executor conhecido (nome/exe casa keyword) -> HIGH; ou
+      - NÃO-ASSINADO rodando de pasta de usuário (Temp/Downloads/AppData) -> MEDIUM.
+
+    Whitelist cobre navegadores/Discord/shell e apps empacotados
+    (WindowsApps/Packages). Binário suspenso em system/Program Files é ignorado.
+    Sozinho, vira no máximo SUSPECT no Confidence Engine (medium) — só pesa de
+    verdade somado a outra fonte do mesmo alvo.
+    """
+    if not HAS_PSUTIL:
+        return _result("Processos suspensos (anti-bypass)",
+                       "Processos pausados/suspensos durante a SS",
+                       [], error="psutil não instalado")
+
+    items = []
+    for proc in psutil.process_iter(["pid", "name", "exe", "status", "create_time"]):
+        try:
+            if proc.info.get("status") != psutil.STATUS_STOPPED:
+                continue
+
+            name = proc.info.get("name") or ""
+            exe = proc.info.get("exe") or ""
+            low_name = name.lower()
+            low_exe = exe.lower().replace("/", "\\")
+
+            # Suspensos legítimos: whitelist de app + paths de UWP/system app
+            if low_name in _SUSPEND_WHITELIST:
+                continue
+            if any(s in low_exe for s in _SUSPEND_SKIP_PATH_SUBSTR):
+                continue
+
+            category, _ = _classify_dll_path(exe)
+            # Suspenso em system/Program Files = raro mas benigno, ignora
+            if category == "trusted" or low_exe.startswith(
+                    ("c:\\windows", "c:\\program files")):
+                continue
+
+            ts = _fmt_ts(proc.info.get("create_time") or 0)
+            pid = proc.info.get("pid")
+
+            # Sinal 1: executor conhecido em estado suspenso -> forte
+            kw, _ = _match_keyword(name)
+            if not kw and exe:
+                kw, _ = _match_keyword(exe)
+            if kw:
+                items.append(_item(
+                    label=f"Processo SUSPENSO: {name}",
+                    detail=f"PID {pid} · {exe or '(exe desconhecido)'}\n"
+                           f"Processo de executor conhecido em estado SUSPENSO (pausado). "
+                           f"Pausar o cheat durante a SS pra ele parecer inativo é truque de "
+                           f"anti-bypass — reative o processo pra inspecionar.",
+                    severity="high", matched=kw, timestamp=ts,
+                ))
+                continue
+
+            # Sinal 2: suspenso + não-assinado em pasta de usuário -> médio
+            if exe and category in ("suspicious-path", "non-standard"):
+                if _is_dll_signed(exe) is False:
+                    items.append(_item(
+                        label=f"Processo SUSPENSO não-assinado: {name}",
+                        detail=f"PID {pid} · {exe}\n"
+                               f"Processo NÃO-ASSINADO rodando de pasta de usuário e em estado "
+                               f"SUSPENSO. Pode ser cheat pausado pra escapar da SS.",
+                        severity="medium",
+                        matched="processo-suspenso-nao-assinado", timestamp=ts,
+                    ))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+        except Exception:
+            continue
+
+    return _result(
+        "Processos suspensos (anti-bypass)",
+        "Processos pausados/suspensos — cheat pausado durante a SS pra parecer inativo",
+        items,
+    )
+
+
 ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_roblox_dll_injection,
     scan_process_tree,
     scan_overlay_windows,
     scan_executor_structure,
     scan_roblox_launcher_integrity,
+    scan_suspended_processes,
 ]
