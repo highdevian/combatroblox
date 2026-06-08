@@ -11,13 +11,17 @@ chaves do Defender no registro são bloqueadas pelo Tamper Protection mesmo com
 admin (só SYSTEM lê), então a API é o caminho que de fato funciona em produção.
 """
 
+import os
 import subprocess
 
 import matching
 from database import DEFENDER_EXCLUSION_DEV_PATHS
 
 
-# Normalizado pra comparação case-insensitive com forward/back-slash uniforme
+# Normalizado pra comparação case-insensitive com forward/back-slash uniforme.
+# Os markers em DEFENDER_EXCLUSION_DEV_PATHS terminam em `\\` (raw string =
+# DOIS backslashes), mas paths reais do Windows têm UM separador. `.rstrip("\\")`
+# tira o trailing — `\jetbrains\\` vira `\jetbrains` e casa como substring.
 _DEV_PATH_SUBS = [
     s.lower().replace("/", "\\").rstrip("\\") for s in DEFENDER_EXCLUSION_DEV_PATHS
 ]
@@ -27,6 +31,43 @@ def _is_dev_exclusion_path(value: str) -> bool:
     """Retorna True se o path é uma pasta conhecida de IDE / runtime."""
     low = value.lower().replace("/", "\\")
     return any(sub in low for sub in _DEV_PATH_SUBS)
+
+
+# Marcadores de pasta de DESENVOLVIMENTO que NÃO estão na lista hard-coded.
+# Lemos o conteúdo da pasta excluída: se ela tem `.git`, `package.json`,
+# `pyproject.toml` etc na raiz, é repo de dev (exclusão por perf), não cheat.
+# Cobre o caso `Desktop\<nome_qualquer_do_projeto>`.
+_DEV_FOLDER_MARKERS = (
+    ".git", "package.json", "node_modules", "pyproject.toml",
+    "requirements.txt", "Cargo.toml", "go.mod", "pom.xml",
+    "build.gradle", ".csproj", ".sln", "tsconfig.json", "Gemfile",
+    ".venv", "venv", ".idea", ".vscode",
+)
+
+
+def _probe_dev_folder(original_path: str) -> bool:
+    """Lê o conteúdo da pasta excluída e procura marcadores de projeto.
+    Roda só pra paths que de fato existem; ignora erro silencioso (path pode
+    ter sido movido/digitado errado pelo usuário). Cheater não cria .git só
+    pra disfarçar."""
+    if not original_path:
+        return False
+    try:
+        if not os.path.isdir(original_path):
+            return False
+        entries = set(os.listdir(original_path))
+    except OSError:
+        return False
+    low = {e.lower() for e in entries}
+    for marker in _DEV_FOLDER_MARKERS:
+        ml = marker.lower()
+        # marcadores tipo ".csproj" / ".sln" são extensões — varre por sufixo
+        if ml.startswith("."):
+            if any(e.endswith(ml) for e in low) or ml in low:
+                return True
+        elif ml in low:
+            return True
+    return False
 
 
 def _result(name, description, items, error=None):
@@ -69,11 +110,15 @@ def _classify_exclusion(value: str, kind: str):
 
     # Exclusão de pasta gravável pelo usuário (e não Program Files) = suspeito
     if kind == "path":
-        # IDE/runtime conhecida → baixo risco (documentado pelo próprio JetBrains etc)
+        # IDE/runtime conhecida (lista hard-coded) → baixo risco
         if _is_dev_exclusion_path(v):
             return "low", "exclusao-dev"
         if any(s in low for s in _USER_WRITABLE) and not low.startswith(
                 ("c:\\program files", "c:\\programdata")):
+            # Probe do conteúdo: pasta com marcadores de projeto (.git, package.json…)
+            # → repo de dev no Desktop/Documents, exclusão por perf, não cheat.
+            if _probe_dev_folder(v):
+                return "low", "exclusao-dev"
             return "high", "exclusao-pasta-usuario"
 
     # Processo excluído fora de Program Files / Windows
@@ -147,12 +192,22 @@ def scan_defender_tampering() -> dict:
     for kind in ("path", "process", "extension"):
         for v in info[kind]:
             sev, matched = _classify_exclusion(v, kind)
+            if matched == "exclusao-dev":
+                # Exclusão legítima de ambiente de dev — contexto, não anti-bypass
+                detail = (f"{v}\nExclusão de pasta de IDE / runtime / projeto de "
+                          f"desenvolvimento. JetBrains, VS Code, .git, node_modules "
+                          f"e afins têm exclusão documentada por performance — não é "
+                          f"o padrão clássico de anti-bypass de cheat. Listado só "
+                          f"como contexto.")
+            else:
+                detail = (f"{v}\nO Windows Defender foi mandado IGNORAR esta "
+                          f"{_KIND_LABEL[kind]}. Excluir pasta de usuário, executor "
+                          f"ou extensão de .exe é o jeito clássico de rodar cheat sem "
+                          f"o Defender pegar. Usuário comum não mexe em exclusão do "
+                          f"antivírus.")
             items.append(_item(
                 label=f"Exclusão do Defender ({_KIND_LABEL[kind]}): {v}",
-                detail=f"{v}\nO Windows Defender foi mandado IGNORAR esta {_KIND_LABEL[kind]}. "
-                       f"Excluir pasta de usuário, executor ou extensão de .exe é o jeito "
-                       f"clássico de rodar cheat sem o Defender pegar. Usuário comum não mexe "
-                       f"em exclusão do antivírus.",
+                detail=detail,
                 severity=sev, matched=matched,
             ))
 

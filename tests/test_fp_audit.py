@@ -118,3 +118,56 @@ def test_command_history_uses_central_matching():
     assert ch._match_in_line("run solara.exe")[0] is not None
     kw, sev = ch._match_in_line("iex(downloadstring https://solara.cc/x)")
     assert kw is not None and sev == "high"
+
+
+# ----- v3.29.1: keyword dentro de regex de busca não é execução -----
+
+def test_powershell_search_regex_not_flagged():
+    """REGRESSÃO FP: `Where-Object -match 'winring0|kdmapper|gmer'` é AUDITORIA
+    procurando esses tokens. Os tokens estão dentro de uma string de busca —
+    não estão sendo executados."""
+    import command_history as ch
+    line = ("Get-CimInstance Win32_SystemDriver | Where-Object PathName "
+            "-match 'winring0|mhyprot|capcom|gdrv|iqvw64|kdmapper|gmer' "
+            "| Select-Object Name, State, PathName")
+    kw, sev = ch._match_in_line(line)
+    assert kw is None, f"FP: matched '{kw}' dentro de regex de busca"
+
+
+def test_powershell_select_string_not_flagged():
+    """Select-String 'kdmapper' = procurar log por kdmapper, não rodar kdmapper."""
+    import command_history as ch
+    kw, _ = ch._match_in_line("Get-Content log.txt | Select-String 'kdmapper'")
+    assert kw is None
+
+
+def test_powershell_findstr_not_flagged():
+    """findstr "solara" arquivo.txt = grep, não execução."""
+    import command_history as ch
+    kw, _ = ch._match_in_line('findstr /c:"solara" suspeitos.txt')
+    assert kw is None
+
+
+def test_powershell_real_execution_still_flagged():
+    """Não pode regredir: rodar de fato continua sendo detectado."""
+    import command_history as ch
+    # Sem verbo de busca, kdmapper na CLI = execução real
+    assert ch._match_in_line(".\\kdmapper.exe driver.sys")[0] is not None
+    assert ch._match_in_line("Start-Process kdmapper")[0] is not None
+    # Mesmo com pipe, mas sem verbo de busca, é execução
+    assert ch._match_in_line("kdmapper | tee log.txt")[0] is not None
+
+
+def test_powershell_search_pattern_helper():
+    """Núcleo da heurística — testes mínimos."""
+    import command_history as ch
+    # Regex enumeration ao redor do keyword
+    assert ch._is_search_pattern(
+        "Where-Object -match 'a|kdmapper|b'", "kdmapper") is True
+    # Literal entre aspas com verbo de busca
+    assert ch._is_search_pattern("Select-String 'kdmapper'", "kdmapper") is True
+    # Sem verbo de busca = não é
+    assert ch._is_search_pattern("kdmapper.exe driver", "kdmapper") is False
+    # Verbo de busca mas keyword fora da regex = não é (caso raro)
+    assert ch._is_search_pattern(
+        "kdmapper; Where-Object -match 'algo'", "kdmapper") is False

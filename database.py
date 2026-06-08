@@ -80,8 +80,12 @@ EXECUTOR_KEYWORDS = {
     "scriptblox":       "low",
     "cheat engine":     "medium",
     "cheatengine":      "medium",
-    "process hacker":   "medium",
-    "system informer":  "medium",
+    # Process Hacker / System Informer = dual-use (sysadmin/dev/SS supervisor
+    # usam tanto quanto cheater). LOW de baseline; o filtro dev-env ainda pode
+    # rebaixar. Cheater que injeta com isso aparece em outras fontes (DLL não
+    # assinada no Roblox, BYOVD, exclusão Defender).
+    "process hacker":   "low",
+    "system informer":  "low",
     "extreme injector": "medium",
     "xenos injector":   "medium",
     "manualmap":        "medium",
@@ -386,8 +390,9 @@ EXECUTOR_PROCESS_NAMES = {
     "fluxus-bootstrapper.exe":"high",
     "cheatengine-x86_64.exe": "medium",
     "cheatengine-i386.exe":   "medium",
-    "processhacker.exe":      "medium",
-    "systeminformer.exe":     "medium",
+    # Dual-use (ver nota em EXECUTOR_KEYWORDS): rebaixado pra LOW de baseline.
+    "processhacker.exe":      "low",
+    "systeminformer.exe":     "low",
     "extremeinjector.exe":    "medium",
     "xenosinjector.exe":      "medium",
 

@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.29.2] - 2026-06-08
+
+**Patch FP**: mais dois FPs que sobraram em PC de dev/admin/SS supervisor + um
+reforço no Defender.
+
+### Fixed
+
+- **PowerShell history não flagga regex de BUSCA**: linhas tipo
+  `Where-Object PathName -match 'winring0|kdmapper|gmer'` (auditoria
+  procurando esses tokens) eram tratadas como execução. Detectada presença
+  de verbos de busca (`-match`, `-cmatch`, `Select-String`, `findstr`,
+  `Where-Object`) + keyword dentro de regex (`|kw|`) ou aspas (`'kw'`) —
+  agora ignora. Execução real (`.\kdmapper.exe`, `Start-Process kdmapper`)
+  continua detectada.
+- **Process Hacker / System Informer rebaixados pra LOW**: ferramentas
+  dual-use (sysadmin, dev, SS supervisor usam tanto quanto cheater). De
+  baseline MEDIUM em `EXECUTOR_KEYWORDS` e `EXECUTOR_PROCESS_NAMES` viraram
+  LOW. Cheater que injeta com elas aparece em outras fontes (DLL não-assinada
+  no Roblox, BYOVD, exclusão Defender).
+- **`_probe_dev_folder` no Defender**: complementa o `_is_dev_exclusion_path`
+  da v3.29.1. Quando a exclusão cai em pasta gravável do usuário mas o nome
+  não bate em IDE conhecida (ex.: `Desktop\portfolio`), lê o conteúdo da
+  pasta. Se tem marcadores de projeto (`.git`, `package.json`,
+  `pyproject.toml`, `node_modules`, `Cargo.toml`, `.sln`…), trata como repo
+  de dev (LOW, `exclusao-dev`), não anti-bypass. Cheater não cria `.git` só
+  pra disfarçar.
+
+### Por quê
+
+Auditoria FP no PC real (PowerShell com query de auditoria, 5 hits MEDIUM em
+Process Hacker/SystemInformer espalhados por userassist/muicache/known_paths/
+running_processes/bam, e pasta `portfolio` no Desktop fora da lista hard-coded).
+A v3.29.1 já cobre IDEs por path; esta versão fecha os outros vetores sem abrir
+brecha pra cheat real.
+
 ## [3.29.1] - 2026-06-08
 
 **Bugfix**: falso positivo em exclusões do Defender para IDEs e pastas de projeto em ambiente de dev.

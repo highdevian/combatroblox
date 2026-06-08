@@ -51,13 +51,52 @@ def _item(label, detail, severity, matched, timestamp=""):
     }
 
 
+# Verbos do PowerShell/cmd que indicam BUSCA por padrão, não execução.
+# Quem digita `-match 'winring0|kdmapper|gmer'` está PROCURANDO esses tokens,
+# não rodando eles — frequente em script de auditoria/diagnóstico.
+_PS_SEARCH_VERBS = (
+    "-match", "-cmatch", "-imatch", "-notmatch", "-notcmatch",
+    "select-string", " sls ", "| sls", "findstr", "where-object",
+)
+
+
+def _is_search_pattern(line: str, matched_kw: str) -> bool:
+    """True quando o keyword cai dentro de uma string de BUSCA (regex de
+    Where-Object -match, Select-String, findstr…). Quem procura o token não
+    está executando o token.
+
+    Heurística:
+      1) a linha tem um verbo de busca; E
+      2) o keyword aparece numa enumeração regex (com `|` adjacente) OU
+         entre aspas como literal de busca.
+    """
+    if not matched_kw:
+        return False
+    low = line.lower()
+    if not any(v in low for v in _PS_SEARCH_VERBS):
+        return False
+    kw = matched_kw.lower()
+    # Enumeração regex: '...|kw|...' ou 'kw|...' ou '...|kw'
+    if f"|{kw}" in low or f"{kw}|" in low:
+        return True
+    # Literal entre aspas: 'kw' ou "kw"
+    for q in ("'", '"'):
+        if f"{q}{kw}{q}" in low:
+            return True
+    return False
+
+
 def _match_in_line(line: str) -> tuple[str | None, str | None]:
     """Procura red flag em uma linha. Retorna (matched, severity) ou (None, None).
 
     Usa o matching CENTRAL pra keyword (word-boundary) e domínio (fronteira),
     evitando o FP de substring (ex.: 'solara' em 'solarapanel', 'wave.gg' em
     'soundwave.gg'). POWERSHELL_RED_FLAGS continua substring de propósito —
-    são fragmentos de comando ('iex', 'downloadstring')."""
+    são fragmentos de comando ('iex', 'downloadstring').
+
+    Se a linha for um comando de BUSCA por esses tokens (Where-Object -match,
+    Select-String, findstr) com o keyword dentro da regex, ignora — o token
+    é alvo de pesquisa, não execução."""
     import matching
     lower = line.lower()
 
@@ -93,6 +132,10 @@ def _match_in_line(line: str) -> tuple[str | None, str | None]:
     # 3. Executor keywords no comando (word-boundary, anti-FP)
     kw, sev = matching.match_keyword(line)
     if kw:
+        # FP: comando de BUSCA por esses tokens (auditoria, não execução).
+        # Ex.: `Where-Object PathName -match 'winring0|kdmapper|gmer'`
+        if _is_search_pattern(line, kw):
+            return None, None
         return kw, sev
 
     return None, None

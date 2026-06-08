@@ -149,6 +149,8 @@ def test_feeds_cluster_engine():
     assert cl[0].verdict != "CONFIRMED"
 
 
+# ====== fp_filter integration (mantido do v3.29.1) ======
+
 def test_fp_filter_whitelists_dev_defender_path_inside_full_item_text():
     fp._dev_cache = {"is_dev": True, "evidence": ["x", "y"]}
     findings = [{
@@ -177,3 +179,88 @@ def test_fp_filter_whitelists_dev_defender_path_inside_full_item_text():
     assert stats["items_whitelisted"] == 1
     assert len(processed[0]["items"]) == 1
     assert "portfolio" in processed[0]["items"][0]["label"].lower()
+
+
+# ============== FP fixes v3.29.2 ==============
+
+def test_classify_jetbrains_pycharm_is_dev_low():
+    """REGRESSÃO FP: JetBrains recomenda excluir a pasta do PyCharm por perf.
+    É exclusão LEGÍTIMA de IDE — não pode ser HIGH só porque cai em AppData."""
+    sev, m = dt._classify_exclusion(
+        r"C:\Users\gabri\AppData\Local\JetBrains\PyCharm2025.3", "path")
+    assert sev == "low"
+    assert m == "exclusao-dev"
+
+
+def test_classify_git_path_is_dev_low():
+    """Pasta com .git é repo de dev — exclusão por perf é legítima."""
+    sev, m = dt._classify_exclusion(
+        r"C:\Users\x\Documents\projeto\.git", "path")
+    assert sev == "low"
+    assert m == "exclusao-dev"
+
+
+def test_classify_node_modules_path_is_dev_low():
+    sev, m = dt._classify_exclusion(
+        r"C:\Users\x\projeto\node_modules", "path")
+    assert sev == "low"
+    assert m == "exclusao-dev"
+
+
+def test_classify_appdata_temp_still_high():
+    """Não pode regredir: AppData\\Temp puro continua HIGH (clássico de cheat)."""
+    sev, m = dt._classify_exclusion(r"C:\Users\x\AppData\Local\Temp", "path")
+    assert sev == "high"
+    assert m == "exclusao-pasta-usuario"
+
+
+def test_classify_desktop_dev_folder_downgraded(tmp_path, monkeypatch):
+    """Desktop com marcadores de projeto (.git, package.json) = LOW exclusao-dev.
+    Cheater não cria .git só pra disfarçar."""
+    proj = tmp_path / "portfolio"
+    proj.mkdir()
+    (proj / ".git").mkdir()
+    (proj / "package.json").write_text("{}")
+    # Força caminho em c:\\users\\...\\desktop pra cair na lógica de user-writable
+    fake_path = r"C:\Users\x\Desktop\portfolio"
+    monkeypatch.setattr(dt, "_probe_dev_folder", lambda p: p == fake_path)
+    sev, m = dt._classify_exclusion(fake_path, "path")
+    assert sev == "low"
+    assert m == "exclusao-dev"
+
+
+def test_classify_desktop_random_folder_still_high(monkeypatch):
+    """Desktop SEM marcadores de dev continua HIGH."""
+    monkeypatch.setattr(dt, "_probe_dev_folder", lambda p: False)
+    sev, m = dt._classify_exclusion(r"C:\Users\x\Desktop\cheat_hide", "path")
+    assert sev == "high"
+    assert m == "exclusao-pasta-usuario"
+
+
+def test_probe_dev_folder_detects_markers(tmp_path):
+    """Probe direto: pasta com .git OU package.json OU pyproject = True."""
+    proj = tmp_path / "p"
+    proj.mkdir()
+    (proj / "package.json").write_text("{}")
+    assert dt._probe_dev_folder(str(proj)) is True
+
+
+def test_probe_dev_folder_returns_false_for_empty(tmp_path):
+    proj = tmp_path / "empty"
+    proj.mkdir()
+    assert dt._probe_dev_folder(str(proj)) is False
+
+
+def test_probe_dev_folder_returns_false_for_nonexistent():
+    assert dt._probe_dev_folder(r"C:\nope\does\not\exist\xyz123") is False
+
+
+def test_dev_exclusion_message_is_contextual(monkeypatch):
+    """Detail do exclusao-dev deve dizer 'contexto', não 'rodar cheat sem Defender'."""
+    monkeypatch.setattr(dt, "_query_defender",
+                        lambda: _mp(path=[r"C:\Users\x\AppData\Local\JetBrains\PyCharm"]))
+    r = dt.scan_defender_tampering()
+    dev_items = [i for i in r["items"] if i["matched"] == "exclusao-dev"]
+    assert len(dev_items) == 1
+    assert "contexto" in dev_items[0]["detail"].lower()
+    assert "rodar cheat" not in dev_items[0]["detail"].lower()
