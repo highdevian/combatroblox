@@ -902,6 +902,96 @@ def scan_suspended_processes() -> dict:
     )
 
 
+# ============================ Processo disfarçado de sistema (masquerading) ============================
+
+# Nomes de processo do PRÓPRIO Windows que SÓ rodam de pasta do sistema. Renomear
+# o cheat pra um destes e rodar de pasta de usuário é "process masquerading" —
+# no Gerenciador de Tarefas/SS manual o cara vê "svchost.exe" e passa batido.
+# FP ~zero: esses binários nunca rodam fora de System32/SysWOW64/WinSxS (e o
+# explorer, de %WINDIR%). Os reais costumam ser protegidos (PPL) e nem expõem o
+# path — esses a gente pula; o disfarçado em pasta de usuário expõe e é pego.
+def _system_dirs():
+    win = os.environ.get("SystemRoot", r"C:\Windows").lower().replace("/", "\\").rstrip("\\")
+    sys32 = (f"{win}\\system32\\", f"{win}\\syswow64\\", f"{win}\\winsxs\\")
+    return win, sys32
+
+
+_WINDIR, _SYS32_DIRS = _system_dirs()
+
+# nome -> tupla de prefixos de path LEGÍTIMOS (lowercase, com barra final).
+_SYSTEM_PROCESS_DIRS = {
+    name: _SYS32_DIRS for name in (
+        "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe",
+        "lsass.exe", "lsaiso.exe", "svchost.exe", "dwm.exe", "conhost.exe",
+        "dllhost.exe", "runtimebroker.exe", "sihost.exe", "taskhostw.exe",
+        "ctfmon.exe", "spoolsv.exe", "searchindexer.exe", "searchprotocolhost.exe",
+        "searchfilterhost.exe", "fontdrvhost.exe", "audiodg.exe", "wudfhost.exe",
+        "smartscreen.exe", "wmiprvse.exe", "dashost.exe", "lsm.exe",
+        "securityhealthservice.exe", "securityhealthsystray.exe",
+    )
+}
+# explorer.exe roda direto de %WINDIR% (não System32).
+_SYSTEM_PROCESS_DIRS["explorer.exe"] = (f"{_WINDIR}\\",)
+
+
+def scan_process_masquerade() -> dict:
+    """
+    Detecta cheat renomeado pra nome de processo do Windows rodando de fora da
+    pasta do sistema (process masquerading) — anti-SS.
+
+    Para cada processo cujo NOME é de um processo conhecido do SO, confere se o
+    EXE roda de uma pasta legítima (System32/SysWOW64/WinSxS, ou %WINDIR% pro
+    explorer). Se roda de qualquer outro lugar (Downloads/Temp/AppData/Desktop…),
+    é disfarce → HIGH.
+
+    Conservador (anti-FP): se o path do exe não dá pra ler (processo protegido
+    PPL — justamente os reais), pula. Só flaga quem expõe um path ilegítimo.
+    """
+    if not HAS_PSUTIL:
+        return _result("Processo disfarçado de sistema (masquerading)",
+                       "Cheat renomeado pra nome de processo do Windows",
+                       [], error="psutil não instalado")
+
+    items = []
+    for proc in psutil.process_iter(["pid", "name", "exe", "create_time"]):
+        try:
+            name = (proc.info.get("name") or "").lower()
+            allowed = _SYSTEM_PROCESS_DIRS.get(name)
+            if not allowed:
+                continue
+            exe = proc.info.get("exe") or ""
+            if not exe:
+                # processo protegido (o real) não expõe path — não é o disfarce
+                continue
+            low_exe = exe.lower().replace("/", "\\")
+            if any(low_exe.startswith(p) for p in allowed):
+                continue  # roda do lugar certo = legítimo
+
+            pid = proc.info.get("pid")
+            ts = _fmt_ts(proc.info.get("create_time") or 0)
+            legit = " ou ".join(p.rstrip("\\") for p in allowed)
+            items.append(_item(
+                label=f"Processo DISFARÇADO de sistema: {name}",
+                detail=f"PID {pid} · {exe}\n"
+                       f"Um processo chamado '{name}' está rodando de '{exe}', mas o "
+                       f"'{name}' legítimo do Windows só roda de {legit}. Renomear o cheat "
+                       f"pra nome de processo do sistema e rodar de pasta de usuário é "
+                       f"disfarce (masquerading) — no Gerenciador de Tarefas passa por "
+                       f"processo do Windows. Inspecione o binário.",
+                severity="high", matched=f"masquerade:{name}", timestamp=ts,
+            ))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+        except Exception:
+            continue
+
+    return _result(
+        "Processo disfarçado de sistema (masquerading)",
+        "Cheat renomeado pra nome de processo do Windows rodando de fora da pasta do sistema",
+        items,
+    )
+
+
 ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_roblox_dll_injection,
     scan_process_tree,
@@ -909,4 +999,5 @@ ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_executor_structure,
     scan_roblox_launcher_integrity,
     scan_suspended_processes,
+    scan_process_masquerade,
 ]

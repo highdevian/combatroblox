@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.30.0] - 2026-06-08
+
+**Anti-bypass**: detecção de process masquerading (cheat disfarçado de processo do Windows).
+
+### Added
+
+- **Processo disfarçado de sistema** (`live_analysis.py` → `scan_process_masquerade`):
+  detecta cheat renomeado pra nome de processo do Windows (`svchost.exe`,
+  `dwm.exe`, `csrss.exe`, `RuntimeBroker.exe`, `explorer.exe`…) rodando de fora
+  da pasta do sistema. No Gerenciador de Tarefas / SS manual o cara vê
+  "svchost.exe" e passa batido — aqui o path denuncia. Compara o nome contra
+  uma lista de processos do SO e exige que rode de `System32`/`SysWOW64`/`WinSxS`
+  (ou `%WINDIR%` pro explorer); qualquer outro lugar = HIGH. Mapeia pro source
+  `live_processes` (0.95).
+
+### Por quê
+
+Renomear o executor pra nome de processo do sistema é dos disfarces mais
+ensinados — engana a inspeção visual de processos. FP ~zero: os binários reais
+do Windows nunca rodam fora dessas pastas, e os protegidos (PPL) nem expõem o
+path (são pulados). Validado no PC real: 21 processos de nome de sistema, todos
+de System32/Windows, 0 falso positivo.
+
 ## [3.29.3] - 2026-06-08
 
 **FP-audit dos anti-bypass**: varredura dos 6 scanners anti-bypass caçando o
