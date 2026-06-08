@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.28.0] - 2026-06-08
+
+**Anti-bypass de timeline**: detecção de relógio do sistema voltado pra trás.
+
+### Added
+
+- **Manipulação do relógio** (`clock_tampering.py`): `scan_clock_tampering`
+  lê os eventos 4616 (hora do sistema alterada) do log de Security e flagga
+  saltos PARA TRÁS de 10+ minutos. Voltar o relógio é anti-bypass: joga os
+  artefatos de execução do cheat (Prefetch/Amcache/BAM) pra fora da janela de
+  tempo da SS, quebrando a correlação por horário. Salto pra frente (sync de
+  NTP / bateria de CMOS) é ignorado — só o rollback interessa. Parser de XML do
+  wevtutil validado contra eventos reais. Source próprio (`clock_tampering`).
+
+### Por quê
+
+A correlação por horário é central no veredito. Se o suspeito volta o relógio, o
+cheat que rodou às 19h "vira" 16h e some da janela. O salto pra trás é o sinal.
+
 ## [3.27.0] - 2026-06-08
 
 **Anti-bypass do Defender**: detecção de exclusões e proteção desligada — o
