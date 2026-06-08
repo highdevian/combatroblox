@@ -53,6 +53,7 @@ def test_parse_4616_xml():
         f"<Event xmlns='{ns}'><System><EventID>4616</EventID></System>"
         "<EventData>"
         "<Data Name='SubjectUserName'>gabri</Data>"
+        "<Data Name='SubjectUserSid'>S-1-5-21-111-222-333-1001</Data>"
         "<Data Name='PreviousTime'>2026-06-08T20:00:00.000000000Z</Data>"
         "<Data Name='NewTime'>2026-06-08T17:00:00.000000000Z</Data>"
         "<Data Name='ProcessName'>C:\\Windows\\System32\\svchost.exe</Data>"
@@ -61,8 +62,58 @@ def test_parse_4616_xml():
     evs = ct._parse_4616_xml(one + one)
     assert len(evs) == 2
     assert evs[0]["subject"] == "gabri"
+    assert evs[0]["sid"] == "S-1-5-21-111-222-333-1001"
     assert evs[0]["prev"].startswith("2026-06-08T20:00")
     assert evs[0]["new"].startswith("2026-06-08T17:00")
+
+
+# ============== FP: correção de relógio por serviço (NTP/dual-boot) ==============
+
+def test_service_sid_backward_jump_is_low_context():
+    """REGRESSÃO FP: salto pra trás por LOCAL SERVICE (S-1-5-19 = W32Time/NTP)
+    ou SYSTEM (S-1-5-18 = correção de boot/dual-boot) é o SO, não o usuário.
+    Deve virar LOW contexto, não MEDIUM/HIGH."""
+    for sid in ("S-1-5-19", "S-1-5-18", "S-1-5-20"):
+        it = ct._clock_item("2026-06-08T20:00:00Z", "2026-06-08T17:00:00Z",
+                            "SERVIÇO LOCAL", "C:\\Windows\\System32\\svchost.exe", sid)
+        assert it is not None
+        assert it["severity"] == "low", f"sid {sid} deveria ser low"
+        assert it["matched"] == "clock-rollback-servico"
+
+
+def test_service_classification_is_locale_independent():
+    """O subject vem localizado ('SERVIÇO LOCAL' em PT-BR). A classificação
+    NÃO pode depender do nome — só do SID. Subject em qualquer idioma + SID de
+    serviço = low."""
+    it = ct._clock_item("2026-06-08T20:00:00Z", "2026-06-08T18:00:00Z",
+                        "qualquer-nome-localizado", "svchost.exe", "S-1-5-19")
+    assert it["severity"] == "low"
+
+
+def test_svchost_fallback_when_sid_missing():
+    """Sem SID no evento, svchost.exe como processo = pista de serviço → low."""
+    it = ct._clock_item("2026-06-08T20:00:00Z", "2026-06-08T17:00:00Z",
+                        "", "C:\\Windows\\System32\\svchost.exe", "")
+    assert it["severity"] == "low"
+    assert it["matched"] == "clock-rollback-servico"
+
+
+def test_interactive_user_backward_jump_stays_high():
+    """Não pode regredir: usuário interativo (SID S-1-5-21-…) voltando o relógio
+    é o anti-bypass real — continua HIGH/MEDIUM."""
+    it = ct._clock_item("2026-06-08T20:00:00Z", "2026-06-08T17:00:00Z",
+                        "gabri", "C:\\Windows\\System32\\SystemSettingsAdminFlows.exe",
+                        "S-1-5-21-111-222-333-1001")
+    assert it["severity"] == "high"
+    assert it["matched"] == "clock-rollback"
+
+
+def test_is_service_actor_helper():
+    assert ct._is_service_actor("S-1-5-19", "") is True
+    assert ct._is_service_actor("s-1-5-18", "qualquer.exe") is True
+    assert ct._is_service_actor("S-1-5-21-1-2-3-1001", "svchost.exe") is False  # user SID manda
+    assert ct._is_service_actor("", "C:\\Windows\\System32\\svchost.exe") is True
+    assert ct._is_service_actor("", "cmd.exe") is False
 
 
 def test_scan_flags_rollback(monkeypatch):
@@ -96,7 +147,7 @@ def test_real_machine_no_crash():
     r = ct.scan_clock_tampering()
     assert r["status"] in ("clean", "suspicious", "error")
     for it in r["items"]:
-        assert it["severity"] in ("medium", "high")
+        assert it["severity"] in ("low", "medium", "high")
 
 
 def test_slug_and_cluster():

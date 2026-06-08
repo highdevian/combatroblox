@@ -37,6 +37,30 @@ def _item(label, detail, severity, matched, timestamp=""):
 _JUMP_MIN_SECONDS = 600   # ignora saltos < 10 min (drift de NTP)
 _JUMP_BIG_SECONDS = 3600  # >= 1h = mais grave
 
+# SIDs de contas de SERVIÇO (locale-independente). Mudança de relógio por uma
+# destas é correção automática do SO, não o ataque:
+#   S-1-5-18 = SYSTEM        (kernel / correção de boot / dual-boot)
+#   S-1-5-19 = LOCAL SERVICE (W32Time / NTP roda aqui)
+#   S-1-5-20 = NETWORK SERVICE
+# Empiricamente, num PC real TODO 4616 legítimo vem de S-1-5-19 via svchost.exe,
+# e o nome do subject é LOCALIZADO ("SERVIÇO LOCAL" em PT-BR) — por isso a
+# classificação é por SID, nunca por nome.
+_SERVICE_SID_PREFIXES = ("s-1-5-18", "s-1-5-19", "s-1-5-20")
+
+
+def _is_service_actor(sid: str, process: str) -> bool:
+    """True se quem mudou o relógio é conta de serviço/sistema (NTP, boot,
+    dual-boot) — não o usuário interativo. Primário: SID de serviço. Fallback
+    defensivo: processo é svchost.exe (host do W32Time) quando o SID falta."""
+    s = (sid or "").strip().lower()
+    if s and any(s.startswith(p) for p in _SERVICE_SID_PREFIXES):
+        return True
+    if not s:  # sem SID no evento — usa o processo como pista fraca
+        base = (process or "").replace("/", "\\").rsplit("\\", 1)[-1].lower()
+        if base == "svchost.exe":
+            return True
+    return False
+
 
 def _parse_iso(s: str):
     """'2026-06-08T17:00:00.000000000Z' -> datetime (naive UTC), ou None."""
@@ -64,9 +88,13 @@ def _fmt_delta(seconds: float) -> str:
     return f"{m}min"
 
 
-def _clock_item(prev: str, new: str, subject: str = "", process: str = ""):
+def _clock_item(prev: str, new: str, subject: str = "", process: str = "",
+                sid: str = ""):
     """Constrói o item se for um salto PARA TRÁS relevante; senão None.
-    Núcleo testável, sem subprocess."""
+    Núcleo testável, sem subprocess.
+
+    Salto pra trás por conta de SERVIÇO (NTP/boot/dual-boot) vira LOW contexto —
+    não é o ataque. Por usuário INTERATIVO mantém MEDIUM/HIGH (anti-bypass real)."""
     p, n = _parse_iso(prev), _parse_iso(new)
     if not p or not n:
         return None
@@ -75,11 +103,25 @@ def _clock_item(prev: str, new: str, subject: str = "", process: str = ""):
     if delta > -_JUMP_MIN_SECONDS:
         return None
     back = -delta
-    severity = "high" if back >= _JUMP_BIG_SECONDS else "medium"
     human = _fmt_delta(back)
     who = subject or "?"
     proc = f" via {process}" if process else ""
     when = n.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Correção do SO (NTP / kernel no boot / skew de dual-boot) → contexto, não ataque.
+    if _is_service_actor(sid, process):
+        return _item(
+            label=f"Relógio ajustado {human} pra trás (serviço do sistema)",
+            detail=f"Hora alterada de {prev} para {new} (salto de {human} pra trás) por "
+                   f"conta de serviço{proc}. Mudança feita pelo próprio Windows (sync de "
+                   f"NTP/W32Time, correção no boot, ou skew de dual-boot Linux/Windows) — "
+                   f"NÃO é o usuário voltando o relógio pra burlar a SS. Listado só como "
+                   f"contexto.",
+            severity="low", matched="clock-rollback-servico", timestamp=when,
+        )
+
+    # Usuário interativo voltando o relógio = o anti-bypass de verdade.
+    severity = "high" if back >= _JUMP_BIG_SECONDS else "medium"
     return _item(
         label=f"Relógio do sistema voltado {human} pra trás",
         detail=f"Hora alterada de {prev} para {new} (salto de {human} PARA TRÁS), por {who}{proc}. "
@@ -118,6 +160,7 @@ def _parse_4616_xml(xml_text: str) -> list:
                 "prev": data.get("PreviousTime", ""),
                 "new": data.get("NewTime", ""),
                 "subject": data.get("SubjectUserName", ""),
+                "sid": data.get("SubjectUserSid", ""),
                 "process": data.get("ProcessName", ""),
             })
     return events
@@ -157,7 +200,8 @@ def scan_clock_tampering() -> dict:
                        [], error="sem acesso ao log de Security (rode como admin)")
     items = []
     for ev in events:
-        it = _clock_item(ev["prev"], ev["new"], ev["subject"], ev["process"])
+        it = _clock_item(ev["prev"], ev["new"], ev.get("subject", ""),
+                         ev.get("process", ""), ev.get("sid", ""))
         if it:
             items.append(it)
     return _result("Manipulação do relógio do sistema",

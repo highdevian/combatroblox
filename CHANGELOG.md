@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.29.3] - 2026-06-08
+
+**FP-audit dos anti-bypass**: varredura dos 6 scanners anti-bypass caçando o
+cenário real onde cada um erraria. Três calibrações, validadas no PC real.
+
+### Fixed
+
+- **Relógio: correção por serviço não é mais ataque**. Salto pra trás feito por
+  conta de SERVIÇO (W32Time/NTP, kernel no boot, skew de **dual-boot
+  Linux/Windows**) virava MEDIUM/HIGH falso. Agora classifica por **SID de
+  serviço** (`S-1-5-18/19/20`) — não pelo nome, que vem **localizado**
+  (`SERVIÇO LOCAL` em PT-BR) e quebraria fora do inglês. Serviço → LOW contexto;
+  usuário interativo (`S-1-5-21-…`) voltando o relógio continua MEDIUM/HIGH.
+  O parser passou a capturar `SubjectUserSid`. Empírico: 14/14 eventos 4616 num
+  PC real são NTP (S-1-5-19), todos agora classificados certo.
+- **Limpadores: `eraser` por substring pegava editor de foto**. `Photo Eraser`,
+  `Background Eraser`, `Magic Eraser` casavam o token `eraser` e viravam HIGH
+  (secure-delete falso). Agora o match é ancorado no **início da palavra**
+  (`(?<![a-z0-9])`): `PHOTOERASER` não casa, mas `ERASER.EXE`, `MY-ERASER` e
+  `SDELETE64` (sufixo de versão) continuam. Freeraser/Secure Eraser seguem
+  pegos pelos tokens próprios.
+- **Processo suspenso: debugger não é mais FP de dev**. Dev depurando o próprio
+  `.exe` não-assinado (recém compilado em pasta de usuário) deixa o processo
+  SUSPENSO no breakpoint → MEDIUM falso. Se o **processo-pai** é debugger/IDE
+  (PyCharm, VS, x64dbg, WinDbg, VS Code, CLion…), suprime o MEDIUM. Executor
+  CONHECIDO suspenso continua HIGH mesmo com pai debugger (rodar 'no debugger'
+  não inocenta).
+
+### Auditados sem mudança
+
+- **USB history**: LOW/contexto, janela de 24h — ruído aceitável, não infla veredito.
+- **Mídia removível plugada**: exige keyword de executor (word-boundary central) — OK.
+
 ## [3.29.2] - 2026-06-08
 
 **Patch FP**: mais dois FPs que sobraram em PC de dev/admin/SS supervisor + um

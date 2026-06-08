@@ -17,13 +17,26 @@ import live_analysis as la  # noqa: E402
 import psutil  # noqa: E402
 
 
+class _FakeParent:
+    def __init__(self, name):
+        self._name = name
+
+    def name(self):
+        return self._name
+
+
 class _FakeProc:
-    """Imita psutil.Process com .info preenchido pelo process_iter(attrs)."""
-    def __init__(self, pid, name, exe, status, create_time=0):
+    """Imita psutil.Process com .info preenchido pelo process_iter(attrs).
+    parent_name opcional simula proc.parent().name() (debugger/IDE)."""
+    def __init__(self, pid, name, exe, status, create_time=0, parent_name=None):
         self.info = {
             "pid": pid, "name": name, "exe": exe,
             "status": status, "create_time": create_time,
         }
+        self._parent_name = parent_name
+
+    def parent(self):
+        return _FakeParent(self._parent_name) if self._parent_name else None
 
 
 def _patch_procs(monkeypatch, procs):
@@ -98,6 +111,57 @@ def test_ignores_uwp_package_path(monkeypatch):
 
     r = la.scan_suspended_processes()
     assert r["status"] == "clean"
+
+
+# ============== FP: dev pausando o próprio exe no debugger ==============
+
+def test_debugger_parent_suppresses_medium(monkeypatch):
+    """REGRESSÃO FP: dev depurando o próprio .exe não-assinado (recém compilado
+    em pasta de usuário) — o filho fica SUSPENSO no breakpoint. Se o pai é
+    debugger/IDE, não é cheat pausado: não flaga."""
+    procs = [_FakeProc(77, "myapp.exe",
+                       r"C:\Users\x\source\repos\myapp\bin\Debug\myapp.exe",
+                       psutil.STATUS_STOPPED, parent_name="pycharm64.exe")]
+    _patch_procs(monkeypatch, procs)
+    monkeypatch.setattr(la, "_is_dll_signed", lambda p: False)
+
+    r = la.scan_suspended_processes()
+    assert r["status"] == "clean", "debugger como pai deveria suprimir o MEDIUM"
+
+
+def test_non_debugger_parent_still_flags_medium(monkeypatch):
+    """Pai comum (não-debugger) + não-assinado suspenso = continua MEDIUM."""
+    procs = [_FakeProc(78, "randomname.exe",
+                       r"C:\Users\x\AppData\Local\Temp\randomname.exe",
+                       psutil.STATUS_STOPPED, parent_name="explorer.exe")]
+    _patch_procs(monkeypatch, procs)
+    monkeypatch.setattr(la, "_is_dll_signed", lambda p: False)
+
+    r = la.scan_suspended_processes()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "medium"
+
+
+def test_debugger_parent_does_not_save_known_executor(monkeypatch):
+    """Executor CONHECIDO suspenso continua HIGH mesmo com pai debugger —
+    rodar o cheat 'no debugger' não o inocenta."""
+    procs = [_FakeProc(79, "solara.exe", r"C:\Users\x\Downloads\solara.exe",
+                       psutil.STATUS_STOPPED, parent_name="x64dbg.exe")]
+    _patch_procs(monkeypatch, procs)
+
+    r = la.scan_suspended_processes()
+    assert r["status"] == "suspicious"
+    assert r["items"][0]["severity"] == "high"
+
+
+def test_parent_is_debugger_helper():
+    assert la._parent_is_debugger(
+        _FakeProc(1, "a.exe", "", psutil.STATUS_STOPPED, parent_name="devenv.exe")) is True
+    assert la._parent_is_debugger(
+        _FakeProc(1, "a.exe", "", psutil.STATUS_STOPPED, parent_name="explorer.exe")) is False
+    # sem pai → False (não suprime na dúvida)
+    assert la._parent_is_debugger(
+        _FakeProc(1, "a.exe", "", psutil.STATUS_STOPPED, parent_name=None)) is False
 
 
 def test_ignores_signed_user_exe(monkeypatch):

@@ -14,6 +14,7 @@ Mapeia pro source 'anti_forense' (é o que é).
 """
 
 import os
+import re
 from datetime import datetime
 
 
@@ -68,6 +69,26 @@ _CLEANER_TOOLS = [
 ]
 
 
+_token_cache = {}
+
+
+def _token_at_word_start(token: str, text: str) -> bool:
+    """True se `token` aparece em `text` no INÍCIO de uma palavra — precedido
+    por começo-de-string ou char não-alfanumérico. Permite sufixo (versão):
+
+        'eraser'  casa 'ERASER.EXE-A1B2.pf'  e  'MY-ERASER.pf'
+        'eraser'  NÃO casa 'PHOTOERASER.pf'  (preced. por 'o') nem 'freeraser'
+        'sdelete' casa 'SDELETE64.EXE-...'    (sufixo numérico OK)
+
+    Resolve o FP de substring puro: 'eraser' pegava editores de foto
+    ('Photo Eraser', 'Background Eraser') e 'freeraser' tem token próprio."""
+    pat = _token_cache.get(token)
+    if pat is None:
+        pat = re.compile(r"(?<![a-z0-9])" + re.escape(token))
+        _token_cache[token] = pat
+    return bool(pat.search(text))
+
+
 def _match_cleaner(filename: str):
     """Retorna (severity, label) se o .pf for de um limpador conhecido; senão None.
     Núcleo testável."""
@@ -75,7 +96,7 @@ def _match_cleaner(filename: str):
     if not low.endswith(".pf"):
         return None
     for sub, sev, label in _CLEANER_TOOLS:
-        if sub in low:
+        if _token_at_word_start(sub, low):
             return sev, label
     return None
 

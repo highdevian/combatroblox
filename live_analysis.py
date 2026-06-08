@@ -781,6 +781,34 @@ _SUSPEND_SKIP_PATH_SUBSTR = (
     "\\systemapps\\", "\\windows\\systemapps\\",
 )
 
+# Debuggers / IDEs: quando depuram um programa, o processo-FILHO fica em estado
+# SUSPENSO no breakpoint. Um dev pausando o próprio .exe não-assinado (recém
+# compilado em pasta de usuário) cairia no MEDIUM — FP. Se o PAI do suspenso é
+# um destes, é sessão de debug, não cheat pausado. (Só afeta o MEDIUM; executor
+# conhecido suspenso continua HIGH independentemente do pai.)
+_DEBUGGER_PARENT_NAMES = {
+    "devenv.exe", "vsdbg.exe", "vshost.exe", "msvsmon.exe",
+    "windbg.exe", "windbgx.exe", "cdb.exe", "x64dbg.exe", "x32dbg.exe",
+    "ollydbg.exe", "dnspy.exe", "dnspy-x86.exe", "ida.exe", "ida64.exe",
+    "pycharm64.exe", "pycharm.exe", "idea64.exe", "idea.exe",
+    "clion64.exe", "rider64.exe", "webstorm64.exe", "goland64.exe",
+    "code.exe", "cursor.exe", "gdb.exe", "lldb.exe", "node.exe",
+    "_pydevd_bundle", "debugpy",
+}
+
+
+def _parent_is_debugger(proc) -> bool:
+    """True se o processo-pai do suspenso é um debugger/IDE conhecido.
+    Defensivo: qualquer erro de acesso → False (não suprime na dúvida)."""
+    try:
+        parent = proc.parent()
+        if parent is None:
+            return False
+        pname = (parent.name() or "").lower()
+        return pname in _DEBUGGER_PARENT_NAMES
+    except Exception:
+        return False
+
 
 def scan_suspended_processes() -> dict:
     """
@@ -850,6 +878,9 @@ def scan_suspended_processes() -> dict:
 
             # Sinal 2: suspenso + não-assinado em pasta de usuário -> médio
             if exe and category in ("suspicious-path", "non-standard"):
+                # FP de dev: processo pausado por debugger/IDE no breakpoint.
+                if _parent_is_debugger(proc):
+                    continue
                 if _is_dll_signed(exe) is False:
                     items.append(_item(
                         label=f"Processo SUSPENSO não-assinado: {name}",
