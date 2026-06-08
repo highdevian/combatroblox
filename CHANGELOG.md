@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.24.0] - 2026-06-08
+
+**Anti-bypass**: detecção de processo suspenso — o truque de pausar o
+cheat durante a SS pra ele parecer inativo.
+
+### Added
+
+- **Detecção de processo suspenso** (`scan_suspended_processes`): flagga
+  processo em estado SUSPENSO (pausado). Pausar o executor durante a
+  screenshare (ex.: Process Hacker → Suspend) o congela e o tira da lista
+  de "rodando" sem fechar — método clássico de anti-bypass ensinado nos
+  cursos de telagem. Conservador anti-FP: só sinaliza executor conhecido
+  (HIGH) ou exe não-assinado em pasta de usuário (MEDIUM); whitelista
+  navegador/Discord/shell e apps empacotados (UWP/WindowsApps), que o
+  Windows suspende em background. Sozinho vira no máximo SUSPECT no
+  Confidence Engine.
+
+### Por quê
+
+Como o processo suspenso continua carregado na memória, o estado é
+detectável — e a pausa em si já é o sinal. Validado no Windows real
+(suspend → `STATUS_STOPPED`) e 0 falso positivo em máquina limpa.
+
 ## [3.23.0] - 2026-06-07
 
 **Lições do primeiro caso real**: o suspeito não rodou como admin e o
