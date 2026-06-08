@@ -45,6 +45,7 @@ SOURCE_LABELS = {
     "srum":               "SRUM",
     "kernel_drivers":     "Kernel Drivers",
     "live_processes":     "Processos rodando",
+    "removable_media":    "Mídia removível (USB)",
     "live_dll_injection": "DLL injetadas",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
