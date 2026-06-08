@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.26.0] - 2026-06-08
+
+**Multi-conta**: detecção de outras contas de Windows no PC — "cheata na
+outra conta".
+
+### Added
+
+- **Detecção de múltiplas contas** (`user_accounts.py`): `scan_user_profiles`
+  enumera o ProfileList do Windows, filtra contas de sistema/serviço e avisa
+  quando há outra conta humana além da que está sendo telada. O suspeito pode
+  jogar limpo numa conta e usar o cheat na outra — conta atual limpa não
+  inocenta o PC. Severidade baixa (contexto) ou média (conta com atividade nas
+  últimas 48h). Source próprio (`user_accounts`).
+
+### Por quê
+
+O Telador varre só o usuário atual. Sem enumerar as outras contas, dá pra
+esconder o cheat numa conta separada e passar na SS. Validado em dados reais
+(ProfileList: contas de sistema filtradas, conta atual não flagada).
+
 ## [3.25.0] - 2026-06-08
 
 **Mídia removível**: detecção de cheat rodado de pendrive (USB) — o
