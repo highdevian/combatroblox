@@ -29,6 +29,88 @@ except ImportError:
     HAS_PSUTIL = False
 
 
+# ============================ Win32/NT Memory & Debugger setup ============================
+
+PROCESS_QUERY_INFORMATION = 0x0400
+PROCESS_VM_READ = 0x0010
+
+MEM_COMMIT = 0x1000
+MEM_PRIVATE = 0x20000
+
+PAGE_EXECUTE = 0x10
+PAGE_EXECUTE_READ = 0x20
+PAGE_EXECUTE_READWRITE = 0x40
+PAGE_EXECUTE_WRITECOPY = 0x80
+
+EXECUTE_PROTECTIONS = (
+    PAGE_EXECUTE,
+    PAGE_EXECUTE_READ,
+    PAGE_EXECUTE_READWRITE,
+    PAGE_EXECUTE_WRITECOPY
+)
+
+class MEMORY_BASIC_INFORMATION(ctypes.Structure):
+    _fields_ = [
+        ("BaseAddress", ctypes.c_void_p),
+        ("AllocationBase", ctypes.c_void_p),
+        ("AllocationProtect", wintypes.DWORD),
+        ("PartitionId", wintypes.WORD),
+        ("RegionSize", ctypes.c_size_t),
+        ("State", wintypes.DWORD),
+        ("Protect", wintypes.DWORD),
+        ("Type", wintypes.DWORD),
+    ]
+
+try:
+    kernel32 = ctypes.windll.kernel32
+    
+    # OpenProcess
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    
+    # CloseHandle
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    # VirtualQueryEx
+    kernel32.VirtualQueryEx.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_void_p,
+        ctypes.POINTER(MEMORY_BASIC_INFORMATION),
+        ctypes.c_size_t
+    ]
+    kernel32.VirtualQueryEx.restype = ctypes.c_size_t
+
+    # ReadProcessMemory
+    kernel32.ReadProcessMemory.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_size_t)
+    ]
+    kernel32.ReadProcessMemory.restype = wintypes.BOOL
+
+    # CheckRemoteDebuggerPresent
+    kernel32.CheckRemoteDebuggerPresent.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
+    kernel32.CheckRemoteDebuggerPresent.restype = wintypes.BOOL
+except (AttributeError, OSError):
+    pass
+
+try:
+    ntdll = ctypes.windll.ntdll
+    ntdll.NtQueryInformationProcess.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,  # ProcessInformationClass
+        ctypes.c_void_p,  # ProcessInformation
+        wintypes.ULONG,  # ProcessInformationLength
+        ctypes.POINTER(wintypes.ULONG)  # ReturnLength
+    ]
+    ntdll.NtQueryInformationProcess.restype = ctypes.c_long  # NTSTATUS
+except (AttributeError, OSError):
+    pass
+
+
 # ============================ WinVerifyTrust setup ============================
 
 class GUID(ctypes.Structure):
@@ -1077,6 +1159,152 @@ def scan_roblox_dll_sideload() -> dict:
     )
 
 
+def scan_roblox_debuggers() -> dict:
+    """
+    Detecta se um debugger (Cheat Engine, x64dbg, etc.) está ativamente atrelado
+    a algum processo do Roblox usando CheckRemoteDebuggerPresent e NtQueryInformationProcess (ProcessDebugPort).
+    """
+    if not HAS_PSUTIL:
+        return _result("Detecção de Debugger (Roblox)", "Verificação de debuggers atrelados ao Roblox", [],
+                       error="psutil não instalado")
+
+    items = []
+    roblox_names_lower = {n.lower() for n in ROBLOX_PROCESS_NAMES}
+    target_pids = []
+
+    for proc in psutil.process_iter(["pid", "name"]):
+        try:
+            name = proc.info.get("name") or ""
+            if name in ROBLOX_PROCESS_NAMES or name.lower() in roblox_names_lower:
+                target_pids.append((proc.info["pid"], name))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    if not target_pids:
+        return _result("Detecção de Debugger (Roblox)", "Debugger ativo atrelado ao Roblox", [])
+
+    for pid, name in target_pids:
+        handle = None
+        try:
+            # PROCESS_QUERY_INFORMATION = 0x0400
+            handle = kernel32.OpenProcess(0x0400, False, pid)
+            if not handle:
+                continue
+
+            # 1. CheckRemoteDebuggerPresent
+            is_dbg = wintypes.BOOL(False)
+            if kernel32.CheckRemoteDebuggerPresent(handle, ctypes.pointer(is_dbg)):
+                if is_dbg.value:
+                    items.append(_item(
+                        label=f"Debugger detectado no Roblox (PID {pid})",
+                        detail=f"CheckRemoteDebuggerPresent indicou a presença de um debugger ativo no processo '{name}'.",
+                        severity="high",
+                        matched="roblox-debugger-present"
+                    ))
+                    continue
+
+            # 2. NtQueryInformationProcess (ProcessDebugPort = 7)
+            dbg_port = wintypes.DWORD(0)
+            ret_len = wintypes.ULONG(0)
+            status = ntdll.NtQueryInformationProcess(
+                handle,
+                7,  # ProcessDebugPort
+                ctypes.pointer(dbg_port),
+                ctypes.sizeof(dbg_port),
+                ctypes.pointer(ret_len)
+            )
+            if status == 0 and dbg_port.value != 0:
+                items.append(_item(
+                    label=f"Porta de Debug detectada no Roblox (PID {pid})",
+                    detail=f"NtQueryInformationProcess (ProcessDebugPort) retornou porta 0x{dbg_port.value:X}.",
+                    severity="high",
+                    matched="roblox-debug-port"
+                ))
+
+        except Exception as e:
+            debug.dbg(f"Falha ao checar debugger no PID {pid}", e)
+        finally:
+            if handle:
+                kernel32.CloseHandle(handle)
+
+    return _result("Detecção de Debugger (Roblox)",
+                   "Verifica se ferramentas de debug estão atreladas ao processo Roblox",
+                   items)
+
+
+def scan_roblox_manual_map() -> dict:
+    """
+    Detecta injeção Manual Map / Reflective DLL procurando por páginas executáveis
+    privadas (não mapeadas a arquivos) que contenham cabeçalhos PE (MZ).
+    """
+    if not HAS_PSUTIL:
+        return _result("Injeção Manual Map (Roblox)", "Detecção de DLLs injetadas por Manual Map", [],
+                       error="psutil não instalado")
+
+    items = []
+    roblox_names_lower = {n.lower() for n in ROBLOX_PROCESS_NAMES}
+    target_pids = []
+
+    for proc in psutil.process_iter(["pid", "name"]):
+        try:
+            name = proc.info.get("name") or ""
+            if name in ROBLOX_PROCESS_NAMES or name.lower() in roblox_names_lower:
+                target_pids.append((proc.info["pid"], name))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    if not target_pids:
+        return _result("Injeção Manual Map (Roblox)", "Detecção de DLLs injetadas por Manual Map", [])
+
+    for pid, name in target_pids:
+        handle = None
+        try:
+            # PROCESS_QUERY_INFORMATION = 0x0400, PROCESS_VM_READ = 0x0010
+            handle = kernel32.OpenProcess(0x0400 | 0x0010, False, pid)
+            if not handle:
+                continue
+
+            address = 0
+            mbi = MEMORY_BASIC_INFORMATION()
+            size_mbi = ctypes.sizeof(MEMORY_BASIC_INFORMATION)
+
+            while True:
+                res = kernel32.VirtualQueryEx(handle, ctypes.c_void_p(address), ctypes.pointer(mbi), size_mbi)
+                if res == 0:
+                    break
+
+                base_addr = mbi.BaseAddress or 0
+                region_size = mbi.RegionSize
+
+                # Commit, Private, Executável
+                if mbi.State == MEM_COMMIT and mbi.Type == MEM_PRIVATE and mbi.Protect in EXECUTE_PROTECTIONS:
+                    # Lê os primeiros 2 bytes buscando cabeçalho PE (MZ)
+                    buf = ctypes.create_string_buffer(2)
+                    bytes_read = ctypes.c_size_t(0)
+                    if kernel32.ReadProcessMemory(handle, ctypes.c_void_p(base_addr), buf, 2, ctypes.pointer(bytes_read)):
+                        if bytes_read.value == 2 and buf.raw[:2] == b"MZ":
+                            items.append(_item(
+                                label=f"Manual Map detectado no Roblox (PID {pid})",
+                                detail=f"Endereço: 0x{base_addr:X} (Tamanho: {region_size} bytes)\n"
+                                       f"Região de memória privada e executável contendo cabeçalho PE (MZ). "
+                                       f"Isso é assinatura de injeção Manual Map.",
+                                severity="high",
+                                matched="manual-map-dll"
+                            ))
+
+                address = base_addr + region_size
+
+        except Exception as e:
+            debug.dbg(f"Falha ao checar manual map no PID {pid}", e)
+        finally:
+            if handle:
+                kernel32.CloseHandle(handle)
+
+    return _result("Injeção Manual Map (Roblox)",
+                   "Detecção de DLLs injetadas ocultamente (sem carregar no disco) no Roblox",
+                   items)
+
+
 ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_roblox_dll_injection,
     scan_process_tree,
@@ -1086,4 +1314,6 @@ ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_suspended_processes,
     scan_process_masquerade,
     scan_roblox_dll_sideload,
+    scan_roblox_debuggers,
+    scan_roblox_manual_map,
 ]

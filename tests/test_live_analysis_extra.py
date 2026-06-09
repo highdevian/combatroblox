@@ -1,0 +1,171 @@
+"""
+Testes adicionais do live_analysis para scan_roblox_debuggers e scan_roblox_manual_map.
+"""
+
+import os
+import sys
+import ctypes
+from ctypes import wintypes
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import live_analysis as la  # noqa: E402
+
+
+class FakeProcess:
+    def __init__(self, pid, name):
+        self.info = {"pid": pid, "name": name}
+
+
+class MockKernel32:
+    def __init__(self):
+        self.is_dbg = False
+        self.query_mbi = None
+        self.read_data = None
+
+    def OpenProcess(self, mask, inherit, pid):
+        return 12345
+
+    def CloseHandle(self, handle):
+        return True
+
+    def CheckRemoteDebuggerPresent(self, handle, is_dbg_ptr):
+        is_dbg_ptr.contents.value = self.is_dbg
+        return True
+
+    def VirtualQueryEx(self, handle, addr, mbi_ptr, size):
+        if self.query_mbi:
+            mbi_ptr.contents.BaseAddress = self.query_mbi.BaseAddress
+            mbi_ptr.contents.RegionSize = self.query_mbi.RegionSize
+            mbi_ptr.contents.State = self.query_mbi.State
+            mbi_ptr.contents.Type = self.query_mbi.Type
+            mbi_ptr.contents.Protect = self.query_mbi.Protect
+            self.query_mbi = None
+            return size
+        return 0
+
+    def ReadProcessMemory(self, handle, addr, buf_ptr, size, bytes_read_ptr):
+        if self.read_data:
+            bytes_read_ptr.contents.value = len(self.read_data)
+            ctypes.memmove(buf_ptr, self.read_data, len(self.read_data))
+            return True
+        bytes_read_ptr.contents.value = 0
+        return False
+
+
+class MockNtdll:
+    def __init__(self):
+        self.dbg_port = 0
+
+    def NtQueryInformationProcess(self, handle, info_class, info_ptr, info_len, ret_len_ptr):
+        if info_class == 7:  # ProcessDebugPort
+            val_ptr = ctypes.cast(info_ptr, ctypes.POINTER(wintypes.DWORD))
+            val_ptr.contents.value = self.dbg_port
+            return 0  # STATUS_SUCCESS
+        return -1
+
+
+def test_scan_roblox_debuggers_clean(monkeypatch):
+    """Sem processo Roblox, deve retornar clean."""
+    monkeypatch.setattr(la, "HAS_PSUTIL", True)
+    import psutil
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [])
+    
+    r = la.scan_roblox_debuggers()
+    assert r["status"] == "clean"
+    assert len(r["items"]) == 0
+
+
+def test_scan_roblox_debuggers_detected_by_present(monkeypatch):
+    """Presença de debugger detectada por CheckRemoteDebuggerPresent."""
+    monkeypatch.setattr(la, "HAS_PSUTIL", True)
+    import psutil
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [
+        FakeProcess(9999, "RobloxPlayerBeta.exe")
+    ])
+    
+    mock_k32 = MockKernel32()
+    mock_k32.is_dbg = True
+    monkeypatch.setattr(la, "kernel32", mock_k32)
+    
+    r = la.scan_roblox_debuggers()
+    assert r["status"] == "suspicious"
+    assert len(r["items"]) == 1
+    assert r["items"][0]["severity"] == "high"
+    assert r["items"][0]["matched"] == "roblox-debugger-present"
+
+
+def test_scan_roblox_debuggers_detected_by_port(monkeypatch):
+    """Presença de debugger detectada por NtQueryInformationProcess (ProcessDebugPort)."""
+    monkeypatch.setattr(la, "HAS_PSUTIL", True)
+    import psutil
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [
+        FakeProcess(9999, "RobloxPlayerBeta.exe")
+    ])
+    
+    mock_k32 = MockKernel32()
+    mock_k32.is_dbg = False
+    monkeypatch.setattr(la, "kernel32", mock_k32)
+    
+    mock_nt = MockNtdll()
+    mock_nt.dbg_port = 0xFFFFFFFF
+    monkeypatch.setattr(la, "ntdll", mock_nt)
+    
+    r = la.scan_roblox_debuggers()
+    assert r["status"] == "suspicious"
+    assert len(r["items"]) == 1
+    assert r["items"][0]["severity"] == "high"
+    assert r["items"][0]["matched"] == "roblox-debug-port"
+
+
+def test_scan_roblox_manual_map_clean(monkeypatch):
+    """Sem manual map e sem páginas executáveis com 'MZ', deve ser clean."""
+    monkeypatch.setattr(la, "HAS_PSUTIL", True)
+    import psutil
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [
+        FakeProcess(9999, "RobloxPlayerBeta.exe")
+    ])
+    
+    mock_k32 = MockKernel32()
+    # Cria uma página não-executável
+    mbi = la.MEMORY_BASIC_INFORMATION()
+    mbi.BaseAddress = 0x1000
+    mbi.RegionSize = 0x1000
+    mbi.State = la.MEM_COMMIT
+    mbi.Type = la.MEM_PRIVATE
+    mbi.Protect = 0x04  # PAGE_READWRITE (não-executável)
+    mock_k32.query_mbi = mbi
+    
+    monkeypatch.setattr(la, "kernel32", mock_k32)
+    
+    r = la.scan_roblox_manual_map()
+    assert r["status"] == "clean"
+    assert len(r["items"]) == 0
+
+
+def test_scan_roblox_manual_map_detected(monkeypatch):
+    """Página executável privada contendo cabeçalho PE 'MZ' -> manual map detectado."""
+    monkeypatch.setattr(la, "HAS_PSUTIL", True)
+    import psutil
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [
+        FakeProcess(9999, "RobloxPlayerBeta.exe")
+    ])
+    
+    mock_k32 = MockKernel32()
+    # Cria uma página executável privada
+    mbi = la.MEMORY_BASIC_INFORMATION()
+    mbi.BaseAddress = 0x5000
+    mbi.RegionSize = 0x10000
+    mbi.State = la.MEM_COMMIT
+    mbi.Type = la.MEM_PRIVATE
+    mbi.Protect = la.PAGE_EXECUTE_READWRITE
+    mock_k32.query_mbi = mbi
+    mock_k32.read_data = b"MZ"
+    
+    monkeypatch.setattr(la, "kernel32", mock_k32)
+    
+    r = la.scan_roblox_manual_map()
+    assert r["status"] == "suspicious"
+    assert len(r["items"]) == 1
+    assert r["items"][0]["severity"] == "high"
+    assert r["items"][0]["matched"] == "manual-map-dll"
