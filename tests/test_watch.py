@@ -61,6 +61,23 @@ def test_dashboard_html_served():
     assert "/state" in html     # faz polling
 
 
+def test_dashboard_escapes_cluster_fields():
+    """Regressão: label/source de cluster vêm de nome de arquivo do disco do
+    suspeito (evidence.py) e são injetados via innerHTML. Sem escape, um arquivo
+    renomeado pra conter HTML executa JS no navegador do supervisor e forja o
+    veredito. O painel tem que passar TODO campo dinâmico pelo esc()."""
+    url = watch_server.start(1, open_browser=False)
+    with urllib.request.urlopen(url, timeout=5) as r:
+        html = r.read().decode("utf-8")
+    assert "const esc =" in html                 # helper de escape presente
+    assert "${esc(c.label)}" in html             # label do cluster escapado
+    assert "${esc(srcLbl(s))}" in html           # fontes escapadas
+    assert "${esc(s.name)}" in html              # nome do scanner escapado
+    # Nenhum campo dinâmico interpolado cru num innerHTML:
+    assert "${c.label}" not in html
+    assert "${c.kind}" not in html
+
+
 def test_push_scanner_appears_in_state():
     url = watch_server.start(3, open_browser=False)
     watch_server.push_scanner(_finding("Prefetch", [_hit(r"C:\x\solara.exe", "solara")]), 1, 3)

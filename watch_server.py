@@ -334,6 +334,11 @@ const SRC_LABELS = {
   scripts:'Scripts', recycle_bin:'Lixeira', hidden_files:'Ocultos', filesystem:'Filesystem',
 };
 const srcLbl = s => SRC_LABELS[s] || s;
+// Escapa HTML antes de qualquer innerHTML: label/source de cluster derivam de
+// nome de arquivo do disco do suspeito (evidence.py), que é controlado por ele.
+// Sem isso, um arquivo renomeado pra conter HTML forja o veredito no painel.
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => (
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let lastN = 0;
 
 function rank(v){ return {CONFIRMED:3,DETECTED:2,SUSPECT:1}[v]||0; }
@@ -352,7 +357,7 @@ function render(st){
     let tag = '<span class="tag ok">ok</span>';
     if (s.n_hits>0) tag = `<span class="tag hit">${s.n_hits} SUSPEITO</span>`;
     else if (s.status==='error') tag = '<span class="tag skip">skip</span>';
-    row.innerHTML = `<span class="nm">${s.name}</span>${tag}`;
+    row.innerHTML = `<span class="nm">${esc(s.name)}</span>${tag}`;
     stream.appendChild(row);
   }
   if (st.scanners.length > lastN) stream.scrollTop = stream.scrollHeight;
@@ -396,10 +401,10 @@ function render(st){
     const sorted = [...st.clusters].sort((a,b)=> (order[a.verdict]-order[b.verdict]) || (b.score-a.score));
     wrap.innerHTML = sorted.map(c=>{
       const vs = VS[c.verdict] || VS.SUSPECT;
-      const srcs = c.sources.map(s=>`<span><span class="ck">✓</span> ${srcLbl(s)}</span>`).join('');
+      const srcs = c.sources.map(s=>`<span><span class="ck">✓</span> ${esc(srcLbl(s))}</span>`).join('');
       return `<div class="cl" style="border-left-color:${vs.c}">
-        <div class="cl-top"><span class="cl-name">${c.label}</span><span class="cl-kind">${c.kind}</span>
-          <span class="cl-verdict" style="color:${vs.c}">${c.verdict}</span></div>
+        <div class="cl-top"><span class="cl-name">${esc(c.label)}</span><span class="cl-kind">${esc(c.kind)}</span>
+          <span class="cl-verdict" style="color:${vs.c}">${esc(c.verdict)}</span></div>
         <div class="cl-meta"><span class="pill" style="color:${vs.c}">Confidence ${c.confidence}%</span>
           <span class="pill">Score ${c.score}</span><span class="pill">${c.n_sources} fonte(s)</span></div>
         <div class="cl-src">${srcs}</div></div>`;
