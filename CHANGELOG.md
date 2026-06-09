@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.30.3] - 2026-06-09
+
+**Fix: PE analysis agora alcança os hits de Amcache (ponto cego de extração de path).**
+
+### Fixed
+
+- **Extração de path no `pe_analysis.enrich_findings_with_pe`**: a detecção do
+  caminho do arquivo usava `endswith()` na linha inteira do `detail`. Scanners
+  como o **Amcache** reportam `C:\...\cheat.exe SHA1=<hash>` — a linha termina no
+  hash, não na extensão, então o `endswith` falhava e o PE analysis
+  (packer/entropy/SHA256-match + bump de severidade) **não rodava nos hits de
+  Amcache**. Trocado por `_extract_pe_path()`, que casa o path mesmo com sufixo
+  depois da extensão (drive-letter ou UNC), preservando o caso antigo. +5 testes.
+
 ## [3.30.2] - 2026-06-09
 
 **Segurança: corrige XSS / forja de veredito no dashboard ao vivo.**
