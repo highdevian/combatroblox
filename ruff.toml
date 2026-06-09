@@ -1,0 +1,10 @@
+# Linter de BUG (não de estilo) — roda no CI (.github/workflows/ci.yml).
+# Pega regressão de import morto, chave de dict duplicada, variável de loop
+# não usada, f-string sem placeholder, comparação errada, etc.
+line-length = 120
+
+[lint]
+# Classes de bug real: pyflakes (F), bugbear (B), erros de sintaxe (E9),
+# erros do pylint (PLE). Estilo (E501, D*, ANN*, quotes) fica DE FORA de
+# propósito — o foco é correção, não formatação.
+select = ["F", "B", "E9", "PLE"]

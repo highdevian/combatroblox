@@ -1,0 +1,66 @@
+name: Release
+
+# Builda o telador.exe e publica a release automaticamente no push de uma tag
+# vX.Y.Z. Reprodutível: o binário sai do CI (windows-latest, py3.11), não da
+# máquina de ninguém. Espelha o build.bat.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install psutil pyinstaller
+
+      - name: Build telador.exe
+        run: >
+          python -m PyInstaller --onefile --console --name telador --noupx
+          --icon=icon.ico --version-file version_info.txt
+          --hidden-import psutil --hidden-import winreg --hidden-import sqlite3
+          --hidden-import zlib --hidden-import ctypes.wintypes
+          --hidden-import concurrent.futures --hidden-import live_analysis
+          --hidden-import command_history --hidden-import peripherals
+          --hidden-import fp_filter --hidden-import pe_analysis
+          --hidden-import report_signing --hidden-import diff_tool
+          --hidden-import redaction --hidden-import report_md
+          --hidden-import discord_cache --hidden-import network_scanners
+          --hidden-import fresh_install --hidden-import extra_forensics
+          --hidden-import evidence --hidden-import watch_server
+          --hidden-import sigupdate --hidden-import http.server
+          --hidden-import urllib.request --hidden-import hashlib
+          --hidden-import hmac --collect-submodules psutil telador.py
+
+      - name: Smoke test (--help)
+        run: ./dist/telador.exe --help
+
+      - name: SHA256
+        id: sha
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash dist/telador.exe -Algorithm SHA256).Hash.ToLower()
+          "sha=$h" >> $env:GITHUB_OUTPUT
+          Write-Host "SHA256: $h"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: >
+          gh release create ${{ github.ref_name }} dist/telador.exe
+          --title "${{ github.ref_name }}"
+          --notes "Build automático do telador.exe (CI).`n`nVeja o CHANGELOG.md para as mudanças desta versão.`n`nSHA256: ``${{ steps.sha.outputs.sha }}``"
