@@ -674,15 +674,39 @@ def test_usn_real_delete_outside_window():
 
 
 def test_usn_delete_only_preserved():
-    """Só DELETE, sem CREATE correspondente — mantém HIGH.
-    Cenário real: CREATE já girou fora do buffer circular, só DELETE sobrou."""
+    """Só DELETE, sem CREATE correspondente — merge_transient mantém HIGH,
+    mas downgrade_orphan rebaixa pra MEDIUM (evidência parcial)."""
     import extra_forensics as ef
     d = ef._usn_parse_line("200,solara.exe,0x80000200,2026-06-03 14:34:58")
     assert d is not None
 
+    # merge_transient não toca (nada pra fundir)
     result = ef._usn_merge_transient([d])
     assert len(result) == 1
     assert result[0]["severity"] == "high"
+
+    # downgrade_orphan rebaixa pra MEDIUM
+    result = ef._usn_downgrade_orphan_deletes(result)
+    assert result[0]["severity"] == "medium"
+    assert result[0].get("original_severity") == "high"
+    assert result[0].get("fp_reason") is not None
+    assert "CREATE" in result[0]["detail"]
+
+
+def test_usn_delete_with_create_stays_high():
+    """DELETE com CREATE fora da janela transitória mantém HIGH
+    mesmo após downgrade_orphan (o CREATE existe no lote)."""
+    import extra_forensics as ef
+    c = ef._usn_parse_line("100,krnl.exe,0x00000100,2026-06-03 10:00:00")
+    d = ef._usn_parse_line("200,krnl.exe,0x80000200,2026-06-03 14:34:58")
+    assert c is not None and d is not None
+
+    result = ef._usn_merge_transient([c, d])
+    assert len(result) == 2
+    result = ef._usn_downgrade_orphan_deletes(result)
+    # DELETE tem CREATE correspondente no lote → NÃO é rebaixado
+    delete_items = [it for it in result if "excluído" in it["label"]]
+    assert delete_items[0]["severity"] == "high"
 
 
 def test_usn_create_only_preserved():

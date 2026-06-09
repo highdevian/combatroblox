@@ -659,6 +659,51 @@ def _usn_merge_transient(items, window_sec=_USN_TRANSIENT_WINDOW_SEC):
     return result
 
 
+def _usn_downgrade_orphan_deletes(items):
+    """
+    DELETE sem CREATE correspondente no journal = evidência parcial.
+
+    O buffer circular do USN tem tamanho fixo (tipicamente 32 MB).  Quando o
+    CREATE já rotacionou pra fora do buffer, sobra apenas o DELETE — e não
+    temos como saber QUANDO o arquivo foi criado, se foi usado por minutos
+    ou por segundos, nem se a exclusão é recente ou antiga.
+
+    Racional forense:
+      - CREATE+DELETE juntos com gap > 120 s  → HIGH (uso real confirmado)
+      - CREATE+DELETE juntos com gap ≤ 120 s  → LOW  (transitório / artefato)
+      - DELETE sozinho (CREATE rotacionou)     → MEDIUM (evidência parcial)
+
+    A informação NÃO é escondida: o item mantém o matched/timestamp, mas a
+    severidade cai pra MEDIUM e o detalhe explica o motivo.  O Confidence
+    Engine precisa de corroboração (Prefetch, Amcache, BAM …) pra elevar
+    a CONFIRMED — sozinho, um DELETE órfão fica como SUSPECT no máximo.
+    """
+    # Quais fnames possuem CREATE no lote atual?
+    has_create = {it.get("_usn_fname", "")
+                  for it in items
+                  if it.get("_usn_reason", 0) & _USN_FILE_CREATE}
+
+    for it in items:
+        fn = it.get("_usn_fname", "")
+        reason = it.get("_usn_reason", 0)
+        if (reason & _USN_FILE_DELETE
+                and fn not in has_create
+                and it["severity"] == "high"):
+            it["severity"] = "medium"
+            it["original_severity"] = "high"
+            it["fp_reason"] = (
+                "USN órfão: DELETE sem CREATE no buffer — "
+                "evidência parcial (CREATE pode ter rotacionado)"
+            )
+            it["detail"] += (
+                " · Sem registro de criação correspondente no journal "
+                "(CREATE pode ter rotacionado do buffer circular) — "
+                "evidência parcial, requer corroboração de outra fonte."
+            )
+
+    return items
+
+
 def _usn_strip_internal(items):
     """Remove campos internos ``_usn_*`` antes de devolver ao pipeline."""
     for it in items:
@@ -771,9 +816,11 @@ def scan_usn_journal() -> dict:
                            error="readjournal não retornou registros - rode a ferramenta "
                                  "como administrador (acesso ao journal exige elevação)")
 
-    # Pós-processamento: fundir pares CREATE+DELETE transitórios (≤120s)
-    # pra evitar FP de artefatos efêmeros (testes, downloads cancelados).
+    # Pós-processamento:
+    #  1. Fundir pares CREATE+DELETE transitórios (≤120s) → LOW
+    #  2. Rebaixar DELETEs órfãos (sem CREATE no buffer) → MEDIUM
     items = _usn_merge_transient(items)
+    items = _usn_downgrade_orphan_deletes(items)
     items = _usn_strip_internal(items)
 
     return _result("USN Journal", desc, items)

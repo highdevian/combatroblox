@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.33.2] - 2026-06-09
+
+### Fixed
+- **USN Journal FP — DELETE órfão**: Entradas de exclusão (DELETE) sem registro de criação (CREATE) correspondente no buffer circular do USN Journal agora são rebaixadas de HIGH para MEDIUM. Sem o par CREATE+DELETE, a evidência é parcial (o CREATE pode ter rotacionado do buffer). A informação continua visível no relatório, mas não infla o veredito — o Confidence Engine exige corroboração de outra fonte (Prefetch, Amcache, BAM…) para confirmar.
+
 ## [3.33.1] - 2026-06-09
 
 ### Fixed
