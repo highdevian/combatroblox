@@ -16,7 +16,7 @@ e por isso não limpam. Cada scanner é independente.
     vazios juntos" (assinatura de cleaner usado pré-SS).
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import re
 import time

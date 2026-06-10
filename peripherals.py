@@ -13,7 +13,6 @@ import os
 import sqlite3
 import tempfile
 import shutil
-from datetime import datetime
 
 from database import MOUSE_SOFTWARE, MACRO_RED_FLAGS
 

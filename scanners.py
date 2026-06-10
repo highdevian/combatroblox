@@ -812,7 +812,7 @@ def scan_scripts() -> dict:
             continue
 
         try:
-            for dirpath, filenames in walk_capped(base, SCRIPT_SEARCH_MAX_DEPTH):
+            for _dirpath, filenames in walk_capped(base, SCRIPT_SEARCH_MAX_DEPTH):
                 for entry in filenames:
                     f = entry.name
                     if not f.lower().endswith(script_extensions):

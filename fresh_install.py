@@ -14,7 +14,7 @@ Combina 6 sinais — mesmo se formatou há 1-2 semanas, vários ficam:
 Cada sinal pesa por idade — combinação = HIGH automático.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import re
 import subprocess

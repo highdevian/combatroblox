@@ -7,7 +7,7 @@ Histórico de comandos:
 90% dos cheats instalados via 'iex (irm krnl.cat/...)' ficam aqui.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 from datetime import datetime
 

@@ -11,7 +11,7 @@ chaves do Defender no registro são bloqueadas pelo Tamper Protection mesmo com
 admin (só SYSTEM lê), então a API é o caminho que de fato funciona em produção.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import subprocess
 

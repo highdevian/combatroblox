@@ -8,7 +8,7 @@ Cheaters mandam link de download por DM — o Chrome embedded do
 Discord cacheia tudo, ficando rastro mesmo se mensagem foi apagada.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import re
 from datetime import datetime, timedelta

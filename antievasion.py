@@ -5,7 +5,7 @@ Anti-evasão: detecta tentativas de mascarar a SS.
   - Clock tampering (relógio do sistema mexido)
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import time
 from datetime import datetime, timedelta

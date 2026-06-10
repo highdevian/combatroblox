@@ -13,7 +13,7 @@ corrigem o relógio pra frente — comum e legítimo).
 Lê via wevtutil (igual o check de 1102). Precisa de admin; sem admin = erro.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import subprocess
 import xml.etree.ElementTree as ET
 from datetime import datetime

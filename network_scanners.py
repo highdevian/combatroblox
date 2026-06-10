@@ -5,7 +5,7 @@ Network forensics:
   - Hosts file modificações (bloqueio de telemetria do Roblox)
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import re
 import subprocess

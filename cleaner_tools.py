@@ -16,7 +16,6 @@ Mapeia pro source 'anti_forense' (é o que é).
 from models import _result, _item, _fmt_ts
 import os
 import re
-from datetime import datetime
 
 
 _PREFETCH = r"C:\Windows\Prefetch"

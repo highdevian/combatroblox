@@ -7,7 +7,7 @@ Scanners forenses pesados:
 Todos precisam de admin pra cobertura total.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import struct
 import subprocess

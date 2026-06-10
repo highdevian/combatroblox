@@ -11,7 +11,7 @@ Leitura pura: lê o registro (ProfileList) e o mtime do NTUSER.DAT/perfil.
 Contexto, não acusação — conta atual limpa não inocenta o PC inteiro.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import os
 import winreg
 from datetime import datetime, timedelta
