@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.35.0] - 2026-06-10
+
+**Anti-cheat**: detecção de debugger ativo e injeção Manual Map no Roblox.
+
+### Added
+
+- **Detecção de debugger** (`live_analysis.py` → `scan_roblox_debuggers`):
+  detecta se um debugger (Cheat Engine, x64dbg, etc.) está ativamente atrelado
+  a um processo do Roblox usando `CheckRemoteDebuggerPresent` e
+  `NtQueryInformationProcess` (`ProcessDebugPort`). Severidade HIGH.
+- **Detecção de Manual Map** (`live_analysis.py` → `scan_roblox_manual_map`):
+  detecta injeção Manual Map / Reflective DLL procurando por páginas de memória
+  executáveis privadas (não mapeadas a arquivos) contendo cabeçalhos PE (`MZ`)
+  no processo do Roblox. Pega cheat injetado sem carregar DLL no disco.
+  Severidade HIGH.
+
+### Fixed
+
+- **CI: release idempotente** (`.github/workflows/release.yml`): o step de
+  publicação agora verifica se a release já existe antes de criar. Se já existir,
+  atualiza o asset (`--clobber`) e as notas em vez de falhar com
+  `a release with the same tag name already exists`.
+
 ## [3.34.0] - 2026-06-09
 
 **Anti-bypass**: detecção de DLL sideloading / proxy DLL no Roblox.

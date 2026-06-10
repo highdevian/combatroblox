@@ -60,7 +60,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
-        run: >
-          gh release create ${{ github.ref_name }} dist/telador.exe
-          --title "${{ github.ref_name }}"
-          --notes "Build automático do telador.exe (CI).`n`nVeja o CHANGELOG.md para as mudanças desta versão.`n`nSHA256: ``${{ steps.sha.outputs.sha }}``"
+        run: |
+          gh release view ${{ github.ref_name }} --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release already exists. Updating assets and metadata..."
+            gh release upload ${{ github.ref_name }} dist/telador.exe --clobber
+            gh release edit ${{ github.ref_name }} --title "${{ github.ref_name }}" --notes "Build automático do telador.exe (CI).`n`nVeja o CHANGELOG.md para as mudanças desta versão.`n`nSHA256: ``${{ steps.sha.outputs.sha }}``"
+          } else {
+            Write-Host "Creating new release..."
+            gh release create ${{ github.ref_name }} dist/telador.exe --title "${{ github.ref_name }}" --notes "Build automático do telador.exe (CI).`n`nVeja o CHANGELOG.md para as mudanças desta versão.`n`nSHA256: ``${{ steps.sha.outputs.sha }}``"
+          }
