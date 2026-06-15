@@ -102,7 +102,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
-    print(f"{GREY}  v3.36.0  ·  Confidence Engine  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.36.1  ·  Confidence Engine  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -480,6 +480,9 @@ def main():
                         help="Código de verificação ditado pelo supervisor no início da SS "
                              "(prova que o relatório é desta sessão ao vivo)")
     args = parser.parse_args()
+
+    if not 1 <= args.threads <= 32:
+        parser.error("--threads precisa estar entre 1 e 32")
 
     if args.verbose:
         debug.enable()

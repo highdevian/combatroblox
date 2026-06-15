@@ -1357,11 +1357,35 @@ LOADED_SIG_VERSION = None
 
 def _signatures_path() -> str:
     """signatures.json ao lado do .exe (frozen) ou do módulo (dev)."""
+    sidecar = _sidecar_signatures_path()
+    if os.path.isfile(sidecar):
+        return sidecar
+    appdata = _appdata_signatures_path()
+    return appdata or sidecar
+
+
+def _sidecar_signatures_path() -> str:
+    """signatures.json ao lado do exe/modulo."""
     if getattr(sys, "frozen", False):
         base = os.path.dirname(sys.executable)
     else:
         base = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base, "signatures.json")
+
+
+def _appdata_signatures_path() -> str | None:
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if not base:
+        return None
+    return os.path.join(base, "Telador", "signatures.json")
+
+
+def _candidate_signature_paths() -> list[str]:
+    paths = [_sidecar_signatures_path()]
+    appdata = _appdata_signatures_path()
+    if appdata and appdata not in paths:
+        paths.append(appdata)
+    return paths
 
 
 def load_external_signatures(path: str = None) -> tuple[int, str | None]:
@@ -1382,8 +1406,12 @@ def load_external_signatures(path: str = None) -> tuple[int, str | None]:
     erro_ou_None). A mutação é in-place (mesmo objeto que matching.py referencia),
     e deve ocorrer ANTES do primeiro match_keyword (matching compila sob demanda).
     """
-    path = path or _signatures_path()
-    if not os.path.isfile(path):
+    if path is None:
+        for candidate in _candidate_signature_paths():
+            if os.path.isfile(candidate):
+                path = candidate
+                break
+    if not path or not os.path.isfile(path):
         return 0, None
     try:
         with open(path, "r", encoding="utf-8") as fh:

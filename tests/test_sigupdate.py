@@ -65,6 +65,19 @@ def test_update_success_saves_file():
         stop()
 
 
+def test_update_creates_destination_directory():
+    body = json.dumps(VALID_SIGS).encode("utf-8")
+    url, stop = _serve(body)
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            dest = os.path.join(d, "Telador", "signatures.json")
+            ok, msg = sigupdate.update_signatures(url=url, dest=dest)
+            assert ok, msg
+            assert os.path.isfile(dest)
+    finally:
+        stop()
+
+
 def test_update_rejects_non_json():
     url, stop = _serve(b"<html>not json</html>", content_type="text/html")
     try:

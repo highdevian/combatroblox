@@ -8,7 +8,10 @@ import contextlib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import database  # noqa: E402
 import debug  # noqa: E402
+import pytest  # noqa: E402
+import telador  # noqa: E402
 import win_tools  # noqa: E402
 
 
@@ -53,3 +56,19 @@ def test_win_tools_unknown_falls_back_to_bare_name():
 def test_win_tools_powershell_path():
     p = win_tools.powershell()
     assert p == "powershell" or p.lower().endswith("powershell.exe")
+
+
+def test_signatures_path_prefers_appdata_when_no_sidecar(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "_sidecar_signatures_path", lambda: str(tmp_path / "missing.json"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    expected = tmp_path / "LocalAppData" / "Telador" / "signatures.json"
+    assert database.signatures_path() == str(expected)
+
+
+def test_cli_rejects_invalid_thread_count(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["telador.py", "--threads", "0", "--update-sigs"])
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err), pytest.raises(SystemExit) as exc:
+        telador.main()
+    assert exc.value.code == 2
+    assert "--threads precisa estar entre 1 e 32" in err.getvalue()

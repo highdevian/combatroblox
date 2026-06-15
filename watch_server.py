@@ -100,25 +100,46 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def do_GET(self):
-        if self.path.startswith("/state"):
-            with _lock:
-                body = json.dumps(_state, ensure_ascii=False).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
+    def _send_common_headers(self):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "connect-src 'self'; "
+            "img-src 'self' data:; "
+            "base-uri 'none'; "
+            "frame-ancestors 'none'",
+        )
 
-        # Qualquer outra rota → dashboard HTML
-        body = _DASHBOARD_HTML.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+    def _write(self, status: int, content_type: str, body: bytes, no_store: bool = False):
+        self.send_response(status)
+        self._send_common_headers()
+        self.send_header("Content-Type", content_type)
+        if no_store:
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def do_GET(self):
+        path = self.path.split("?", 1)[0]
+        if path == "/state":
+            with _lock:
+                body = json.dumps(_state, ensure_ascii=False).encode("utf-8")
+            self._write(200, "application/json; charset=utf-8", body, no_store=True)
+            return
+
+        # Qualquer outra rota → dashboard HTML
+        if path not in ("", "/"):
+            self._write(404, "text/plain; charset=utf-8", b"not found", no_store=True)
+            return
+
+        body = _DASHBOARD_HTML.encode("utf-8")
+        self._write(200, "text/html; charset=utf-8", body)
 
 
 _server = None

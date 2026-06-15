@@ -38,6 +38,7 @@ def test_save_and_load_roundtrip(tmp_path):
 
     payload, err = diff_tool.load_tsr(p)
     assert err is None, err
+    assert payload["version"] == diff_tool.APP_VERSION
     assert payload["system"]["host"] == "PC-DO-FULANO"
     assert payload["findings"][0]["items"][0]["matched"] == "solara"
 

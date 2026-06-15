@@ -12,6 +12,7 @@ Garante que:
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -56,9 +57,19 @@ def test_dashboard_html_served():
     url = watch_server.start(1, open_browser=False)
     with urllib.request.urlopen(url, timeout=5) as r:
         html = r.read().decode("utf-8")
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+        assert r.headers["Referrer-Policy"] == "no-referrer"
+        assert "frame-ancestors 'none'" in r.headers["Content-Security-Policy"]
     assert "TELADOR" in html
     assert "127.0.0.1" in html  # badge de local
     assert "/state" in html     # faz polling
+
+
+def test_dashboard_unknown_route_404():
+    url = watch_server.start(1, open_browser=False)
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(url + "nao-existe", timeout=5)
+    assert exc.value.code == 404
 
 
 def test_dashboard_escapes_cluster_fields():

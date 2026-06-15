@@ -11,10 +11,13 @@ from datetime import datetime
 from report_signing import compute_hmac, verify_hmac
 
 
+APP_VERSION = "3.36.1"
+
+
 def save_tsr(findings: list, sys_info: dict, output_path: str) -> str:
     """Salva relatório em formato .tsr (JSON com HMAC)."""
     payload = {
-        "version": "3.2.0",
+        "version": APP_VERSION,
         "timestamp": datetime.now().isoformat(),
         "system": sys_info,
         "findings": findings,

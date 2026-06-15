@@ -116,6 +116,9 @@ def update_signatures(url: str = None, dest: str = None,
 
     # 4. Salva (escreve em tmp e renomeia — atômico, não corrompe se cair no meio)
     try:
+        dest_dir = os.path.dirname(os.path.abspath(dest))
+        if dest_dir:
+            os.makedirs(dest_dir, exist_ok=True)
         tmp = dest + ".tmp"
         with io.open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)

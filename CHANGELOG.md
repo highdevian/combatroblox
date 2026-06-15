@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.36.1] - 2026-06-15
+
+**Hardening**: ajustes pequenos de segurança operacional e release hygiene.
+
+### Fixed
+
+- **Versionamento .tsr** (`diff_tool.py`): snapshots agora gravam a versão atual
+  do app em vez do valor legado `3.2.0`.
+- **Dashboard local** (`watch_server.py`): adicionados headers de segurança
+  (`Content-Security-Policy`, `nosniff`, `no-referrer`, `DENY`) e rotas
+  desconhecidas agora retornam `404`.
+- **Assinaturas externas** (`database.py`, `sigupdate.py`): o update cria a
+  pasta de destino e pode usar `%LOCALAPPDATA%\Telador\signatures.json` quando
+  não houver `signatures.json` portable ao lado do executável.
+- **CLI** (`telador.py`): `--threads` agora valida o intervalo permitido
+  (`1..32`) antes de iniciar o scan.
+
 ## [3.36.0] - 2026-06-10
 
 **Clean Up & Refactoring Fixes**: Complete refactoring phase to eliminate redundant code and fix architectural bugs.
