@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.36.2] - 2026-06-15
+
+**Bugfix**: Ajuste no filtro de falso-positivo para lidar com ferramentas de IA.
+
+### Fixed
+
+- **Falso-positivo**: "codex" adicionado ao `DEV_AMBIGUOUS_KEYWORDS` em `fp_filter.py`. Em ambientes de desenvolvimento detectados, a ocorrência de pastas de ferramentas como "Codex" (IA assistente) será rebaixada adequadamente para `LOW`, impedindo alarmes falsos de nível `HIGH` devido a conflitos de nomenclatura com exploits.
+
 ## [3.36.1] - 2026-06-15
 
 **Hardening**: ajustes pequenos de segurança operacional e release hygiene.

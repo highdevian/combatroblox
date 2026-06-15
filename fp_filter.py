@@ -280,7 +280,7 @@ DEV_AMBIGUOUS_KEYWORDS = {
     "ida.exe", "ida64.exe", "ghidra.exe", "dnspy.exe",
     "x32dbg.exe", "x64dbg.exe", "ollydbg.exe", "windbg.exe",
     "scylla.exe", "pe-bear.exe", "die.exe",
-    "dll injector",
+    "dll injector", "codex",
 }
 
 

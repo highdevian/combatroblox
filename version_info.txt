@@ -18,11 +18,11 @@ VSVersionInfo(
       StringTable('040904B0', [
         StringStruct('CompanyName', 'Telador BR (open source)'),
         StringStruct('FileDescription', 'Telador BR - ferramenta forense local de verificacao (SS) para Roblox'),
-        StringStruct('FileVersion', '3.36.1'),
+        StringStruct('FileVersion', '3.36.2'),
         StringStruct('InternalName', 'telador'),
         StringStruct('OriginalFilename', 'telador.exe'),
         StringStruct('ProductName', 'Telador BR'),
-        StringStruct('ProductVersion', '3.36.1'),
+        StringStruct('ProductVersion', '3.36.2'),
         StringStruct('LegalCopyright', 'MIT License - github.com/highdevian/combatroblox'),
         StringStruct('Comments', 'Read-only, 100% local, codigo aberto. github.com/highdevian/combatroblox')
       ])
