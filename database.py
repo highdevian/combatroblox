@@ -666,12 +666,16 @@ SUSPICIOUS_FOLDER_NAMES = {
     "wave":                 "high",
     "solara":               "high",
     "velocity executor":    "high",
-    "electron":             "high",
-    "sentinel":             "high",
+    # Bare words genéricos removidos — como SUSPICIOUS_FOLDER_NAMES casa o nome
+    # EXATO da pasta, estes colidiam com software/ferramentas legítimas cuja
+    # pasta se chama exatamente assim. Os executores seguem cobertos por
+    # variantes específicas (process name / domínio / "X executor"):
+    #   "codex"    → OpenAI Codex (IA dev)              · cobre codex.exe, codex.lol, "codex executor"
+    #   "argon"    → Argon (sync tool de Rojo p/ Roblox) · cobre "argon executor"
+    #   "electron" → Electron framework (build/cache)    · cobre "electron exploit"
+    #   "hydrogen" → Hydrogen (sequencer de música)      · cobre hydrogen.exe, hydrogen-m
+    #   "sentinel" → Sentinel licensing/HASP, Dell       · cobre "sentinel exploit"
     "trigon evo":           "high",
-    "argon":                "high",
-    "hydrogen":             "high",
-    "codex":                "high",
     "jjsploit":             "high",
     "scriptware":           "high",
     "rbxexploits":          "high",
@@ -682,7 +686,8 @@ SUSPICIOUS_FOLDER_NAMES = {
     # ===== Executores 2024-2026 (folder names) =====
     "xeno":                 "high",
     "xeno executor":        "high",
-    "cryptic":              "high",
+    # "cryptic" (solto) removido — Cryptic Studios (Star Trek Online, Neverwinter)
+    # cria pasta "Cryptic". Cobre "cryptic exec".
     "cryptic exec":         "high",
     "empyrean":             "high",
     "valyse":               "high",

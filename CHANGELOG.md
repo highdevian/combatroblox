@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.38.1] - 2026-06-20
+
+**Bugfix FP**: nomes de pasta genéricos colidindo com software legítimo.
+
+### Fixed
+
+- **Codex (e irmãos) em `SUSPICIOUS_FOLDER_NAMES`** (`database.py`): a lista casa
+  o nome EXATO da pasta, e tinha bare words genéricos que colidiam com
+  software/ferramentas legítimas — visto num PC de dev: a pasta **`Codex`** (da
+  OpenAI Codex) flaggava **HIGH** como executor. Removidos `codex`, `argon`
+  (Argon, sync tool de Rojo p/ Roblox dev), `electron` (framework), `hydrogen`
+  (sequencer de música) e `sentinel` (licensing/HASP), além de `cryptic` (Cryptic
+  Studios — Star Trek Online/Neverwinter). Mesma classe de FP que o projeto já
+  tratou pra `synapse`/`xeno`/`ronix`. Os executores seguem cobertos por variantes
+  específicas (`codex.exe`/`codex.lol`/`codex executor`, `argon executor`,
+  `electron exploit`, `hydrogen.exe`, `sentinel exploit`, `cryptic exec`). Teste de
+  regressão adicionado.
+
 ## [3.38.0] - 2026-06-20
 
 **Anti-bypass**: detecção de anomalias de timestamp (time-stomping).

@@ -171,3 +171,31 @@ def test_powershell_search_pattern_helper():
     # Verbo de busca mas keyword fora da regex = não é (caso raro)
     assert ch._is_search_pattern(
         "kdmapper; Where-Object -match 'algo'", "kdmapper") is False
+
+
+# ===== FP v3.38.1: bare folder names colidindo com software legítimo =====
+
+def test_generic_folder_names_dont_match():
+    """REGRESSÃO FP: SUSPICIOUS_FOLDER_NAMES casa o nome EXATO da pasta. Bare
+    words genéricos colidiam com software legítimo cuja pasta tem esse nome:
+      codex → OpenAI Codex · argon → Argon (Rojo) · electron → Electron
+      hydrogen → Hydrogen (sequencer) · sentinel → Sentinel · cryptic → Cryptic Studios
+    Visto na máquina do dev: pasta 'Codex' flaggava HIGH como executor."""
+    from database import SUSPICIOUS_FOLDER_NAMES as S
+    for name in ("codex", "argon", "electron", "hydrogen", "sentinel", "cryptic"):
+        assert S.get(name) is None, f"'{name}' não devia estar em SUSPICIOUS_FOLDER_NAMES (FP)"
+
+
+def test_removed_executors_still_covered():
+    """Os executores removidos da lista de pastas continuam pegos por variantes
+    específicas (process name / domínio / 'X executor')."""
+    import matching
+    from database import EXECUTOR_PROCESS_NAMES
+    assert matching.match_keyword("codex.lol")[0] is not None
+    assert matching.match_keyword("Codex Executor")[0] is not None
+    assert EXECUTOR_PROCESS_NAMES.get("codex.exe") == "high"
+    assert matching.match_keyword("argon executor")[0] is not None
+    assert matching.match_keyword("electron exploit")[0] is not None
+    assert matching.match_keyword("hydrogen.exe")[0] is not None
+    assert matching.match_keyword("sentinel exploit")[0] is not None
+    assert matching.match_keyword("cryptic exec")[0] is not None
