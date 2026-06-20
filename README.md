@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ Telador
+# Telador
 
 ### Screen-share forense pra Roblox — veredito em segundos, não em horas.
 
@@ -17,10 +17,10 @@ e entrega um **veredito de cheat com % de confiança**.
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 
-[**⬇ Baixar o telador.exe**](https://github.com/highdevian/combatroblox/releases/latest/download/telador.exe) ·
-[**🌐 Site**](https://combatroblox-forensics.vercel.app/) ·
-[**📖 Guia de SS**](https://combatroblox-forensics.vercel.app/playbook) ·
-[**🧰 Ferramentas**](https://combatroblox-forensics.vercel.app/ferramentas)
+[**Baixar o telador.exe**](https://github.com/highdevian/combatroblox/releases/latest/download/telador.exe) ·
+[**Site**](https://combatroblox-forensics.vercel.app/) ·
+[**Guia de SS**](https://combatroblox-forensics.vercel.app/playbook) ·
+[**Ferramentas**](https://combatroblox-forensics.vercel.app/ferramentas)
 
 </div>
 
@@ -37,7 +37,7 @@ e entrega um **veredito de cheat com % de confiança**.
 > veredito único (CONFIRMED / DETECTED / SUSPECT) com % de confiança, em vez de cuspir
 > 50 hits soltos pra você interpretar.
 
-## ⚡ Como usar
+## Como usar
 
 Baixa o `telador.exe` e roda. Ele pede admin sozinho (UAC) — **aceita**, senão as fontes
 mais fortes (Prefetch, Amcache, BAM) não são lidas e o resultado fica incompleto. Em
@@ -46,22 +46,22 @@ alguns segundos o relatório HTML abre no navegador.
 Sem terminal? `INICIAR.bat` (scan) e `TELADOR-AO-VIVO.bat` (dashboard ao vivo) rodam com
 dois cliques. Pra distribuir, zipa o `.exe` com os `.bat` e manda no Discord.
 
-> ⚠️ **Sem admin, "nada encontrado" não inocenta — é inconclusivo.** O programa avisa isso.
+> **Sem admin, "nada encontrado" não inocenta — é inconclusivo.** O programa avisa isso.
 
-## 🔍 O que detecta
+## O que detecta
 
 | | |
 |---|---|
-| 🎯 **Executores conhecidos** | 542 assinaturas — Solara, Xeno, Wave, Velocity, Ronix, Krnl, Fluxus, Synapse X e dezenas de menores. Bate em Prefetch, Amcache, BAM, UserAssist, USN, browser, Lixeira, processos. |
-| 🥸 **Executor renomeado** | Por **estrutura**, não por nome: exe não-assinado + runtime web embutido (EBWebView/CEF) em pasta de usuário. Sobrevive a renomear o arquivo. |
-| 🩹 **Launcher do Roblox patcheado** | `RobloxPlayerBeta.exe` com assinatura quebrada (modificado pra injetar) — e dropper se passando por launcher. |
-| 🖱️ **Autoclickers e macros** | OP Autoclicker, TinyTask, Speed Autoclicker, Pulover, G HUB/Razer com motor de macro, e red flags de conteúdo (no recoil, auto click). |
-| 🔁 **Evasão de ban e alts** | Account managers, multi-instância, HWID spoofers. |
-| ⚙️ **Drivers BYOVD / kernel** | winring0, mhyprot2, capcom, gdrv e cia (kdmapper, loader). |
-| 🧬 **Injeção em runtime** | DLL não-assinada no `RobloxPlayerBeta`, **manual-map / reflective DLL** (imagem PE em memória privada+executável) e **debugger atrelado** (Cheat Engine, x64dbg). |
-| 🧹 **Anti-forense** | Prefetch/SysMain off, VSS wipe, log de Segurança limpo, PowerShell apagado, USN journal (pega exec que foi deletado). |
+| **Executores conhecidos** | 542 assinaturas — Solara, Xeno, Wave, Velocity, Ronix, Krnl, Fluxus, Synapse X e dezenas de menores. Bate em Prefetch, Amcache, BAM, UserAssist, USN, browser, Lixeira, processos. |
+| **Executor renomeado** | Por **estrutura**, não por nome: exe não-assinado + runtime web embutido (EBWebView/CEF) em pasta de usuário. Sobrevive a renomear o arquivo. |
+| **Launcher do Roblox patcheado** | `RobloxPlayerBeta.exe` com assinatura quebrada (modificado pra injetar) — e dropper se passando por launcher. |
+| **Autoclickers e macros** | OP Autoclicker, TinyTask, Speed Autoclicker, Pulover, G HUB/Razer com motor de macro, e red flags de conteúdo (no recoil, auto click). |
+| **Evasão de ban e alts** | Account managers, multi-instância, HWID spoofers. |
+| **Drivers BYOVD / kernel** | winring0, mhyprot2, capcom, gdrv e cia (kdmapper, loader). |
+| **Injeção em runtime** | DLL não-assinada no `RobloxPlayerBeta`, **manual-map / reflective DLL** (imagem PE em memória privada+executável) e **debugger atrelado** (Cheat Engine, x64dbg). |
+| **Anti-forense** | Prefetch/SysMain off, VSS wipe, log de Segurança limpo, PowerShell apagado, USN journal (pega exec que foi deletado). |
 
-### 🪤 Anti-bypass — os truques que os cursos de telagem ensinam
+### Anti-bypass — os truques que os cursos de telagem ensinam
 
 Processo **suspenso** · processo **disfarçado de sistema** (`svchost.exe`/`dwm.exe` de pasta de
 usuário) · **DLL sideloading** (`version.dll`/`dinput8.dll` ao lado do launcher) · executável
@@ -69,7 +69,7 @@ escondido em **ADS** (`notas.txt:cheat.exe`) · **time-stomping** (data no futur
 backdated) · cheat em **pendrive** · **outra conta** de Windows · **Defender adulterado** ·
 **relógio voltado** pra trás · **limpadores / secure-delete**.
 
-## 🚩 Flags
+## Flags
 
 ```text
 telador.exe                       roda tudo, gera o HTML
@@ -83,7 +83,7 @@ telador.exe                       roda tudo, gera o HTML
 --no-elevate                      não pedir admin (cobertura limitada)
 ```
 
-## 🚫 O que não faz
+## O que não faz
 
 Não é anticheat. O foco é **rastro forense pós-uso**, mas ele também inspeciona o processo
 vivo do Roblox (DLL injetada, manual-map, debugger). Sem driver kernel: técnicas só-em-RAM
@@ -93,7 +93,7 @@ que ler (o Telador sinaliza a formatação, mas não substitui a SS visual). O v
 **heurístico** — tem falso positivo e falso negativo. Use como ponto de partida, junto da SS,
 não como sentença.
 
-## 🦠 Antivírus reclama do exe?
+## Antivírus reclama do exe?
 
 Falso positivo conhecido do PyInstaller (empacotador de Python que se descompacta numa pasta
 temp ao rodar). **Não é malware — o código é aberto.** Confere no VirusTotal, ou compara o
@@ -104,7 +104,7 @@ git clone https://github.com/highdevian/combatroblox
 cd combatroblox && pip install -r requirements.txt && python telador.py
 ```
 
-## 🛠️ Build
+## Build
 
 ```bash
 build.bat        # gera dist/telador.exe (~11 MB, standalone)
@@ -113,7 +113,7 @@ build.bat        # gera dist/telador.exe (~11 MB, standalone)
 Requer Windows 10/11, Python 3.10+, `pip install -r requirements.txt`. As releases saem
 reproduzíveis do CI (push de tag → build no `windows-latest` → publica o `.exe` + SHA256).
 
-## 📄 Licença
+## Licença
 
 **MIT.** É ferramenta de auditoria **com consentimento** — use onde você tem permissão.
 Veja [LICENSE](LICENSE) e [SECURITY.md](SECURITY.md).
