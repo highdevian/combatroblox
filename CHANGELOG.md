@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.37.0] - 2026-06-20
+
+**Anti-bypass**: detecção de Alternate Data Streams (ADS) — executável escondido em stream NTFS.
+
+### Added
+
+- **Alternate Data Streams** (`ads_scanner.py` → `scan_alternate_data_streams`):
+  o NTFS permite streams nomeados ocultos num arquivo (`notas.txt:cheat.exe`),
+  invisíveis pro Explorer e pro `dir`. Um cheater esconde o executor num ADS e
+  roda de lá via LOLBin, sem o `.exe` aparecer no disco. O scanner enumera os
+  streams (`FindFirstStreamW`) nas pastas de usuário e flagga **HIGH** quando há
+  sinal de executável: conteúdo com header `MZ`, nome de executor conhecido, ou
+  extensão de executável no nome do stream. Mapeia pro source `anti_forense`.
+
+### Por quê
+
+ADS é ocultação anti-forense clássica e quase nenhuma ferramenta de telagem
+olha. FP ~zero: o `Zone.Identifier` (mark-of-the-web que TODO download carrega) e
+outros streams legítimos (SmartScreen, Dropbox, WOF…) são whitelistados, e ADS
+sem sinal de executável não dispara. Validado no PC real: 0 falso positivo em
+Downloads/Desktop/Documents/Temp/AppData (5,4 s), e detecção confirmada com ADS
+de teste (`:payload.exe` com MZ → HIGH; `:Zone.Identifier` → ignorado).
+
 ## [3.36.3] - 2026-06-15
 
 **Auditoria**: correções nas features anti-cheat da v3.35 (debugger + manual map).
