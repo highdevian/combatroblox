@@ -510,6 +510,8 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("anti-forense",          "anti_forense"),
         ("anti forense",          "anti_forense"),
         ("alternate data",        "anti_forense"),
+        ("time-stomping",         "anti_forense"),
+        ("timestamp",             "anti_forense"),
         ("vss",                   "anti_forense"),
         ("shadow",                "anti_forense"),
         ("event log gap",         "anti_forense"),

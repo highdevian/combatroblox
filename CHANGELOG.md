@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.38.0] - 2026-06-20
+
+**Anti-bypass**: detecção de anomalias de timestamp (time-stomping).
+
+### Added
+
+- **Anomalia de timestamp** (`timestomp_scanner.py` → `scan_timestomp`):
+  time-stomping é adulterar as datas de um arquivo pra ele parecer antigo ou cair
+  fora da janela de tempo da SS. O scanner olha arquivos executáveis/script nas
+  pastas de usuário e flagga **MEDIUM** em dois sinais **FP-safe**: (1) data de
+  criação/modificação **no futuro** (impossível legitimamente; corrobora relógio
+  adulterado); (2) arquivo com **nome de executor** conhecido cuja criação está
+  **backdated** (antes de 2006). Mapeia pro source `anti_forense`.
+
+### Por quê
+
+Escolha deliberada de sinais FP-safe: o método clássico ($STANDARD_INFORMATION
+vs $FILE_NAME no MFT) é confundido por rename legítimo, e atalhos como "sub-segundo
+zerado" dão FP em zip/instalador. Data no futuro não tem uso legítimo, e o backdate
+é *gated* atrás do match de executor — arquivo limpo nunca casa, então 0 FP.
+Validado no PC real: 0 falso positivo (0,8 s) e detecção confirmada (arquivo `.exe`
+com data 30 dias no futuro → MEDIUM). Severidade MEDIUM: precisa corroboração no
+Confidence Engine, não crava sozinho.
+
 ## [3.37.0] - 2026-06-20
 
 **Anti-bypass**: detecção de Alternate Data Streams (ADS) — executável escondido em stream NTFS.

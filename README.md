@@ -43,7 +43,8 @@ Sem admin, "nada encontrado" não inocenta — é inconclusivo. O programa avisa
   disfarçado de sistema (svchost.exe/dwm.exe rodando de pasta de usuário), DLL
   sideloading no Roblox (version.dll/dinput8.dll plantada ao lado do
   RobloxPlayerBeta pra injetar no boot), executável escondido em ADS (stream NTFS
-  oculto, ex.: `notas.txt:cheat.exe`), cheat em pendrive, outra conta de Windows,
+  oculto, ex.: `notas.txt:cheat.exe`), timestamp adulterado (time-stomping: data no
+  futuro ou executor backdated), cheat em pendrive, outra conta de Windows,
   Defender adulterado, relógio voltado pra trás e limpadores/secure-delete.
 
 As evidências do mesmo executor são agrupadas num veredito por target (Confidence

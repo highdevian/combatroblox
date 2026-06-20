@@ -49,6 +49,7 @@ import defender_tampering
 import clock_tampering
 import cleaner_tools
 import ads_scanner
+import timestomp_scanner
 import capture
 import fp_filter
 import pe_analysis
@@ -103,7 +104,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
-    print(f"{GREY}  v3.37.0  ·  Confidence Engine  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.38.0  ·  Confidence Engine  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -205,6 +206,7 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     chain.extend(clock_tampering.ALL_CLOCK_SCANNERS)
     chain.extend(cleaner_tools.ALL_CLEANER_SCANNERS)
     chain.extend(ads_scanner.ALL_ADS_SCANNERS)
+    chain.extend(timestomp_scanner.ALL_TIMESTOMP_SCANNERS)
     return chain
 
 
