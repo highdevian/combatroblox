@@ -37,6 +37,9 @@ Sem admin, "nada encontrado" não inocenta — é inconclusivo. O programa avisa
   G HUB/Razer com motor de macro, e red flags de conteúdo (no recoil, auto click).
 - Evasão de ban e alts — account managers, multi-instância, HWID spoofers.
 - Drivers BYOVD / kernel — winring0, mhyprot2, capcom, gdrv e cia (kdmapper, loader).
+- Injeção em runtime (processo vivo do Roblox) — DLL não-assinada carregada no
+  `RobloxPlayerBeta`, manual-map / reflective DLL (página de memória privada +
+  executável contendo imagem PE), e debugger atrelado (Cheat Engine, x64dbg…).
 - Anti-forense — Prefetch/SysMain off, VSS wipe, log de Segurança limpo, PowerShell
   apagado, USN journal (pega exec que foi deletado).
 - Anti-bypass (truques dos cursos de telagem) — processo suspenso, processo
@@ -66,12 +69,13 @@ telador.exe                       roda tudo, gera o HTML
 
 ## O que não faz
 
-Não é anticheat. Roda depois do cheat ser usado e lê rastro forense — não tem driver
-kernel, não vê injeção em runtime. PC formatado na hora não tem o que ler (o Telador
-sinaliza a formatação, mas não substitui a SS visual). O veredito é heurístico: tem
-falso positivo e falso negativo. Use como ponto de partida, junto da SS, não como
-sentença. Sem driver kernel, há técnicas de evasão (só-em-RAM, bootkit) fora do
-alcance direto.
+Não é anticheat. O foco é rastro forense pós-uso, mas ele também inspeciona o
+processo vivo do Roblox (DLL injetada, manual-map, debugger atrelado). Sem driver
+kernel: técnicas só-em-RAM avançadas, bootkit, e o processo blindado pelo anti-cheat
+do Roblox (o Hyperion pode bloquear a leitura de memória) ficam fora do alcance
+direto. PC formatado na hora não tem o que ler (o Telador sinaliza a formatação,
+mas não substitui a SS visual). O veredito é heurístico: tem falso positivo e falso
+negativo. Use como ponto de partida, junto da SS, não como sentença.
 
 ## Antivírus reclama do exe?
 
