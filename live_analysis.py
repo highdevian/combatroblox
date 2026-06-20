@@ -1171,7 +1171,11 @@ def scan_roblox_debuggers() -> dict:
                     continue
 
             # 2. NtQueryInformationProcess (ProcessDebugPort = 7)
-            dbg_port = wintypes.DWORD(0)
+            # ProcessDebugPort devolve um DWORD_PTR (pointer-sized: 8 bytes no
+            # x64). Usar wintypes.DWORD (4 bytes) fazia o kernel devolver
+            # STATUS_INFO_LENGTH_MISMATCH → status != 0 → o método NUNCA disparava
+            # no x64 (todo Windows/Roblox moderno). c_size_t = pointer-sized.
+            dbg_port = ctypes.c_size_t(0)
             ret_len = wintypes.ULONG(0)
             status = ntdll.NtQueryInformationProcess(
                 handle,
@@ -1199,10 +1203,43 @@ def scan_roblox_debuggers() -> dict:
                    items)
 
 
+def _region_is_pe(handle, base_addr, region_size) -> bool:
+    """Valida uma imagem PE COMPLETA no início da região: 'MZ' + e_lfanew
+    plausível + assinatura 'PE\\0\\0'. Checar só 'MZ' (2 bytes) dá FP com código
+    JIT/bytes coincidentes — a estrutura PE inteira é específica de imagem
+    mapeada. Qualquer falha de leitura/validação → False (conservador)."""
+    try:
+        dos = ctypes.create_string_buffer(0x40)
+        br = ctypes.c_size_t(0)
+        if not kernel32.ReadProcessMemory(
+                handle, ctypes.c_void_p(base_addr), dos, 0x40, ctypes.pointer(br)):
+            return False
+        if br.value != 0x40 or dos.raw[:2] != b"MZ":
+            return False
+        e_lfanew = int.from_bytes(dos.raw[0x3C:0x40], "little")
+        # e_lfanew tem que caber na região e ser plausível
+        if e_lfanew <= 0 or e_lfanew > min(region_size - 4, 0x10000000):
+            return False
+        sig = ctypes.create_string_buffer(4)
+        br2 = ctypes.c_size_t(0)
+        if not kernel32.ReadProcessMemory(
+                handle, ctypes.c_void_p(base_addr + e_lfanew), sig, 4, ctypes.pointer(br2)):
+            return False
+        return br2.value == 4 and sig.raw[:4] == b"PE\x00\x00"
+    except Exception:
+        return False
+
+
 def scan_roblox_manual_map() -> dict:
     """
-    Detecta injeção Manual Map / Reflective DLL procurando por páginas executáveis
-    privadas (não mapeadas a arquivos) que contenham cabeçalhos PE (MZ).
+    Detecta injeção Manual Map / Reflective DLL: páginas de memória PRIVADAS e
+    EXECUTÁVEIS (não mapeadas de arquivo) que contêm uma imagem PE COMPLETA.
+
+    Validação: exige a estrutura PE inteira (MZ + e_lfanew + 'PE\\0\\0'), não só
+    'MZ' — corta FP de código JIT/bytes coincidentes. Severidade MEDIUM: o
+    próprio anti-cheat do Roblox (Hyperion) aloca/mapeia código, então isto sozinho
+    NÃO crava veredito — precisa corroboração de outra fonte. Mappers sofisticados
+    apagam o header PE (escapam deste check); é sinal complementar, não definitivo.
     """
     if not HAS_PSUTIL:
         return _result("Injeção Manual Map (Roblox)", "Detecção de DLLs injetadas por Manual Map", [],
@@ -1234,6 +1271,8 @@ def scan_roblox_manual_map() -> dict:
             address = 0
             mbi = MEMORY_BASIC_INFORMATION()
             size_mbi = ctypes.sizeof(MEMORY_BASIC_INFORMATION)
+            regions_seen = 0
+            MAX_REGIONS = 100000  # guarda de perf — não varre infinito
 
             while True:
                 res = kernel32.VirtualQueryEx(handle, ctypes.c_void_p(address), ctypes.pointer(mbi), size_mbi)
@@ -1241,25 +1280,33 @@ def scan_roblox_manual_map() -> dict:
                     break
 
                 base_addr = mbi.BaseAddress or 0
-                region_size = mbi.RegionSize
+                region_size = mbi.RegionSize or 0
+                if region_size == 0:
+                    break  # região de tamanho 0 → evita loop infinito
 
-                # Commit, Private, Executável
-                if mbi.State == MEM_COMMIT and mbi.Type == MEM_PRIVATE and mbi.Protect in EXECUTE_PROTECTIONS:
-                    # Lê os primeiros 2 bytes buscando cabeçalho PE (MZ)
-                    buf = ctypes.create_string_buffer(2)
-                    bytes_read = ctypes.c_size_t(0)
-                    if kernel32.ReadProcessMemory(handle, ctypes.c_void_p(base_addr), buf, 2, ctypes.pointer(bytes_read)):
-                        if bytes_read.value == 2 and buf.raw[:2] == b"MZ":
-                            items.append(_item(
-                                label=f"Manual Map detectado no Roblox (PID {pid})",
-                                detail=f"Endereço: 0x{base_addr:X} (Tamanho: {region_size} bytes)\n"
-                                       f"Região de memória privada e executável contendo cabeçalho PE (MZ). "
-                                       f"Isso é assinatura de injeção Manual Map.",
-                                severity="high",
-                                matched="manual-map-dll"
-                            ))
+                regions_seen += 1
+                if regions_seen > MAX_REGIONS:
+                    break
 
-                address = base_addr + region_size
+                # Commit, Private, Executável + imagem PE COMPLETA (não só 'MZ')
+                if (mbi.State == MEM_COMMIT and mbi.Type == MEM_PRIVATE
+                        and mbi.Protect in EXECUTE_PROTECTIONS
+                        and _region_is_pe(handle, base_addr, region_size)):
+                    items.append(_item(
+                        label=f"Possível Manual Map no Roblox (PID {pid})",
+                        detail=f"Endereço: 0x{base_addr:X} (Tamanho: {region_size} bytes)\n"
+                               f"Região de memória PRIVADA e EXECUTÁVEL contendo uma imagem PE "
+                               f"completa (MZ + assinatura PE) não mapeada de arquivo — assinatura "
+                               f"de Manual Map / Reflective DLL. MEDIUM: o anti-cheat do próprio "
+                               f"Roblox também aloca código; corrobore com outra fonte antes de cravar.",
+                        severity="medium",
+                        matched="manual-map-dll"
+                    ))
+
+                next_addr = base_addr + region_size
+                if next_addr <= address:  # não avançou → evita loop infinito
+                    break
+                address = next_addr
 
         except Exception as e:
             debug.dbg(f"Falha ao checar manual map no PID {pid}", e)

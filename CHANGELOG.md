@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.36.3] - 2026-06-15
+
+**Auditoria**: correções nas features anti-cheat da v3.35 (debugger + manual map).
+
+### Fixed
+
+- **Manual Map: FP HIGH não-validado → MEDIUM + validação de PE completo**
+  (`live_analysis.py` → `scan_roblox_manual_map`). Antes flaggava como **HIGH**
+  qualquer região privada+executável cujos 2 primeiros bytes fossem `MZ` — código
+  JIT/bytes coincidentes davam falso positivo, e o anti-cheat do próprio Roblox
+  (Hyperion) aloca/mapeia código. Agora: (1) valida a **imagem PE inteira**
+  (`MZ` + `e_lfanew` plausível + assinatura `PE\0\0`) via `_region_is_pe`, cortando
+  FP de `MZ` solto; (2) severidade **MEDIUM** — sozinho não crava veredito, precisa
+  corroboração de outra fonte; (3) guardas contra loop infinito (`region_size == 0`,
+  endereço que não avança) e cap de regiões. Nota: mappers que apagam o header PE
+  escapam deste check — é sinal complementar, não definitivo.
+- **Debugger: bug de buffer no x64** (`live_analysis.py` → `scan_roblox_debuggers`).
+  O método `ProcessDebugPort` usava `wintypes.DWORD` (4 bytes), mas no x64 o valor
+  é `DWORD_PTR` (8 bytes) → `NtQueryInformationProcess` devolvia
+  `STATUS_INFO_LENGTH_MISMATCH` e o método **nunca disparava** em Windows moderno
+  (era código morto; o `CheckRemoteDebuggerPresent` cobria o caso). Trocado por
+  `ctypes.c_size_t` (pointer-sized).
+- **Coerência de versão**: `version_info.txt` tinha `filevers=(3,36,0,0)` mas
+  `FileVersion='3.36.2'` (o tuple ficou pra trás nas v3.36.1/.2). Alinhado.
+
 ## [3.36.2] - 2026-06-15
 
 **Bugfix**: Ajuste no filtro de falso-positivo para lidar com ferramentas de IA.

@@ -17,11 +17,23 @@ class FakeProcess:
         self.info = {"pid": pid, "name": name}
 
 
+def _fake_pe(size=0x200, e_lfanew=0x40, valid_sig=True):
+    """Constrói uma imagem PE de teste: 'MZ' + e_lfanew + 'PE\\0\\0'."""
+    img = bytearray(b"\x00" * size)
+    img[0:2] = b"MZ"
+    img[0x3C:0x40] = int(e_lfanew).to_bytes(4, "little")
+    img[e_lfanew:e_lfanew + 4] = b"PE\x00\x00" if valid_sig else b"XX\x00\x00"
+    return bytes(img)
+
+
 class MockKernel32:
     def __init__(self):
         self.is_dbg = False
         self.query_mbi = None
         self.read_data = None
+        # Imagem servida byte-a-byte por endereço (pra validar PE completo)
+        self.mem_image = None
+        self.mem_base = 0
 
     def OpenProcess(self, mask, inherit, pid):
         return 12345
@@ -45,9 +57,21 @@ class MockKernel32:
         return 0
 
     def ReadProcessMemory(self, handle, addr, buf_ptr, size, bytes_read_ptr):
+        # Serve de uma imagem em memória (mem_base/mem_image) quando setada —
+        # respeita offset por endereço e tamanho pedido (pra validar PE inteiro).
+        if self.mem_image is not None:
+            off = (getattr(addr, "value", None) or 0) - self.mem_base
+            chunk = self.mem_image[off:off + size] if off >= 0 else b""
+            if len(chunk) < size:
+                bytes_read_ptr.contents.value = 0
+                return False
+            bytes_read_ptr.contents.value = len(chunk)
+            ctypes.memmove(buf_ptr, chunk, len(chunk))
+            return True
         if self.read_data:
-            bytes_read_ptr.contents.value = len(self.read_data)
-            ctypes.memmove(buf_ptr, self.read_data, len(self.read_data))
+            n = min(len(self.read_data), size)
+            bytes_read_ptr.contents.value = n
+            ctypes.memmove(buf_ptr, self.read_data, n)
             return True
         bytes_read_ptr.contents.value = 0
         return False
@@ -143,29 +167,71 @@ def test_scan_roblox_manual_map_clean(monkeypatch):
     assert len(r["items"]) == 0
 
 
+def _exec_priv_mbi(base=0x5000, size=0x10000):
+    mbi = la.MEMORY_BASIC_INFORMATION()
+    mbi.BaseAddress = base
+    mbi.RegionSize = size
+    mbi.State = la.MEM_COMMIT
+    mbi.Type = la.MEM_PRIVATE
+    mbi.Protect = la.PAGE_EXECUTE_READWRITE
+    return mbi
+
+
 def test_scan_roblox_manual_map_detected(monkeypatch):
-    """Página executável privada contendo cabeçalho PE 'MZ' -> manual map detectado."""
+    """Página executável privada com imagem PE COMPLETA -> manual map (MEDIUM)."""
     monkeypatch.setattr(la, "HAS_PSUTIL", True)
     import psutil
     monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [
         FakeProcess(9999, "RobloxPlayerBeta.exe")
     ])
-    
+
     mock_k32 = MockKernel32()
-    # Cria uma página executável privada
-    mbi = la.MEMORY_BASIC_INFORMATION()
-    mbi.BaseAddress = 0x5000
-    mbi.RegionSize = 0x10000
-    mbi.State = la.MEM_COMMIT
-    mbi.Type = la.MEM_PRIVATE
-    mbi.Protect = la.PAGE_EXECUTE_READWRITE
-    mock_k32.query_mbi = mbi
-    mock_k32.read_data = b"MZ"
-    
+    mock_k32.query_mbi = _exec_priv_mbi(base=0x5000)
+    mock_k32.mem_base = 0x5000
+    mock_k32.mem_image = _fake_pe()          # MZ + e_lfanew + 'PE\0\0'
     monkeypatch.setattr(la, "kernel32", mock_k32)
-    
+
     r = la.scan_roblox_manual_map()
     assert r["status"] == "suspicious"
     assert len(r["items"]) == 1
-    assert r["items"][0]["severity"] == "high"
+    # FIX v3.36.3: MEDIUM (precisa corroboração; Hyperion também aloca código)
+    assert r["items"][0]["severity"] == "medium"
     assert r["items"][0]["matched"] == "manual-map-dll"
+
+
+def test_scan_roblox_manual_map_coincidental_mz_not_flagged(monkeypatch):
+    """FIX FP v3.36.3: região executável com 'MZ' solto mas SEM assinatura PE
+    válida (código JIT / bytes coincidentes) NÃO é mais flaggada."""
+    monkeypatch.setattr(la, "HAS_PSUTIL", True)
+    import psutil
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [
+        FakeProcess(9999, "RobloxPlayerBeta.exe")
+    ])
+
+    mock_k32 = MockKernel32()
+    mock_k32.query_mbi = _exec_priv_mbi(base=0x5000)
+    mock_k32.mem_base = 0x5000
+    # 'MZ' no início mas o ponteiro PE aponta pra 'XX\0\0' (assinatura inválida)
+    mock_k32.mem_image = _fake_pe(valid_sig=False)
+    monkeypatch.setattr(la, "kernel32", mock_k32)
+
+    r = la.scan_roblox_manual_map()
+    assert r["status"] == "clean"
+    assert len(r["items"]) == 0
+
+
+def test_region_is_pe_helper(monkeypatch):
+    """Núcleo da validação: PE completo = True; só 'MZ' / sig inválida = False."""
+    mock_k32 = MockKernel32()
+    mock_k32.mem_base = 0x1000
+    monkeypatch.setattr(la, "kernel32", mock_k32)
+
+    mock_k32.mem_image = _fake_pe()
+    assert la._region_is_pe(1, 0x1000, 0x10000) is True
+
+    mock_k32.mem_image = _fake_pe(valid_sig=False)
+    assert la._region_is_pe(1, 0x1000, 0x10000) is False
+
+    # e_lfanew apontando pra fora da região = rejeitado
+    mock_k32.mem_image = _fake_pe(e_lfanew=0x100)
+    assert la._region_is_pe(1, 0x1000, 0x80) is False
