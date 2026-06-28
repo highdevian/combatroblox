@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.40.0] - 2026-06-28
+
+**Event Log + YARA extensível**: o Defender como fonte, mais eventos de execução,
+e regras YARA que o usuário pluga sem recompilar.
+
+### Added
+
+- **Detecção do Defender (Event Log 1116/1117)** (`winevent_scanner.py`,
+  `scan_defender_events`): quando o próprio Windows Defender DETECTOU um hacktool/
+  executor e o suspeito manteve/excluiu — prova forte. Complementa o
+  `scan_defender_tampering` (que só vê exclusões/RTP no registro). HIGH se casa
+  executor conhecido (funde no cluster do executor); MEDIUM se HackTool/exploit
+  genérico. Gated por nome de ameaça pra não flaggar PUA/trojan genérico. Parser
+  schema-agnóstico pro formato `UserData` do Defender. Fonte `defender_detection`
+  (0.90).
+
+- **Evento 4688 (criação de processo)** (`winevent_scanner.py`): pega o executor
+  pelo nome/cmdline no Security log mesmo se o `.exe` foi deletado, quando "Audit
+  Process Creation" está ligado. Gated por keyword de executor (FP baixo).
+
+- **Regras YARA externas** (`yara_scan.py`): drope um `yara_rules.json` ao lado
+  do `telador.exe` (ou aponte via env `TELADOR_YARA_RULES`) pra somar detecções
+  sem recompilar — ex.: o pacote-strings do curso. Formato em
+  `yara_rules.example.json`. Regra malformada é ignorada sem derrubar o scan.
+
+- **Hook de kmbox** (`dma_scanner.py`, `KMBOX_USB_IDS`): tabela extensível pro
+  fuser de input por USB. Vem VAZIA de propósito — os chips comuns (CH340/STM32)
+  são usados por milhares de dispositivos legítimos; sem ID de consumidor único
+  confiável, flaggar daria FP em massa. Adicione IDs verificados conforme apurar.
+
 ## [3.39.0] - 2026-06-28
 
 **Anti-bypass**: 4 detecções novas vindas dos cursos de telagem — process
