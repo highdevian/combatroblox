@@ -12,8 +12,8 @@ e entrega um **veredito de cheat com % de confiança**.
 
 [![release](https://img.shields.io/github/v/tag/highdevian/combatroblox?sort=semver&label=release&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?branch=main&label=CI)](https://github.com/highdevian/combatroblox/actions)
-![scanners](https://img.shields.io/badge/scanners-65-8b5cf6)
-![tests](https://img.shields.io/badge/tests-349%20passing-3fbf7f)
+![scanners](https://img.shields.io/badge/scanners-68-8b5cf6)
+![tests](https://img.shields.io/badge/tests-394%20passing-3fbf7f)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 
@@ -54,11 +54,13 @@ dois cliques. Pra distribuir, zipa o `.exe` com os `.bat` e manda no Discord.
 |---|---|
 | **Executores conhecidos** | 542 assinaturas — Solara, Xeno, Wave, Velocity, Ronix, Krnl, Fluxus, Synapse X e dezenas de menores. Bate em Prefetch, Amcache, BAM, UserAssist, USN, browser, Lixeira, processos. |
 | **Executor renomeado** | Por **estrutura**, não por nome: exe não-assinado + runtime web embutido (EBWebView/CEF) em pasta de usuário. Sobrevive a renomear o arquivo. |
+| **Executor por assinatura binária (YARA)** | Regras estilo YARA leem o **conteúdo** do `.exe`/`.dll`: se carrega os símbolos da API de exploit Luau (`getrawmetatable`, `hookmetamethod`, `newcclosure`…) ou toolmarks de injeção, casa mesmo renomeado/repackado. Pula assinados e o próprio telador. |
 | **Launcher do Roblox patcheado** | `RobloxPlayerBeta.exe` com assinatura quebrada (modificado pra injetar) — e dropper se passando por launcher. |
 | **Autoclickers e macros** | OP Autoclicker, TinyTask, Speed Autoclicker, Pulover, G HUB/Razer com motor de macro, e red flags de conteúdo (no recoil, auto click). |
 | **Evasão de ban e alts** | Account managers, multi-instância, HWID spoofers. |
 | **Drivers BYOVD / kernel** | winring0, mhyprot2, capcom, gdrv e cia (kdmapper, loader). |
-| **Injeção em runtime** | DLL não-assinada no `RobloxPlayerBeta`, **manual-map / reflective DLL** (imagem PE em memória privada+executável) e **debugger atrelado** (Cheat Engine, x64dbg). |
+| **Hardware DMA (parcial)** | Enumera PCIe/USB e flagga IDs de placa DMA conhecidos — FPGA Xilinx (`VEN_10EE`: PCIeScreamer/LeetDMA/CaptainDMA) e ponte USB3 FT601. Heurístico: firmware que spoofa o ID escapa, ausência **não** inocenta. |
+| **Injeção em runtime** | DLL não-assinada no `RobloxPlayerBeta`, **manual-map / reflective DLL** (imagem PE em memória privada+executável), **process hollowing / RunPE** (image base trocado por memória privada — disco limpo, miolo trocado) e **debugger atrelado** (Cheat Engine, x64dbg). |
 | **Anti-forense** | Prefetch/SysMain off, VSS wipe, log de Segurança limpo, PowerShell apagado, USN journal (pega exec que foi deletado). |
 
 ### Anti-bypass — os truques que os cursos de telagem ensinam
@@ -88,7 +90,8 @@ telador.exe                       roda tudo, gera o HTML
 Não é anticheat. O foco é **rastro forense pós-uso**, mas ele também inspeciona o processo
 vivo do Roblox (DLL injetada, manual-map, debugger). Sem driver kernel: técnicas só-em-RAM
 avançadas, bootkit, e o processo blindado pelo anti-cheat do Roblox (o **Hyperion** pode
-bloquear a leitura de memória) ficam fora do alcance direto. PC formatado na hora não tem o
+bloquear a leitura de memória) ficam fora do alcance direto. Cheat de **DMA** só é pego
+parcialmente (ID de placa conhecida no PCIe/USB); placa com firmware que spoofa o ID escapa. PC formatado na hora não tem o
 que ler (o Telador sinaliza a formatação, mas não substitui a SS visual). O veredito é
 **heurístico** — tem falso positivo e falso negativo. Use como ponto de partida, junto da SS,
 não como sentença.

@@ -50,6 +50,8 @@ import clock_tampering
 import cleaner_tools
 import ads_scanner
 import timestomp_scanner
+import yara_scan
+import dma_scanner
 import capture
 import fp_filter
 import pe_analysis
@@ -196,6 +198,7 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     if not skip_forensics:
         chain.extend(forensics.ALL_FORENSIC_SCANNERS)
         chain.extend(extra_forensics.ALL_EXTRA_FORENSIC_SCANNERS)
+        chain.extend(yara_scan.ALL_YARA_SCANNERS)
     # Network + Discord + Fresh install — sempre incluídos no modo full
     chain.extend(network_scanners.ALL_NETWORK_SCANNERS)
     chain.extend(discord_cache.ALL_DISCORD_SCANNERS)
@@ -207,6 +210,7 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     chain.extend(cleaner_tools.ALL_CLEANER_SCANNERS)
     chain.extend(ads_scanner.ALL_ADS_SCANNERS)
     chain.extend(timestomp_scanner.ALL_TIMESTOMP_SCANNERS)
+    chain.extend(dma_scanner.ALL_DMA_SCANNERS)
     return chain
 
 

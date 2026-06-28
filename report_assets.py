@@ -35,6 +35,8 @@ SOURCE_LABELS = {
     "defender_tampering": "Defender adulterado",
     "clock_tampering":    "Relógio mudado",
     "live_dll_injection": "DLL injetadas",
+    "yara_signature":     "Assinatura binária (YARA)",
+    "dma_hardware":       "Hardware DMA",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
     "bloxstrap":          "Bloxstrap",

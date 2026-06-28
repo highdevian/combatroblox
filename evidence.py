@@ -46,6 +46,8 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "kernel_drivers":       0.95,
     "live_processes":       0.95,
     "live_dll_injection":   0.90,
+    "dma_hardware":         0.80,   # ID de placa FPGA/USB de DMA no registro (heurístico — pode spoofar)
+    "yara_signature":       0.85,   # match de conteúdo binário (símbolos de exploit/injeção)
     "executor_structure":   0.80,   # comportamental — exe não-assinado + runtime web
     "launcher_integrity":   0.90,   # binário oficial do Roblox adulterado / launcher falso
     "usn_journal":          0.95,
@@ -470,6 +472,9 @@ def _source_slug_from_name(scanner_name: str) -> str:
     n = (scanner_name or "").lower()
     # ordem importa — substrings mais específicas primeiro
     rules = [
+        ("dma",                   "dma_hardware"),
+        ("yara",                  "yara_signature"),
+        ("assinatura binária",    "yara_signature"),
         ("kernel driver",         "kernel_drivers"),
         ("driver",                "kernel_drivers"),
         ("estrutura de executor",  "executor_structure"),

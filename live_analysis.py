@@ -37,6 +37,7 @@ PROCESS_VM_READ = 0x0010
 
 MEM_COMMIT = 0x1000
 MEM_PRIVATE = 0x20000
+MEM_IMAGE = 0x1000000  # região mapeada de arquivo de imagem (.exe/.dll)
 
 PAGE_EXECUTE = 0x10
 PAGE_EXECUTE_READ = 0x20
@@ -95,6 +96,10 @@ try:
     # CheckRemoteDebuggerPresent
     kernel32.CheckRemoteDebuggerPresent.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
     kernel32.CheckRemoteDebuggerPresent.restype = wintypes.BOOL
+
+    # IsWow64Process — pra pular alvos 32-bit (WOW64) na leitura do PEB de 64-bit
+    kernel32.IsWow64Process.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
+    kernel32.IsWow64Process.restype = wintypes.BOOL
 except (AttributeError, OSError):
     pass
 
@@ -110,6 +115,19 @@ try:
     ntdll.NtQueryInformationProcess.restype = ctypes.c_long  # NTSTATUS
 except (AttributeError, OSError):
     pass
+
+
+# ProcessBasicInformation (class 0) → dá o PebBaseAddress. Layout x64; o ctypes
+# cuida do alinhamento do ponteiro depois do ExitStatus (LONG).
+class PROCESS_BASIC_INFORMATION(ctypes.Structure):
+    _fields_ = [
+        ("ExitStatus", ctypes.c_long),               # NTSTATUS
+        ("PebBaseAddress", ctypes.c_void_p),
+        ("AffinityMask", ctypes.c_void_p),           # ULONG_PTR
+        ("BasePriority", ctypes.c_long),             # KPRIORITY
+        ("UniqueProcessId", ctypes.c_void_p),        # ULONG_PTR
+        ("InheritedFromUniqueProcessId", ctypes.c_void_p),
+    ]
 
 
 # ============================ WinVerifyTrust setup ============================
@@ -1319,6 +1337,177 @@ def scan_roblox_manual_map() -> dict:
                    items)
 
 
+# ============================ Process Hollowing / RunPE ============================
+
+# Lugar pra whitelistar nomes que sabidamente "auto-hollowam" sendo legítimos
+# (packers/anti-tamper que descarregam a própria imagem). Começa vazio de
+# propósito — só entra nome com FP COMPROVADO num PC real, não por chute.
+_HOLLOW_WHITELIST: set[str] = set()
+
+
+def _image_base_is_hollowed(state: int, mem_type: int) -> bool:
+    """Decisão pura (testável): a região no image base do processo é compatível
+    com hollowing/RunPE?
+
+    Uma imagem principal carregada normalmente fica como MEM_IMAGE (mapeada do
+    .exe). No process hollowing clássico a imagem original é DESCARREGADA e o
+    código é reescrito numa alocação PRIVADA (VirtualAlloc) — então o image base
+    vira MEM_PRIVATE commitado. Esse é o tell.
+
+    Não exigimos página executável: alguns loaders deixam só o header como RW e
+    marcam o `.text` como RX numa região à parte. Variantes que remapeiam via
+    seção (doppelgänging/transacted) mantêm MEM_IMAGE/MEM_MAPPED e NÃO são pegas
+    aqui — é limitação conhecida, fica pra v2."""
+    return state == MEM_COMMIT and mem_type == MEM_PRIVATE
+
+
+def _is_wow64(handle) -> bool:
+    """True se o processo-alvo é 32-bit rodando sob WOW64. Em Win10/11 x64 o
+    host é sempre 64-bit, então isto separa com segurança os alvos 32-bit (cujo
+    PEB tem layout diferente e seria lido errado)."""
+    try:
+        res = wintypes.BOOL(0)
+        if not kernel32.IsWow64Process(handle, ctypes.byref(res)):
+            return False
+        return bool(res.value)
+    except Exception:
+        return False
+
+
+def _peb_image_base(handle) -> int:
+    """Lê PEB->ImageBaseAddress (offset 0x10 no PEB de 64-bit). 0 se falhar."""
+    try:
+        pbi = PROCESS_BASIC_INFORMATION()
+        ret_len = wintypes.ULONG(0)
+        status = ntdll.NtQueryInformationProcess(
+            handle, 0, ctypes.byref(pbi), ctypes.sizeof(pbi), ctypes.byref(ret_len))
+        if status != 0 or not pbi.PebBaseAddress:  # 0 = STATUS_SUCCESS
+            return 0
+        buf = ctypes.c_void_p(0)
+        br = ctypes.c_size_t(0)
+        if not kernel32.ReadProcessMemory(
+                handle, ctypes.c_void_p(pbi.PebBaseAddress + 0x10),
+                ctypes.byref(buf), ctypes.sizeof(buf), ctypes.byref(br)):
+            return 0
+        if br.value != ctypes.sizeof(buf):
+            return 0
+        return buf.value or 0
+    except Exception:
+        return 0
+
+
+def _read_image_base_region(pid: int):
+    """(state, type, protect, image_base) da região no image base do processo,
+    ou None se indeterminado (sem handle, WOW64, PEB ilegível). Toda a parte
+    Win32 fica aqui pra o scanner ser mockável nos testes."""
+    handle = None
+    try:
+        handle = kernel32.OpenProcess(
+            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
+        if not handle:
+            return None
+        if _is_wow64(handle):  # alvo 32-bit: PEB de 64-bit não se aplica
+            return None
+        image_base = _peb_image_base(handle)
+        if not image_base:
+            return None
+        mbi = MEMORY_BASIC_INFORMATION()
+        if kernel32.VirtualQueryEx(handle, ctypes.c_void_p(image_base),
+                                   ctypes.pointer(mbi),
+                                   ctypes.sizeof(mbi)) == 0:
+            return None
+        return (mbi.State, mbi.Type, mbi.Protect, image_base)
+    except Exception as e:
+        debug.dbg(f"hollowing: falha ao ler image base do PID {pid}", e)
+        return None
+    finally:
+        if handle:
+            kernel32.CloseHandle(handle)
+
+
+def scan_process_hollowing() -> dict:
+    """
+    Detecta process hollowing / RunPE: a imagem principal do processo foi
+    descarregada e substituída por código numa alocação PRIVADA de memória.
+
+    O cara cria um processo legítimo/assinado (ou o próprio RobloxPlayerBeta),
+    esvazia a imagem original e injeta o cheat por cima — no disco o arquivo
+    parece limpo (e até assinado), mas o que roda na memória é outra coisa. É
+    o passo além do manual-map: não injeta uma DLL extra, ele troca o MIOLO do
+    processo. Tem canal só pra isso nos cursos de telagem.
+
+    Sinal: o image base (que numa imagem normal é MEM_IMAGE, mapeada do .exe)
+    aparece como MEM_PRIVATE commitado. Conservador (anti-FP): pula o próprio
+    processo, PIDs de sistema, processos sem path (protegidos) e alvos 32-bit
+    (WOW64). Severidade:
+      - HIGH se casa executor conhecido, ou se o exe em disco é ASSINADO
+        (binário confiável + miolo trocado = abuso clássico);
+      - MEDIUM caso contrário — sozinho vira SUSPECT no Confidence Engine.
+    """
+    if not HAS_PSUTIL:
+        return _result("Processo oco (process hollowing / RunPE)",
+                       "Imagem principal do processo substituída em memória",
+                       [], error="psutil não instalado")
+
+    own_pid = os.getpid()
+    items = []
+    for proc in psutil.process_iter(["pid", "name", "exe", "create_time"]):
+        try:
+            pid = proc.info.get("pid")
+            if pid in (0, 4) or pid == own_pid:
+                continue
+            name = proc.info.get("name") or ""
+            exe = proc.info.get("exe") or ""
+            if not exe:  # protegido/efêmero: sem disco pra comparar -> pula
+                continue
+            if name.lower() in _HOLLOW_WHITELIST:
+                continue
+
+            region = _read_image_base_region(pid)
+            if region is None:
+                continue
+            state, mem_type, _protect, image_base = region
+            if not _image_base_is_hollowed(state, mem_type):
+                continue
+
+            ts = _fmt_ts(proc.info.get("create_time") or 0)
+            kw, _ = _match_keyword(name)
+            if not kw:
+                kw, _ = _match_keyword(exe)
+
+            if kw:
+                severity, matched = "high", f"hollowing:{kw}"
+                why = f"Processo de executor conhecido ({kw}) "
+            elif _is_dll_signed(exe) is True:
+                severity, matched = "high", "hollowing:assinado-adulterado"
+                why = "Binário ASSINADO em disco "
+            else:
+                severity, matched = "medium", "process-hollowing"
+                why = "Processo "
+
+            items.append(_item(
+                label=f"Processo OCO (hollowing): {name}",
+                detail=f"PID {pid} · {exe}\n"
+                       f"Image base 0x{image_base:X} está em memória PRIVADA "
+                       f"(MEM_PRIVATE), não mapeada do arquivo (MEM_IMAGE). "
+                       f"{why}com a imagem principal trocada em memória — "
+                       f"assinatura de process hollowing / RunPE: o disco parece "
+                       f"limpo, mas o que roda é outro código. Inspecione o "
+                       f"processo vivo (dump de memória), não confie no arquivo.",
+                severity=severity, matched=matched, timestamp=ts,
+            ))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+        except Exception:
+            continue
+
+    return _result(
+        "Processo oco (process hollowing / RunPE)",
+        "Imagem principal do processo descarregada e substituída em memória",
+        items,
+    )
+
+
 ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_roblox_dll_injection,
     scan_process_tree,
@@ -1330,4 +1519,5 @@ ALL_LIVE_ANALYSIS_SCANNERS = [
     scan_roblox_dll_sideload,
     scan_roblox_debuggers,
     scan_roblox_manual_map,
+    scan_process_hollowing,
 ]
