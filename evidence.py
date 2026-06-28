@@ -48,6 +48,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "live_dll_injection":   0.90,
     "dma_hardware":         0.80,   # ID de placa FPGA/USB de DMA no registro (heurístico — pode spoofar)
     "yara_signature":       0.85,   # match de conteúdo binário (símbolos de exploit/injeção)
+    "event_log_exec":       0.88,   # 7045/4104 — execução/instalação logada pelo kernel
     "executor_structure":   0.80,   # comportamental — exe não-assinado + runtime web
     "launcher_integrity":   0.90,   # binário oficial do Roblox adulterado / launcher falso
     "usn_journal":          0.95,
@@ -242,7 +243,8 @@ def _normalize_path(path: str) -> str:
 # o que casou. Ajuda a distinguir categoria sem alias.
 _MATCHED_PREFIXES_BYOVD = ("driver-byovd:", "driver-userpath:", "driver-unsigned:")
 _MATCHED_PREFIXES_USN   = ("usn:",)
-_MATCHED_PREFIXES_ANTI  = ("anti-forense:", "vss:", "event-log-gap:", "ps-history:")
+_MATCHED_PREFIXES_ANTI  = ("anti-forense:", "vss:", "event-log-gap:", "ps-history:",
+                           "ps-scriptblock:")
 
 
 def _infer_kind(label: str, matched: str) -> str:
@@ -472,6 +474,7 @@ def _source_slug_from_name(scanner_name: str) -> str:
     n = (scanner_name or "").lower()
     # ordem importa — substrings mais específicas primeiro
     rules = [
+        ("event log de execução", "event_log_exec"),
         ("dma",                   "dma_hardware"),
         ("yara",                  "yara_signature"),
         ("assinatura binária",    "yara_signature"),

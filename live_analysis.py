@@ -1440,9 +1440,10 @@ def scan_process_hollowing() -> dict:
     aparece como MEM_PRIVATE commitado. Conservador (anti-FP): pula o próprio
     processo, PIDs de sistema, processos sem path (protegidos) e alvos 32-bit
     (WOW64). Severidade:
-      - HIGH se casa executor conhecido, ou se o exe em disco é ASSINADO
-        (binário confiável + miolo trocado = abuso clássico);
-      - MEDIUM caso contrário — sozinho vira SUSPECT no Confidence Engine.
+      - HIGH só se casa executor conhecido (inequívoco);
+      - MEDIUM caso contrário, INCLUSIVE se o exe é assinado — assinado + image
+        base privado pode ser anti-tamper/DRM legítimo (Themida), então não crava
+        sozinho; corrobora no Confidence Engine.
     """
     if not HAS_PSUTIL:
         return _result("Processo oco (process hollowing / RunPE)",
@@ -1476,10 +1477,15 @@ def scan_process_hollowing() -> dict:
                 kw, _ = _match_keyword(exe)
 
             if kw:
+                # executor conhecido + image base privado = inequívoco
                 severity, matched = "high", f"hollowing:{kw}"
                 why = f"Processo de executor conhecido ({kw}) "
             elif _is_dll_signed(exe) is True:
-                severity, matched = "high", "hollowing:assinado-adulterado"
+                # ASSINADO + image base privado: pode ser hollowing de binário
+                # confiável, MAS também anti-tamper/DRM agressivo (Themida etc.)
+                # que remapeia a própria imagem. MEDIUM pra não acusar jogo
+                # legítimo no HIGH — corrobora no Confidence Engine.
+                severity, matched = "medium", "hollowing:assinado-adulterado"
                 why = "Binário ASSINADO em disco "
             else:
                 severity, matched = "medium", "process-hollowing"

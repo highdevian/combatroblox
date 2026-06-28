@@ -37,6 +37,7 @@ SOURCE_LABELS = {
     "live_dll_injection": "DLL injetadas",
     "yara_signature":     "Assinatura binária (YARA)",
     "dma_hardware":       "Hardware DMA",
+    "event_log_exec":     "Event Log (execução)",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
     "bloxstrap":          "Bloxstrap",

@@ -78,8 +78,9 @@ def test_known_executor_hollowed_is_high(monkeypatch):
     assert it["matched"] == "hollowing:solara"
 
 
-def test_signed_binary_hollowed_is_high(monkeypatch):
-    """Binário ASSINADO em disco com miolo trocado = abuso clássico -> HIGH."""
+def test_signed_binary_hollowed_is_medium(monkeypatch):
+    """Binário ASSINADO com image base privado = MEDIUM (pode ser anti-tamper/DRM
+    legítimo tipo Themida; não acusa no HIGH sem corroboração)."""
     procs = [_FakeProc(101, "RobloxPlayerBeta.exe", r"C:\Users\x\Roblox\RobloxPlayerBeta.exe")]
     _patch_procs(monkeypatch, procs)
     _patch_region(monkeypatch, {101: _hollow_region()})
@@ -88,7 +89,7 @@ def test_signed_binary_hollowed_is_high(monkeypatch):
 
     r = la.scan_process_hollowing()
     it = r["items"][0]
-    assert it["severity"] == "high"
+    assert it["severity"] == "medium"
     assert it["matched"] == "hollowing:assinado-adulterado"
 
 

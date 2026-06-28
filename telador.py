@@ -52,6 +52,7 @@ import ads_scanner
 import timestomp_scanner
 import yara_scan
 import dma_scanner
+import winevent_scanner
 import capture
 import fp_filter
 import pe_analysis
@@ -199,6 +200,7 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
         chain.extend(forensics.ALL_FORENSIC_SCANNERS)
         chain.extend(extra_forensics.ALL_EXTRA_FORENSIC_SCANNERS)
         chain.extend(yara_scan.ALL_YARA_SCANNERS)
+        chain.extend(winevent_scanner.ALL_WINEVENT_SCANNERS)
     # Network + Discord + Fresh install — sempre incluídos no modo full
     chain.extend(network_scanners.ALL_NETWORK_SCANNERS)
     chain.extend(discord_cache.ALL_DISCORD_SCANNERS)

@@ -12,8 +12,8 @@ e entrega um **veredito de cheat com % de confiança**.
 
 [![release](https://img.shields.io/github/v/tag/highdevian/combatroblox?sort=semver&label=release&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?branch=main&label=CI)](https://github.com/highdevian/combatroblox/actions)
-![scanners](https://img.shields.io/badge/scanners-68-8b5cf6)
-![tests](https://img.shields.io/badge/tests-394%20passing-3fbf7f)
+![scanners](https://img.shields.io/badge/scanners-69-8b5cf6)
+![tests](https://img.shields.io/badge/tests-416%20passing-3fbf7f)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 
@@ -60,6 +60,7 @@ dois cliques. Pra distribuir, zipa o `.exe` com os `.bat` e manda no Discord.
 | **Evasão de ban e alts** | Account managers, multi-instância, HWID spoofers. |
 | **Drivers BYOVD / kernel** | winring0, mhyprot2, capcom, gdrv e cia (kdmapper, loader). |
 | **Hardware DMA (parcial)** | Enumera PCIe/USB e flagga IDs de placa DMA conhecidos — FPGA Xilinx (`VEN_10EE`: PCIeScreamer/LeetDMA/CaptainDMA) e ponte USB3 FT601. Heurístico: firmware que spoofa o ID escapa, ausência **não** inocenta. |
+| **Event Log de execução (estilo Hayabusa)** | Lê o Event Log do Windows: **7045** (driver/serviço instalado — pega BYOVD mesmo se o `.sys` foi deletado, e funde com o detector de drivers) e **4104** (PowerShell script block — download cradle e nome de executor). Rastro que sobrevive à deleção do arquivo. |
 | **Injeção em runtime** | DLL não-assinada no `RobloxPlayerBeta`, **manual-map / reflective DLL** (imagem PE em memória privada+executável), **process hollowing / RunPE** (image base trocado por memória privada — disco limpo, miolo trocado) e **debugger atrelado** (Cheat Engine, x64dbg). |
 | **Anti-forense** | Prefetch/SysMain off, VSS wipe, log de Segurança limpo, PowerShell apagado, USN journal (pega exec que foi deletado). |
 
