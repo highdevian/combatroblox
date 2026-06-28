@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.39.0] - 2026-06-28
+
+**Anti-bypass**: 4 detecções novas vindas dos cursos de telagem — process
+hollowing, assinatura binária (YARA), hardware DMA e Event Log de execução.
+Levou o projeto de 65 → 69 scanners.
+
+### Added
+
+- **Process hollowing / RunPE** (`live_analysis.py`): flagga processo cujo image
+  base está em memória PRIVADA (MEM_PRIVATE) em vez de mapeada do `.exe`
+  (MEM_IMAGE) — imagem principal trocada em memória, disco limpo. Vai além do
+  manual-map (que pega DLL injetada): aqui o miolo inteiro do processo foi
+  substituído. HIGH só com executor conhecido. Pula self/sistema/WOW64.
+
+- **Assinatura binária estilo YARA** (`yara_scan.py`): varre `.exe`/`.dll` em
+  pastas de usuário casando o CONTEÚDO — símbolos da API de exploit Luau
+  (`getrawmetatable`, `hookmetamethod`, `newcclosure`…) = HIGH; toolmarks de
+  injeção = MEDIUM. Pega executor renomeado/repackado. Engine própria, sem
+  dependência nativa. Anti-FP: só PE, pula o próprio `telador.exe` (que embute
+  os símbolos) e descarta binários assinados. Fonte `yara_signature` (0.85).
+
+- **Hardware DMA** (`dma_scanner.py`): enumera `Enum\PCI` e `\USB` e flagga IDs
+  de placa DMA conhecidos — FPGA Xilinx (`VEN_10EE`: PCIeScreamer/LeetDMA/
+  CaptainDMA) e ponte USB3 FT601 (`0403:601F`). Heurístico: firmware que spoofa
+  o ID escapa, ausência **não** inocenta. Fonte `dma_hardware` (0.80).
+
+- **Event Log de execução (estilo Hayabusa)** (`winevent_scanner.py`): lê o
+  Event Log via `wevtutil` puxando rastros que sobrevivem à deleção do arquivo —
+  **7045** (driver/serviço instalado: pega BYOVD mesmo se o `.sys` foi removido,
+  e funde no cluster com `scan_kernel_drivers`) e **4104** (PowerShell script
+  block: download cradle e nome de executor). Fonte `event_log_exec` (0.88).
+
+### Changed
+
+- **Hollowing — assinado é MEDIUM** (anti-FP): binário assinado com image base
+  privado pode ser anti-tamper/DRM legítimo (Themida), então não crava no HIGH
+  sozinho; corrobora no Confidence Engine.
+- **7045 user-path restrito a driver kernel** (anti-FP): serviço usermode de
+  `%AppData%` (updater legítimo) não flagga mais; só driver kernel-mode de pasta
+  gravável (padrão de BYOVD-dropper).
+- **4104 exige download + execução** (anti-FP): `Invoke-WebRequest`/`iwr`
+  sozinho é uso legítimo comum e não flagga; só o cradle que baixa E executa.
+
 ## [3.38.1] - 2026-06-20
 
 **Bugfix FP**: nomes de pasta genéricos colidindo com software legítimo.
