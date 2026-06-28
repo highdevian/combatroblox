@@ -25,3 +25,4 @@ Thumbs.db
 
 # Assinaturas externas do usuario (so o .example vai pro repo)
 signatures.json
+yara_rules.json

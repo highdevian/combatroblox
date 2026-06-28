@@ -160,3 +160,58 @@ def test_real_machine_no_crash():
     assert r["status"] in ("clean", "suspicious", "error")
     for it in r["items"]:
         assert it["severity"] in ("high", "medium")
+
+
+# ----------------------------- regras externas (yara_rules.json) -----------------------------
+
+def test_validate_external_rule_ok():
+    rule = ys._validate_external_rule({
+        "name": "Regra X", "severity": "high", "min_matches": 2,
+        "strings": ["aaa", "bbb"]})
+    assert rule is not None
+    assert rule["strings"] == [b"aaa", b"bbb"]  # convertido pra bytes
+    assert rule["severity"] == "high" and rule["min_matches"] == 2
+    assert rule["matched"].startswith("yara-custom:")  # default derivado
+
+
+def test_validate_external_rule_rejects_bad():
+    bad = [
+        {"severity": "high", "strings": ["a"]},          # sem name
+        {"name": "x", "severity": "ULTRA", "strings": ["a"]},  # severity invalida
+        {"name": "x", "severity": "high", "strings": []},      # strings vazio
+        {"name": "x", "severity": "high", "strings": ["a"], "min_matches": 0},  # mm<1
+        "nao e dict",
+    ]
+    for b in bad:
+        assert ys._validate_external_rule(b) is None
+
+
+def test_load_external_rules_from_env(tmp_path, monkeypatch):
+    import json
+    p = tmp_path / "yara_rules.json"
+    p.write_text(json.dumps([
+        {"name": "Custom", "severity": "high", "matched": "yara:custom",
+         "min_matches": 1, "strings": ["MARCADORUNICO"]},
+        {"name": "lixo invalido"},  # ignorada, não derruba as outras
+    ]), encoding="utf-8")
+    monkeypatch.setenv("TELADOR_YARA_RULES", str(p))
+    rules = ys._load_external_rules()
+    assert len(rules) == 1
+    assert rules[0]["matched"] == "yara:custom"
+
+
+def test_load_external_rules_missing_file_is_empty(monkeypatch):
+    monkeypatch.setenv("TELADOR_YARA_RULES", r"Z:\nao\existe\yara_rules.json")
+    assert ys._load_external_rules() == []
+
+
+def test_scanner_uses_external_rules(monkeypatch):
+    """Regra externa entra no scan junto das built-in."""
+    custom = {"name": "Custom", "severity": "high", "matched": "yara:custom",
+              "why": "marcador.", "min_matches": 1, "strings": [b"MARCADORUNICO"]}
+    monkeypatch.setattr(ys, "_load_external_rules", lambda: [custom])
+    path = r"C:\Users\x\Downloads\z.exe"
+    _patch(monkeypatch, {path: b"MZ" + b"\x00" * 64 + b"MARCADORUNICO"},
+           signed={path: False})
+    r = ys.scan_yara_binaries()
+    assert any(it["matched"] == "yara:custom" for it in r["items"])

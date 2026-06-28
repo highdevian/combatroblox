@@ -117,12 +117,14 @@ def test_scriptblock_benign_clean():
 
 # ----------------------------- scanner (mockado) -----------------------------
 
-def _patch(monkeypatch, system=None, ps=None):
-    def fake_query(channel, event_id, count=300):
+def _patch(monkeypatch, system=None, ps=None, security=None):
+    def fake_query(channel, event_id, count=300, parser=None):
         if event_id == 7045:
             return system
         if event_id == 4104:
             return ps
+        if event_id == 4688:
+            return security
         return None
     monkeypatch.setattr(we, "_query_events", fake_query)
 
@@ -167,6 +169,32 @@ def test_scanner_dedups_multipart_scriptblock(monkeypatch):
     _patch(monkeypatch, system=[], ps=[blob, blob, blob])
     r = we.scan_windows_events()
     assert len([i for i in r["items"] if i["matched"].startswith("ps-scriptblock")]) == 1
+
+
+def test_process_creation_4688_executor_high():
+    res = we._classify_process_creation(
+        r"C:\Users\x\Downloads\solara.exe", "solara.exe --inject")
+    assert res == ("high", "solara")
+
+
+def test_process_creation_4688_benign_none():
+    assert we._classify_process_creation(r"C:\Windows\System32\notepad.exe", "") is None
+
+
+def test_scanner_flags_4688_executor(monkeypatch):
+    _patch(monkeypatch, system=[], ps=[], security=[
+        {"NewProcessName": r"C:\Users\x\Downloads\solara.exe",
+         "CommandLine": "", "_time": "2026-06-28T10:00:00Z"}])
+    r = we.scan_windows_events()
+    it = [i for i in r["items"] if i["matched"] == "solara"]
+    assert it and it[0]["severity"] == "high"
+
+
+def test_scanner_dedups_4688(monkeypatch):
+    ev = {"NewProcessName": r"C:\X\solara.exe", "CommandLine": "", "_time": ""}
+    _patch(monkeypatch, system=[], ps=[], security=[ev, ev, ev])
+    r = we.scan_windows_events()
+    assert len([i for i in r["items"] if i["matched"] == "solara"]) == 1
 
 
 def test_scanner_clean_when_nothing_matches(monkeypatch):

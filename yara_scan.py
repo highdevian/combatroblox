@@ -25,6 +25,7 @@ Roblox — software legítimo praticamente nunca exporta essa superfície.
 from models import _result, _item
 import os
 import sys
+import json
 
 
 # ============================ Engine ============================
@@ -169,12 +170,97 @@ def _iter_candidate_files():
                 yield os.path.join(dirpath, f)
 
 
+# ============================ Regras externas (yara_rules.json) ============================
+# O usuário pode dropar um `yara_rules.json` ao lado do telador.exe (ou apontar
+# via env TELADOR_YARA_RULES) pra somar detecções SEM recompilar — ex.: o
+# pacote-strings do curso. Formato: lista de
+#   {"name","severity","matched","why","min_matches","strings":["str", ...]}
+_EXTERNAL_RULES_FILENAME = "yara_rules.json"
+
+
+def _external_rules_path() -> str:
+    """Primeiro caminho existente do yara_rules.json: env -> lado do exe -> cwd."""
+    candidates = []
+    env = os.environ.get("TELADOR_YARA_RULES")
+    if env:
+        candidates.append(env)
+    try:
+        candidates.append(os.path.join(
+            os.path.dirname(os.path.realpath(sys.executable)),
+            _EXTERNAL_RULES_FILENAME))
+    except Exception:
+        pass
+    candidates.append(os.path.join(os.getcwd(), _EXTERNAL_RULES_FILENAME))
+    for c in candidates:
+        if c and os.path.isfile(c):
+            return c
+    return ""
+
+
+def _validate_external_rule(raw) -> dict | None:
+    """Valida e normaliza UMA regra externa (do JSON). None se inválida — uma
+    regra ruim não derruba as outras nem o scan."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        name = str(raw["name"]).strip()
+        sev = str(raw.get("severity", "medium")).lower()
+        strings = raw["strings"]
+    except (KeyError, TypeError):
+        return None
+    if not name or sev not in ("high", "medium", "low"):
+        return None
+    if not isinstance(strings, list):
+        return None
+    pats = [str(s).encode("utf-8") for s in strings if str(s)]
+    if not pats:
+        return None
+    try:
+        mm = int(raw.get("min_matches", len(pats)))
+    except (TypeError, ValueError):
+        return None
+    if mm < 1:
+        return None
+    return {
+        "name": name,
+        "severity": sev,
+        "matched": str(raw.get("matched") or f"yara-custom:{name.lower()[:40]}"),
+        "why": str(raw.get("why")
+                   or "casou uma regra YARA personalizada (yara_rules.json)."),
+        "min_matches": mm,
+        "strings": pats,
+    }
+
+
+def _load_external_rules() -> list:
+    """Regras de yara_rules.json (se existir). [] em qualquer falha — arquivo
+    malformado nunca quebra o scan."""
+    path = _external_rules_path()
+    if not path:
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for entry in raw:
+        rule = _validate_external_rule(entry)
+        if rule:
+            out.append(rule)
+    return out
+
+
 def scan_yara_binaries() -> dict:
     """Varre binários (.exe/.dll) em pastas de usuário casando regras de conteúdo
-    estilo YARA — pega executor renomeado/repackado pelos símbolos embutidos."""
+    estilo YARA — pega executor renomeado/repackado pelos símbolos embutidos.
+    Soma regras externas de yara_rules.json (pacote-strings do curso)."""
     name = "Assinatura binária (YARA)"
     desc = "Cheat detectado pelo CONTEÚDO do binário (símbolos de exploit/injeção)"
 
+    rules = BUILTIN_RULES + _load_external_rules()
     items = []
     seen_paths = set()
     for path in _iter_candidate_files():
@@ -183,7 +269,7 @@ def scan_yara_binaries() -> dict:
         data = _read_bytes(path, _MAX_READ)
         if len(data) < 2 or data[:2] != b"MZ":   # só PE
             continue
-        hits = _match_rules(data, BUILTIN_RULES)
+        hits = _match_rules(data, rules)
         if not hits:
             continue
         # App VALIDAMENTE assinado que casou = legítimo raríssimo -> descarta

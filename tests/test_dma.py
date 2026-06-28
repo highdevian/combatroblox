@@ -45,8 +45,8 @@ def test_pci_altera_is_medium():
 def test_usb_ft601_is_high():
     res = dma._classify_usb("VID_0403&PID_601F")
     assert res is not None
-    sev, desc, vidpid = res
-    assert sev == "high" and vidpid == "0403:601F"
+    sev, desc, matched = res
+    assert sev == "high" and matched == "dma-usb:0403:601F"
 
 
 def test_usb_common_device_clean():
@@ -56,6 +56,16 @@ def test_usb_common_device_clean():
 
 def test_usb_missing_pid_clean():
     assert dma._classify_usb("VID_0403") is None
+
+
+def test_kmbox_hook_extensible(monkeypatch):
+    """KMBOX_USB_IDS vem vazio (anti-FP), mas o hook funciona: ao popular com um
+    ID verificado, casa como kmbox-usb (distinto de dma-usb)."""
+    assert dma.KMBOX_USB_IDS == {}  # default seguro
+    monkeypatch.setitem(dma.KMBOX_USB_IDS, ("1234", "5678"),
+                        ("kmbox B+ (verificado)", "high"))
+    res = dma._classify_usb("VID_1234&PID_5678")
+    assert res and res[0] == "high" and res[2] == "kmbox-usb:1234:5678"
 
 
 # ----------------------------- scanner (mockado) -----------------------------

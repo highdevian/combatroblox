@@ -184,6 +184,19 @@ def _classify_scriptblock(text: str):
     return None
 
 
+def _classify_process_creation(new_process: str, command_line: str):
+    """(severity, matched) p/ um 4688 (criação de processo) que casa executor.
+
+    4688 (Security) registra TODO processo criado quando 'Audit Process Creation'
+    está ligado — então pega o executor pelo nome/cmdline mesmo se o .exe foi
+    deletado depois. Gated por keyword de executor (word-boundary) -> FP baixo;
+    processo comum não casa nada."""
+    kw, _ = matching.match_keyword(f"{new_process} {command_line}")
+    if kw:
+        return "high", kw
+    return None
+
+
 # Termos de ameaça do Defender ligados a cheat (gate anti-FP: NÃO flagga toda
 # detecção — PUA/trojan genérico não é prova de cheat de Roblox).
 _AV_CHEAT_TERMS = ("hacktool", "exploit", "injector", "cheat", "keylogger")
@@ -216,8 +229,9 @@ def _fmt_when(iso: str) -> str:
 
 
 def scan_windows_events() -> dict:
-    """Puxa eventos de execução/instalação (7045, 4104) e flagga os suspeitos."""
-    name = "Event Log de execução (7045/4104)"
+    """Puxa eventos de execução/instalação (7045, 4104, 4688) e flagga os
+    suspeitos."""
+    name = "Event Log de execução (7045/4104/4688)"
     desc = "Rastros de execução/instalação no Event Log (sobrevivem à deleção)"
 
     items = []
@@ -276,6 +290,30 @@ def scan_windows_events() -> dict:
                        f"Script capturado pelo script block logging — download "
                        f"cradle ou referência a executor. Mais difícil de apagar "
                        f"que o histórico de console.",
+                severity=sev, matched=matched, timestamp=when,
+            ))
+
+    # --- 4688: criação de processo (canal Security, precisa de audit ligado) ---
+    sec_events = _query_events("Security", 4688)
+    if sec_events is not None:
+        any_access = True
+        seen_proc = set()
+        for ev in sec_events:
+            new_proc = ev.get("NewProcessName", "")
+            res = _classify_process_creation(new_proc, ev.get("CommandLine", ""))
+            if not res:
+                continue
+            sev, matched = res
+            if matched in seen_proc:  # executor rodado várias vezes -> 1 item
+                continue
+            seen_proc.add(matched)
+            when = _fmt_when(ev.get("_time", ""))
+            items.append(_item(
+                label=f"Processo de executor criado: {os.path.basename(new_proc) or matched}",
+                detail=f"EventID 4688 · {new_proc or '?'}\n"
+                       f"Criação de processo registrada no Security log (audit de "
+                       f"processo ligado). Pega o executor pelo nome mesmo se o "
+                       f".exe foi deletado depois da SS.",
                 severity=sev, matched=matched, timestamp=when,
             ))
 

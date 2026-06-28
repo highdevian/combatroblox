@@ -46,6 +46,14 @@ DMA_USB_IDS = {
     ("0403", "601E"): ("FTDI FT600 (USB3 FIFO)", "medium"),
 }
 
+# kmbox / fuser de INPUT (emula mouse/teclado por hardware). Vazio de propósito:
+# os chips comuns (CH340 1A86:7523, STM32 0483:*) são usados por MILHARES de
+# dispositivos legítimos — flaggar por eles seria FP em massa. Não há VID/PID de
+# consumidor único e confiável que eu garanta. Adicione aqui os IDs VERIFICADOS
+# que aprender (canal understanding-kmbox / detecting-dma-fusers):
+#   ("VID", "PID"): ("kmbox B+ (input emulado por hardware)", "high"),
+KMBOX_USB_IDS: dict = {}
+
 _VEN_RE = re.compile(r"VEN_([0-9A-Fa-f]{4})")
 _VID_RE = re.compile(r"VID_([0-9A-Fa-f]{4})")
 _PID_RE = re.compile(r"PID_([0-9A-Fa-f]{4})")
@@ -69,16 +77,20 @@ def _classify_pci(hwid: str):
 
 
 def _classify_usb(hwid: str):
-    """(severity, descrição, 'VID:PID') se o ID USB casa; senão None."""
+    """(severity, descrição, matched) se o ID USB casa placa DMA ou kmbox; senão
+    None. matched distingue 'dma-usb:' de 'kmbox-usb:'."""
     mv, mp = _VID_RE.search(hwid or ""), _PID_RE.search(hwid or "")
     if not (mv and mp):
         return None
     vid, pid = mv.group(1).upper(), mp.group(1).upper()
+    if (vid, pid) in KMBOX_USB_IDS:
+        desc, sev = KMBOX_USB_IDS[(vid, pid)]
+        return sev, desc, f"kmbox-usb:{vid}:{pid}"
     info = DMA_USB_IDS.get((vid, pid))
-    if not info:
-        return None
-    desc, sev = info
-    return sev, desc, f"{vid}:{pid}"
+    if info:
+        desc, sev = info
+        return sev, desc, f"dma-usb:{vid}:{pid}"
+    return None
 
 
 # ============================ Enumeração (registro) ============================
@@ -161,14 +173,14 @@ def scan_dma_devices() -> dict:
         res = _classify_usb(hwid)
         if not res:
             continue
-        sev, udesc, vidpid = res
+        sev, udesc, matched = res
         items.append(_item(
-            label=f"USB suspeito (DMA): {friendly or udesc}",
+            label=f"USB suspeito (DMA/kmbox): {friendly or udesc}",
             detail=f"{hwid}\n"
-                   f"Dispositivo USB {vidpid} — {udesc}. É a interface USB típica "
-                   f"das placas DMA. Confirme o que é fisicamente. (Heurístico — "
-                   f"esse chip também tem uso industrial legítimo.)",
-            severity=sev, matched=f"dma-usb:{vidpid}",
+                   f"Dispositivo USB — {udesc}. Interface típica de placa DMA ou "
+                   f"kmbox. Confirme o que é fisicamente. (Heurístico — esse chip "
+                   f"também tem uso industrial legítimo.)",
+            severity=sev, matched=matched,
         ))
 
     return _result(name, desc, items)
