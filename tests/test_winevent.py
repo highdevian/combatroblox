@@ -208,3 +208,86 @@ def test_byovd_event_merges_with_kernel_driver():
     import evidence as ev
     assert ev._infer_kind("Serviço/driver instalado: winring0.sys",
                           "driver-byovd:winring0") == "byovd"
+
+
+# ----------------------------- Defender detection (1116/1117) -----------------------------
+
+_XML_DEFENDER_USERDATA = (
+    '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">'
+    '<System><EventID>1116</EventID>'
+    '<TimeCreated SystemTime="2026-06-28T20:00:00.0Z"/></System>'
+    '<UserData><EventXML xmlns="myns">'
+    '<Threat Name="HackTool:Win32/Solara"/>'
+    '<Path>C:\\Users\\x\\Downloads\\solara.exe</Path>'
+    '</EventXML></UserData></Event>'
+)
+
+
+def test_blob_parser_schema_agnostic():
+    """Evento Defender com schema UserData (sem <Data Name>) ainda extrai texto."""
+    evs = we._parse_event_blobs(_XML_DEFENDER_USERDATA)
+    assert len(evs) == 1
+    assert "solara.exe" in evs[0]["_blob"]
+    assert evs[0]["_time"].startswith("2026-06-28T20:00:00")
+
+
+def test_defender_executor_name_high():
+    res = we._classify_defender_detection("Threat HackTool:Win32/Solara C:/x/solara.exe")
+    assert res and res[0] == "high"
+    assert res[1] == "solara"  # FUNDE no cluster do executor
+
+
+def test_defender_generic_hacktool_medium():
+    res = we._classify_defender_detection("HackTool:Win32/Generic detected")
+    assert res and res[0] == "medium"
+    assert res[1] == "defender-detection:hacktool"
+
+
+def test_defender_unrelated_threat_clean():
+    """PUA/trojan genérico SEM termo de cheat nem executor -> não flagga (anti-FP)."""
+    assert we._classify_defender_detection("Trojan:Win32/Wacatac.B!ml em C:/temp/x") is None
+
+
+def _patch_defender(monkeypatch, blobs):
+    def fake_query(channel, event_id, count=300, parser=None):
+        if "Defender" in channel:
+            return blobs
+        return None
+    monkeypatch.setattr(we, "_query_events", fake_query)
+
+
+def test_scanner_flags_defender_detection(monkeypatch):
+    _patch_defender(monkeypatch, [
+        {"_blob": "HackTool:Win32/Solara C:/Users/x/Downloads/solara.exe", "_time": "2026-06-28T20:00:00Z"}])
+    r = we.scan_defender_events()
+    assert r["status"] == "suspicious"
+    it = r["items"][0]
+    assert it["severity"] == "high" and it["matched"] == "solara"
+
+
+def test_scanner_defender_dedup(monkeypatch):
+    b = {"_blob": "HackTool:Win32/Generic", "_time": ""}
+    _patch_defender(monkeypatch, [b, b, b])
+    assert len(we.scan_defender_events()["items"]) == 1
+
+
+def test_scanner_defender_error_when_no_access(monkeypatch):
+    _patch_defender(monkeypatch, None)
+    assert we.scan_defender_events()["status"] == "error"
+
+
+def test_defender_registered_and_routed():
+    import evidence as ev
+    import report_assets
+    assert we.scan_defender_events in we.ALL_WINEVENT_SCANNERS
+    assert ev._source_slug_from_name(
+        "Defender: detecção de ameaça (Event Log 1116/1117)") == "defender_detection"
+    assert "defender_detection" in ev.SOURCE_WEIGHTS
+    assert "defender_detection" in report_assets.SOURCE_LABELS
+
+
+def test_defender_real_machine_no_crash():
+    r = we.scan_defender_events()
+    assert r["status"] in ("clean", "suspicious", "error")
+    for it in r["items"]:
+        assert it["severity"] in ("high", "medium")

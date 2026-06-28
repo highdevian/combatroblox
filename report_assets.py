@@ -38,6 +38,7 @@ SOURCE_LABELS = {
     "yara_signature":     "Assinatura binária (YARA)",
     "dma_hardware":       "Hardware DMA",
     "event_log_exec":     "Event Log (execução)",
+    "defender_detection": "Defender (detecção)",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
     "bloxstrap":          "Bloxstrap",

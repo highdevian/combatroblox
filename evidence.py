@@ -49,6 +49,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "dma_hardware":         0.80,   # ID de placa FPGA/USB de DMA no registro (heurístico — pode spoofar)
     "yara_signature":       0.85,   # match de conteúdo binário (símbolos de exploit/injeção)
     "event_log_exec":       0.88,   # 7045/4104 — execução/instalação logada pelo kernel
+    "defender_detection":   0.90,   # 1116/1117 — o próprio AV detectou o hacktool/executor
     "executor_structure":   0.80,   # comportamental — exe não-assinado + runtime web
     "launcher_integrity":   0.90,   # binário oficial do Roblox adulterado / launcher falso
     "usn_journal":          0.95,
@@ -474,6 +475,7 @@ def _source_slug_from_name(scanner_name: str) -> str:
     n = (scanner_name or "").lower()
     # ordem importa — substrings mais específicas primeiro
     rules = [
+        ("defender: detecção",    "defender_detection"),
         ("event log de execução", "event_log_exec"),
         ("dma",                   "dma_hardware"),
         ("yara",                  "yara_signature"),

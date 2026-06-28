@@ -68,7 +68,25 @@ def _parse_events(xml_text: str) -> list:
     return events
 
 
-def _query_events(channel: str, event_id: int, count: int = 300):
+def _parse_event_blobs(xml_text: str) -> list:
+    """Variante schema-agnóstica: {'_time', '_blob'} com TODO o texto do evento.
+    Pro Defender, cujo schema (UserData/EventXML) nem sempre usa <Data Name=…>."""
+    out = []
+    for chunk in _split_events(xml_text):
+        try:
+            root = ET.fromstring(chunk)
+        except ET.ParseError:
+            continue
+        ts = ""
+        for el in root.iter():
+            if el.tag.rsplit("}", 1)[-1] == "TimeCreated":
+                ts = el.attrib.get("SystemTime", "") or ts
+        blob = " ".join(t.strip() for t in root.itertext() if t and t.strip())
+        out.append({"_time": ts, "_blob": blob})
+    return out
+
+
+def _query_events(channel: str, event_id: int, count: int = 300, parser=_parse_events):
     """Eventos de um canal via wevtutil, em XML. Lista de dicts, [] se vazio,
     None se falhar/sem acesso. Isolado pra ser mockável nos testes."""
     try:
@@ -91,7 +109,7 @@ def _query_events(channel: str, event_id: int, count: int = 300):
             continue
     if not out.strip():
         return []
-    return _parse_events(out)
+    return parser(out)
 
 
 # ============================ Classificadores puros ============================
@@ -163,6 +181,29 @@ def _classify_scriptblock(text: str):
     low = text.lower()
     if any(d in low for d in _PS_DOWNLOAD) and any(e in low for e in _PS_EXEC):
         return "high", "ps-scriptblock:download+iex", "download+iex"
+    return None
+
+
+# Termos de ameaça do Defender ligados a cheat (gate anti-FP: NÃO flagga toda
+# detecção — PUA/trojan genérico não é prova de cheat de Roblox).
+_AV_CHEAT_TERMS = ("hacktool", "exploit", "injector", "cheat", "keylogger")
+
+
+def _classify_defender_detection(blob: str):
+    """(severity, matched, label) p/ uma detecção do Defender ligada a cheat.
+
+    O Defender PEGOU o arquivo (1116/1117) e o cara manteve/excluiu — prova forte.
+    HIGH se o nome da ameaça/caminho casa um executor conhecido (smoking gun que
+    FUNDE no cluster do executor); MEDIUM se é HackTool/exploit genérico."""
+    if not blob:
+        return None
+    ekw, _ = matching.match_keyword(blob)
+    if ekw:
+        return "high", ekw, ekw
+    low = blob.lower()
+    for term in _AV_CHEAT_TERMS:
+        if term in low:
+            return "medium", f"defender-detection:{term}", term
     return None
 
 
@@ -244,6 +285,53 @@ def scan_windows_events() -> dict:
     return _result(name, desc, items)
 
 
+def scan_defender_events() -> dict:
+    """Detecções do Windows Defender no Event Log (1116/1117) ligadas a cheat.
+
+    Complementa o scan_defender_tampering (que vê exclusões/RTP no registro):
+    aqui é o evento de DETECÇÃO — o próprio antivírus pegou o cheat e o cara
+    manteve. Gated por nome de ameaça/executor pra não flaggar PUA/trojan
+    genérico (que não é prova de cheat de Roblox)."""
+    name = "Defender: detecção de ameaça (Event Log 1116/1117)"
+    desc = "O Windows Defender detectou um hacktool/executor (prova forte)"
+
+    events = None
+    for eid in (1116, 1117):
+        r = _query_events("Microsoft-Windows-Windows Defender/Operational",
+                          eid, parser=_parse_event_blobs)
+        if r is None:
+            continue
+        events = (events or []) + r
+
+    if events is None:
+        return _result(name, desc, [],
+                       error="sem acesso ao log do Defender (rode como admin)")
+
+    items = []
+    seen = set()
+    for ev in events:
+        res = _classify_defender_detection(ev.get("_blob", ""))
+        if not res:
+            continue
+        sev, matched, label = res
+        if matched in seen:  # mesma ameaça detectada várias vezes -> 1 item
+            continue
+        seen.add(matched)
+        when = _fmt_when(ev.get("_time", ""))
+        snippet = ev.get("_blob", "")[:220]
+        items.append(_item(
+            label=f"Defender DETECTOU: {label}",
+            detail=f"EventID 1116/1117 · {snippet}\n"
+                   f"O Windows Defender detectou esta ameaça e ela está/esteve no "
+                   f"PC mesmo assim (mantida/excluída/restaurada). O antivírus do "
+                   f"próprio Windows flaggou — prova forte de cheat.",
+            severity=sev, matched=matched, timestamp=when,
+        ))
+
+    return _result(name, desc, items)
+
+
 ALL_WINEVENT_SCANNERS = [
     scan_windows_events,
+    scan_defender_events,
 ]
