@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.41.4] - 2026-06-29
+
+### Fixed
+
+- **Disclosure scanner agora é autodiagnóstico** (`command_history.py`,
+  `scan_trusted_domains_notice`): se `trusted_domains.json` EXISTE em algum
+  caminho candidato mas `TRUSTED_DOMAINS` ficou vazio (JSON malformado, formato
+  errado, erro de leitura), o scanner GRITA com o caminho do arquivo e o
+  motivo provável. Sem isso, o dono que dropou o arquivo e não viu efeito
+  ficava no escuro — só "ok" silencioso. Quando NÃO há arquivo em lugar
+  nenhum (caso normal), continua silencioso pra não poluir o report.
+
+- **USERPROFILE\\AppData\\Local como fallback redundante** (`database.py`):
+  caso `LOCALAPPDATA` esteja unset por algum motivo (contexto de exe elevado
+  anômalo, env truncado), o caminho derivado de `USERPROFILE` ainda funciona.
+  Dedup com set pra não duplicar quando ambas resolvem ao mesmo lugar.
+
 ## [3.41.3] - 2026-06-29
 
 ### Fixed

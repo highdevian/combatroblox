@@ -313,12 +313,37 @@ def scan_trusted_domains_notice() -> dict:
     supressão seria SILENCIOSA. Aqui ela vira um item visível — o investigador vê
     quais domínios estão isentos e julga se a config é legítima.
 
+    Diagnóstico quando vazia: mostra todos os caminhos candidatos e quais
+    existiam (também meta_only, status=clean). Sem isto, o dono que configurou
+    e não viu funcionar fica no escuro — só "ok" silencioso.
+
     meta_only=True + status='clean': é contexto, não acende veredito (uma
     allowlist na máquina do DONO é esperada). O texto é que carrega o alerta."""
     name = "Allowlist de domínios confiáveis"
     desc = "Domínios isentos de flag de download/execução (config local)"
+
     if not TRUSTED_DOMAINS:
-        return _result(name, desc, [])
+        # Diagnóstico: mostra o que foi tentado, pra dono que dropou o JSON e
+        # não viu efeito não ficar adivinhando. Só vira item se ALGUM candidato
+        # já existiu em disco (arquivo presente mas não carregado = bug a
+        # investigar). Vazio mesmo = nenhum item, "ok" silencioso (caso normal
+        # de quem nem configurou).
+        import database
+        cands = database._trusted_domains_candidates()
+        existing = [c for c in cands if os.path.isfile(c)]
+        if not existing:
+            return _result(name, desc, [])
+        # Tem arquivo mas TRUSTED_DOMAINS vazio: JSON inválido ou formato errado.
+        item = _item(
+            label="[CONFIG] trusted_domains.json existe mas NÃO carregou",
+            detail=(f"Caminhos com arquivo presente: {', '.join(existing)}. "
+                    f"TRUSTED_DOMAINS está vazio → provável JSON malformado "
+                    f"(precisa ser lista de strings, ex.: [\"ps.lua.tools\"]) "
+                    f"ou erro de leitura. A supressão NÃO está ativa."),
+            severity="low", matched="trusted-domains-broken", meta_only=True,
+        )
+        return _result(name, desc, [item], status="clean")
+
     doms = ", ".join(sorted(TRUSTED_DOMAINS))
     item = _item(
         label=f"[CONFIG] {len(TRUSTED_DOMAINS)} domínio(s) na allowlist",

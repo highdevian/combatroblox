@@ -107,7 +107,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
-    print(f"{GREY}  v3.41.3  ·  Confidence Engine  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.41.4  ·  Confidence Engine  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")

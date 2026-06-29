@@ -264,11 +264,13 @@ def test_untrusted_domain_irm_iex_still_flagged():
     assert kw is not None and sev == "high"
 
 
-def test_trusted_domains_disclosed_in_report():
+def test_trusted_domains_disclosed_in_report(monkeypatch):
     """SEGURANÇA: allowlist ativa tem que aparecer no report (meta_only) — senão
     um trusted_domains.json plantado pelo suspeito suprimiria em silêncio."""
     import command_history as ch, database
-    # Vazia -> sem item, clean
+    # Hermético: força candidates sem arquivo existente (o sidecar de dev pode
+    # estar no disco da máquina de quem roda o teste, contaminaria o cenário)
+    monkeypatch.setattr(database, "_trusted_domains_candidates", lambda: [])
     saved = set(database.TRUSTED_DOMAINS)
     database.TRUSTED_DOMAINS.clear()
     try:
@@ -302,6 +304,60 @@ def test_trusted_domains_localappdata_fallback(tmp_path, monkeypatch):
     assert expected in cands
     # Ordem: LOCALAPPDATA vem DEPOIS do sidecar (primary > fallback)
     assert cands.index(expected) > 0
+
+
+def test_trusted_domains_userprofile_fallback(tmp_path, monkeypatch):
+    """USERPROFILE\\AppData\\Local é fallback redundante pro caso de LOCALAPPDATA
+    unset (contexto de exe elevado anomalo, env truncado etc)."""
+    import database as db
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    monkeypatch.delenv("APPDATA", raising=False)
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.delenv("TELADOR_TRUSTED_DOMAINS", raising=False)
+    cands = db._trusted_domains_candidates()
+    expected = str(tmp_path / "AppData" / "Local" / "Telador" / "trusted_domains.json")
+    assert expected in cands
+
+
+def test_disclosure_diagnoses_broken_config(tmp_path, monkeypatch):
+    """Se trusted_domains.json existe mas TRUSTED_DOMAINS está vazio (JSON
+    malformado etc), o disclosure scanner tem que GRITAR — não ficar 'ok'
+    silencioso. Senão o dono dropa o arquivo, não vê efeito e fica adivinhando."""
+    import command_history as ch, database, os as _os
+    saved = set(database.TRUSTED_DOMAINS)
+    database.TRUSTED_DOMAINS.clear()
+    # Cria um arquivo malformado no LOCALAPPDATA simulado
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("TELADOR_TRUSTED_DOMAINS", raising=False)
+    bad = tmp_path / "Telador" / "trusted_domains.json"
+    bad.parent.mkdir(parents=True)
+    bad.write_text("{ isto nao e lista valida }", encoding="utf-8")
+    try:
+        r = ch.scan_trusted_domains_notice()
+        assert len(r["items"]) == 1
+        assert r["items"][0]["meta_only"] is True
+        assert "broken" in r["items"][0]["matched"]
+        assert str(bad) in r["items"][0]["detail"]
+        assert r["status"] == "clean"  # meta_only, não acende veredito
+    finally:
+        database.TRUSTED_DOMAINS.clear()
+        database.TRUSTED_DOMAINS.update(saved)
+
+
+def test_disclosure_silent_when_truly_empty(monkeypatch):
+    """Quando NÃO HÁ arquivo em LUGAR nenhum, disclosure fica silencioso (o caso
+    normal do user que nem configurou). Sem ruído pra quem não usa a feature."""
+    import command_history as ch, database
+    monkeypatch.setattr(database, "_trusted_domains_candidates", lambda: [])
+    saved = set(database.TRUSTED_DOMAINS)
+    database.TRUSTED_DOMAINS.clear()
+    try:
+        r = ch.scan_trusted_domains_notice()
+        assert r["items"] == []
+        assert r["status"] == "clean"
+    finally:
+        database.TRUSTED_DOMAINS.clear()
+        database.TRUSTED_DOMAINS.update(saved)
 
 
 def test_result_summary_ignores_meta_only_items():

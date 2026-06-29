@@ -697,9 +697,23 @@ def _trusted_domains_candidates() -> list:
     else:
         base = os.path.dirname(os.path.abspath(__file__))
     cands.append(os.path.join(base, _TRUSTED_DOMAINS_FILENAME))
-    appdata = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
-    if appdata:
-        cands.append(os.path.join(appdata, "Telador", _TRUSTED_DOMAINS_FILENAME))
+    # LOCALAPPDATA é o padrão; USERPROFILE\AppData\Local é fallback redundante
+    # pra casos onde LOCALAPPDATA não está definido (env truncado, contexto
+    # elevado anômalo etc). Os dois apontam pro mesmo lugar em uso normal —
+    # dedup com set() preserva ordem só por garantia.
+    seen = set(cands)
+    for base in (
+        os.environ.get("LOCALAPPDATA"),
+        os.environ.get("APPDATA"),
+        os.path.join(os.environ["USERPROFILE"], "AppData", "Local")
+            if os.environ.get("USERPROFILE") else None,
+    ):
+        if not base:
+            continue
+        p = os.path.join(base, "Telador", _TRUSTED_DOMAINS_FILENAME)
+        if p not in seen:
+            cands.append(p)
+            seen.add(p)
     return cands
 
 
