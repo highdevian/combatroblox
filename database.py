@@ -678,7 +678,12 @@ _TRUSTED_DOMAINS_FILENAME = "trusted_domains.json"
 
 
 def _trusted_domains_candidates() -> list:
-    """env TELADOR_TRUSTED_DOMAINS -> lado do exe/módulo -> cwd."""
+    """env TELADOR_TRUSTED_DOMAINS -> lado do exe/módulo.
+
+    NÃO inclui o CWD de propósito: como TRUSTED_DOMAINS SUPRIME detecção (ao
+    contrário do yara_rules.json, que só adiciona), um arquivo solto na pasta de
+    onde se roda o telador seria um vetor de evasão drive-by fácil demais. Só os
+    dois canais INTENCIONAIS de config (env explícita + sidecar do exe)."""
     cands = []
     env = os.environ.get("TELADOR_TRUSTED_DOMAINS")
     if env:
@@ -688,7 +693,6 @@ def _trusted_domains_candidates() -> list:
     else:
         base = os.path.dirname(os.path.abspath(__file__))
     cands.append(os.path.join(base, _TRUSTED_DOMAINS_FILENAME))
-    cands.append(os.path.join(os.getcwd(), _TRUSTED_DOMAINS_FILENAME))
     return cands
 
 
