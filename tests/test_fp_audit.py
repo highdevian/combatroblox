@@ -290,6 +290,20 @@ def test_trusted_domains_disclosed_in_report():
         database.TRUSTED_DOMAINS.update(saved)
 
 
+def test_trusted_domains_localappdata_fallback(tmp_path, monkeypatch):
+    """LOCALAPPDATA é candidato de fallback (mesmo padrão do signatures.json):
+    permite o dono dropar o arquivo UMA vez e funcionar de qualquer exe.
+    Esperado APÓS env e sidecar — não substitui os canais primários."""
+    import database as db
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("TELADOR_TRUSTED_DOMAINS", raising=False)
+    cands = db._trusted_domains_candidates()
+    expected = str(tmp_path / "Telador" / "trusted_domains.json")
+    assert expected in cands
+    # Ordem: LOCALAPPDATA vem DEPOIS do sidecar (primary > fallback)
+    assert cands.index(expected) > 0
+
+
 def test_result_summary_ignores_meta_only_items():
     """REGRESSÃO UX: _result deve computar status/summary baseado em itens REAIS
     (não-meta), senão um scanner que só emite header de contexto mente dizendo

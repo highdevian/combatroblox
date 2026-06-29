@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.41.3] - 2026-06-29
+
+### Fixed
+
+- **Allowlist agora carrega de `%LOCALAPPDATA%\Telador\`** (`database.py`,
+  `_trusted_domains_candidates`): antes, `trusted_domains.json` só era lido se
+  estivesse ao lado do exe ou apontado por env. Quem baixava o `telador.exe` num
+  diretório (Downloads/Desktop) e tinha o JSON em outro lugar, NÃO via a
+  allowlist carregar — e os `irm | iex` do steamtools voltavam a aparecer como
+  HIGH. Agora aceita também o caminho de fallback `%LOCALAPPDATA%\Telador\` —
+  drope o JSON ali UMA vez e funciona de qualquer lugar que rode o exe.
+  Mesmo padrão que `signatures.json` já usa há tempos. CWD continua de fora
+  (evasão drive-by). Ordem: env > sidecar > LOCALAPPDATA.
+
 ## [3.41.2] - 2026-06-29
 
 **Segunda passada de auditoria** sobre o stack de allowlist v3.41.0/v3.41.1.

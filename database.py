@@ -678,12 +678,16 @@ _TRUSTED_DOMAINS_FILENAME = "trusted_domains.json"
 
 
 def _trusted_domains_candidates() -> list:
-    """env TELADOR_TRUSTED_DOMAINS -> lado do exe/módulo.
+    """env TELADOR_TRUSTED_DOMAINS -> lado do exe/módulo -> %LOCALAPPDATA%\\Telador.
 
     NÃO inclui o CWD de propósito: como TRUSTED_DOMAINS SUPRIME detecção (ao
     contrário do yara_rules.json, que só adiciona), um arquivo solto na pasta de
-    onde se roda o telador seria um vetor de evasão drive-by fácil demais. Só os
-    dois canais INTENCIONAIS de config (env explícita + sidecar do exe)."""
+    onde se roda o telador seria um vetor de evasão drive-by fácil demais.
+
+    LOCALAPPDATA é OK (e idêntico ao fallback de signatures.json) porque exige
+    posicionamento INTENCIONAL — não é vetor drive-by — e resolve o caso real do
+    dono: baixou o exe em Downloads/Desktop, dropa o JSON em LOCALAPPDATA UMA
+    vez e funciona de qualquer lugar que rode o exe."""
     cands = []
     env = os.environ.get("TELADOR_TRUSTED_DOMAINS")
     if env:
@@ -693,6 +697,9 @@ def _trusted_domains_candidates() -> list:
     else:
         base = os.path.dirname(os.path.abspath(__file__))
     cands.append(os.path.join(base, _TRUSTED_DOMAINS_FILENAME))
+    appdata = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if appdata:
+        cands.append(os.path.join(appdata, "Telador", _TRUSTED_DOMAINS_FILENAME))
     return cands
 
 
