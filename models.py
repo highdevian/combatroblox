@@ -1,17 +1,24 @@
 import datetime
 
 def _result(name: str, description: str, items: list, status: str = None, error: str = None) -> dict:
+    # meta_only itens (headers como [PROCESSO], cabeçalhos de config como
+    # [CONFIG] allowlist) NÃO são achados — são contexto. evidence.py e
+    # fp_filter.py já pulam eles na agregação; aqui garantimos que o
+    # status/summary do scanner também não os conte (senão um scanner sem
+    # achados reais mas com header diz "1 item suspeito" e mente).
+    real_items = [i for i in items if not i.get("meta_only")]
+
     if error:
         status = "error"
     elif status is None:
-        status = "suspicious" if items else "clean"
+        status = "suspicious" if real_items else "clean"
 
-    summary = (
-        f"{len(items)} item(s) suspeito(s)" if items
-        else "Nenhum vestígio encontrado"
-    )
     if error:
         summary = f"Erro: {error}"
+    elif status == "clean":
+        summary = "Nenhum vestígio encontrado"
+    else:
+        summary = f"{len(real_items)} item(s) suspeito(s)"
 
     return {
         "name": name,

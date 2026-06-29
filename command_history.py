@@ -323,7 +323,8 @@ def scan_trusted_domains_notice() -> dict:
     item = _item(
         label=f"[CONFIG] {len(TRUSTED_DOMAINS)} domínio(s) na allowlist",
         detail=(f"trusted_domains.json ativo — download/execução (irm/iex/iwr…) "
-                f"destes domínios NÃO é flaggado: {doms}. "
+                f"destes domínios NÃO é flaggado, nem no PowerShell history nem "
+                f"no script block 4104 do Event Log: {doms}. "
                 f"Se VOCÊ não configurou isso, pode ser supressão plantada pra "
                 f"esconder um cradle de cheat — investigue a origem do arquivo."),
         severity="low", matched="trusted-domains-active", meta_only=True,

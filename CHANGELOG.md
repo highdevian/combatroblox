@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.41.2] - 2026-06-29
+
+**Segunda passada de auditoria** sobre o stack de allowlist v3.41.0/v3.41.1.
+
+### Fixed
+
+- **UX bug pré-existente no `_result`** (`models.py`): scanners com itens
+  `meta_only` (headers como `[PROCESSO]`/`[CONFIG]`) reportavam `summary`
+  contando os meta — então um scanner sem achados reais mas com header diziam
+  `"1 item(s) suspeito(s)"` apesar do `status='clean'`. Agora status e summary
+  computam só itens NÃO-meta (alinha com o que `evidence.py` e `fp_filter.py` já
+  faziam na agregação). Afeta o novo `scan_trusted_domains_notice` e o
+  `[PROCESSO]` header de `live_analysis.scan_dll_injection`.
+
+- **Disclosure da allowlist explicita 4104** (`command_history.py`,
+  `scan_trusted_domains_notice`): texto do item agora menciona que a supressão
+  vale tanto pro PowerShell history quanto pro script block 4104 do Event Log
+  (winevent_scanner). Sem isso o investigador não sabia que o 4104 também
+  estava silenciado.
+
+- **`trusted_domains.example.json` sem domínio real**: removido `ps.lua.tools`
+  do template público (era o domínio do dono, vazado por descuido). Substituído
+  por placeholders. Um exemplo público não deve "ensinar" outros a confiarem
+  num domínio sem auditoria própria.
+
 ## [3.41.1] - 2026-06-29
 
 **Hardening da allowlist v3.41.0** — auditoria pós-release pegou três problemas

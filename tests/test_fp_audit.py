@@ -280,10 +280,38 @@ def test_trusted_domains_disclosed_in_report():
         assert len(r["items"]) == 1
         assert r["items"][0]["meta_only"] is True
         assert _TRUSTED_TEST_DOMAIN in r["items"][0]["detail"]
+        assert "4104" in r["items"][0]["detail"]  # explicita afetar winevent
         assert r["status"] == "clean"  # meta_only não marca suspeito
+        # E o SUMMARY tem que bater com o status — não pode dizer "suspeito"
+        # quando só tem item meta_only (era UX bug do _result).
+        assert "suspeito" not in r["summary"].lower()
     finally:
         database.TRUSTED_DOMAINS.clear()
         database.TRUSTED_DOMAINS.update(saved)
+
+
+def test_result_summary_ignores_meta_only_items():
+    """REGRESSÃO UX: _result deve computar status/summary baseado em itens REAIS
+    (não-meta), senão um scanner que só emite header de contexto mente dizendo
+    "N item(s) suspeito(s)" quando o status é clean. Também afeta scanners
+    pré-existentes (live_analysis usa header [PROCESSO] meta_only)."""
+    from models import _result, _item
+    # Só meta_only -> clean + "Nenhum vestígio"
+    only_meta = [_item("[CTX]", "ctx", "low", "x", meta_only=True)]
+    r = _result("X", "d", only_meta)
+    assert r["status"] == "clean"
+    assert r["summary"] == "Nenhum vestígio encontrado"
+    # Meta + real -> suspicious + conta SÓ os reais
+    mix = [_item("[CTX]", "ctx", "low", "x", meta_only=True),
+           _item("real", "d", "high", "y")]
+    r = _result("X", "d", mix)
+    assert r["status"] == "suspicious"
+    assert r["summary"] == "1 item(s) suspeito(s)"
+    # Só real -> mantém comportamento clássico
+    real = [_item("a", "d", "high", "z")]
+    r = _result("X", "d", real)
+    assert r["status"] == "suspicious"
+    assert r["summary"] == "1 item(s) suspeito(s)"
 
 
 # ===== FP v3.38.1: bare folder names colidindo com software legítimo =====
