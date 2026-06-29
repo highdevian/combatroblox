@@ -29,6 +29,7 @@ import xml.etree.ElementTree as ET
 import win_tools
 import matching
 from extra_forensics import SUSPECT_DRIVER_NAMES
+from database import TRUSTED_DOMAINS
 
 
 # ============================ Query + parse (wevtutil) ============================
@@ -173,13 +174,19 @@ def _classify_scriptblock(text: str):
     legítimo comum de PowerShell."""
     if not text:
         return None
-    # (a) nome de executor no script -> inequívoco
+    # (a) nome de executor no script -> inequívoco (domínio confiável NÃO limpa
+    #     isto: se cita executor real, é evidência independente).
     ekw, _ = matching.match_keyword(text)
     if ekw:
         return "high", ekw, ekw
-    # (b) download + execução juntos -> cradle
+    # (b) download + execução juntos -> cradle. Mas se a fonte é um domínio
+    #     CONFIÁVEL (allowlist), o cradle é instalador legítimo do dono — não
+    #     flagga. Pega tanto o install-plugin.ps1 baixado quanto scripts grandes
+    #     que só casam (b) por terem download e iex em linhas não relacionadas.
     low = text.lower()
     if any(d in low for d in _PS_DOWNLOAD) and any(e in low for e in _PS_EXEC):
+        if any(matching.domain_in_text(dom, low) for dom in TRUSTED_DOMAINS):
+            return None
         return "high", "ps-scriptblock:download+iex", "download+iex"
     return None
 

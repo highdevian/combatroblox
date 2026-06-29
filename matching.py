@@ -76,6 +76,24 @@ def match_keyword(text):
     return None, None
 
 
+def count_distinct_keywords(text) -> int:
+    """Conta quantos keywords DISTINTOS de executor aparecem em `text`
+    (word-boundary, mesmo matching de match_keyword).
+
+    Usado pra detectar LISTA DE ASSINATURA: uma linha que enumera vários
+    executores numa alternância (`solara|xeno|wave|...`) está DEFININDO a
+    wordlist (script anti-cheat, o próprio Telador, signatures.json embutido),
+    não rodando cheat. Comando real referencia UM executor."""
+    if not text:
+        return 0
+    pats = _PATTERNS if _PATTERNS is not None else _compile()
+    found = set()
+    for pat, _sev in pats:
+        for m in pat.finditer(text):
+            found.add(m.group(1).lower())
+    return len(found)
+
+
 @functools.lru_cache(maxsize=1024)
 def _compile_word(word: str) -> re.Pattern:
     esc = re.escape(word.lower())

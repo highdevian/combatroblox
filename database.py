@@ -658,6 +658,77 @@ SUSPICIOUS_DOMAINS = {
     "mpgh.net":             "medium",
 }
 
+# Domínios CONFIÁVEIS (allowlist). Download+execução (irm|iex) a partir destes
+# NÃO é flag — software legítimo que o dono instala por one-liner.
+#
+# VAZIO no código público DE PROPÓSITO: o que estiver aqui vira ponto cego em
+# QUALQUER PC telado. Cada um põe os SEUS domínios benignos num arquivo LOCAL
+# `trusted_domains.json` (ao lado do exe, ou via env TELADOR_TRUSTED_DOMAINS),
+# que fica fora do repo (.gitignore) — igual ao yara_rules.json. Ver
+# trusted_domains.example.json. load_trusted_domains() mescla no import.
+#
+# Semântica: a allowlist só LIMPA o par download/execução (família de rede
+# iex/irm/iwr/downloadstring…). Red flag INDEPENDENTE na mesma linha (bypass de
+# Defender, anti-forense, encodedcommand…) ou nome de executor real continuam
+# acendendo — domínio confiável não dá passe livre pro resto. Casa com fronteira
+# de domínio (matching.domain_in_text): sub.x.tools casa, evilx.tools.co não.
+TRUSTED_DOMAINS = set()
+
+_TRUSTED_DOMAINS_FILENAME = "trusted_domains.json"
+
+
+def _trusted_domains_candidates() -> list:
+    """env TELADOR_TRUSTED_DOMAINS -> lado do exe/módulo -> cwd."""
+    cands = []
+    env = os.environ.get("TELADOR_TRUSTED_DOMAINS")
+    if env:
+        cands.append(env)
+    if getattr(sys, "frozen", False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    cands.append(os.path.join(base, _TRUSTED_DOMAINS_FILENAME))
+    cands.append(os.path.join(os.getcwd(), _TRUSTED_DOMAINS_FILENAME))
+    return cands
+
+
+def load_trusted_domains() -> int:
+    """Mescla o primeiro trusted_domains.json encontrado no set TRUSTED_DOMAINS,
+    IN-PLACE (mesmo objeto que command_history/winevent referenciam). Formato:
+    lista JSON de strings, ex.: ["ps.lua.tools"]. Degrada graciosamente —
+    arquivo ausente/inválido nunca quebra. Retorna nº de domínios somados."""
+    for path in _trusted_domains_candidates():
+        if not path or not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return 0
+        if not isinstance(data, list):
+            return 0
+        added = 0
+        for d in data:
+            if isinstance(d, str) and d.strip():
+                TRUSTED_DOMAINS.add(d.strip().lower())
+                added += 1
+        return added
+    return 0
+
+
+load_trusted_domains()
+
+# Família "rede/download" dos red flags — são os únicos que um TRUSTED_DOMAINS
+# limpa. Subconjunto de POWERSHELL_RED_FLAGS; o resto (Defender/anti-forense/
+# AMSI/encoded) NÃO é limpo por domínio confiável.
+PS_NETWORK_REDFLAGS = {
+    "iex ", "iex(", "invoke-expression",
+    "irm ", "invoke-restmethod",
+    "iwr ", "invoke-webrequest",
+    "downloadstring", "downloadfile", "new-object net.webclient",
+    "curl ", "wget ", "bitsadmin /transfer", "start-bitstransfer",
+}
+
 SUSPICIOUS_FOLDER_NAMES = {
     "synapse x":            "high",
     "synapsex":             "high",

@@ -15,6 +15,8 @@ from database import (
     POWERSHELL_HISTORY_PATH,
     POWERSHELL_RED_FLAGS,
     SUSPICIOUS_DOMAINS,
+    TRUSTED_DOMAINS,
+    PS_NETWORK_REDFLAGS,
     RUNMRU_KEY,
     TYPED_PATHS_KEY,
     PS_HIGH_REQUIRES_DOWNLOAD_CONTEXT,
@@ -32,6 +34,28 @@ _PS_SEARCH_VERBS = (
     "-match", "-cmatch", "-imatch", "-notmatch", "-notcmatch",
     "select-string", " sls ", "| sls", "findstr", "where-object",
 )
+
+
+# Nº mínimo de executores distintos numa alternância pra tratar a linha como
+# LISTA DE ASSINATURA (definição) e não execução. Nenhum comando real referencia
+# vários executores de uma vez; quem enumera todos está DEFININDO a wordlist —
+# script anti-cheat, signatures.json embutido, ou o próprio Telador se mordendo.
+_SIGNATURE_LIST_MIN_KEYWORDS = 3
+
+
+def _is_signature_list(line: str) -> bool:
+    """True quando a linha enumera VÁRIOS executores numa alternância de regex
+    (`a|b|c|...`) — assinatura de detecção, não invocação.
+
+    Cobre o que o _is_search_pattern NÃO pega: a atribuição crua sem verbo de
+    busca, ex.: `$cheat = 'solara|xeno|wave|krnl|fluxus|...'` de um script de
+    screenshare/anti-cheat (inclusive o próprio Telador, que embute a lista).
+    Exige o `|` (alternância) E vários keywords distintos pra não suprimir um
+    comando legítimo que rode UM executor."""
+    if "|" not in line:
+        return False
+    import matching
+    return matching.count_distinct_keywords(line) >= _SIGNATURE_LIST_MIN_KEYWORDS
 
 
 def _is_search_pattern(line: str, matched_kw: str) -> bool:
@@ -73,6 +97,7 @@ def _match_in_line(line: str) -> tuple[str | None, str | None]:
     é alvo de pesquisa, não execução."""
     import matching
     lower = line.lower()
+    trusted = any(matching.domain_in_text(d, lower) for d in TRUSTED_DOMAINS)
 
     def _first_domain():
         for dom, sev in SUSPICIOUS_DOMAINS.items():
@@ -83,6 +108,11 @@ def _match_in_line(line: str) -> tuple[str | None, str | None]:
     # 1. PowerShell red flags
     for kw, sev in POWERSHELL_RED_FLAGS.items():
         if kw in lower:
+            # Download/exec a partir de domínio CONFIÁVEL não é flag: pula este
+            # keyword de rede e segue procurando red flag INDEPENDENTE (Defender
+            # bypass, anti-forense…) ou domínio suspeito na mesma linha.
+            if trusted and kw in PS_NETWORK_REDFLAGS:
+                continue
             # Se tem URL suspeita junto, sobe pra HIGH
             dom, _ = _first_domain()
             if dom:
@@ -109,6 +139,11 @@ def _match_in_line(line: str) -> tuple[str | None, str | None]:
         # FP: comando de BUSCA por esses tokens (auditoria, não execução).
         # Ex.: `Where-Object PathName -match 'winring0|kdmapper|gmer'`
         if _is_search_pattern(line, kw):
+            return None, None
+        # FP: linha que ENUMERA vários executores numa alternância é lista de
+        # assinatura (script anti-cheat / o próprio Telador), não execução.
+        # Ex.: `$cheat = 'solara|xeno|wave|krnl|fluxus|...'`
+        if _is_signature_list(line):
             return None, None
         return kw, sev
 

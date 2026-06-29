@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.41.0] - 2026-06-29
+
+**Redução de falsos positivos**: allowlist de domínios confiáveis (arquivo local)
+e fim do auto-flag de listas de assinatura no histórico de comandos.
+
+### Added
+
+- **Allowlist de domínios confiáveis** (`database.py`, `TRUSTED_DOMAINS`): drope um
+  `trusted_domains.json` (lista JSON de strings) ao lado do `telador.exe` — ou
+  aponte via env `TELADOR_TRUSTED_DOMAINS` — com domínios benignos que você instala
+  por one-liner (ex.: ferramenta própria/steamtools). `irm`/`iex`/`iwr`/
+  `downloadstring`… vindos desses domínios deixam de acender, tanto no PowerShell
+  history quanto no script block 4104. Formato em `trusted_domains.example.json`.
+  Vem VAZIO no binário público de propósito — a allowlist é local pra não virar
+  ponto cego no Telador de outras pessoas. Semântica estreita: só limpa o par
+  download/execução; red flag independente na mesma linha (bypass de Defender,
+  anti-forense) ou nome de executor real continuam HIGH.
+
+### Fixed
+
+- **FP de lista de assinatura no PowerShell history** (`command_history.py`): linha
+  que enumera vários executores numa alternância (`$cheat = 'solara|xeno|krnl|…'`)
+  é a wordlist de um script anti-cheat/screenshare (ou do próprio Telador) caindo
+  no histórico — não é cheat rodando. Agora ignorada quando há `|` e ≥3 executores
+  distintos. Generaliza a proteção que só existia pra comandos de busca
+  (`Where-Object -match`). Comando real que roda UM executor continua detectado.
+
+- **FP de cradle benigno** (`command_history.py`, `winevent_scanner.py`):
+  download+execução a partir de domínio na allowlist não é mais flaggado (ver
+  `TRUSTED_DOMAINS` acima).
+
 ## [3.40.0] - 2026-06-28
 
 **Event Log + YARA extensível**: o Defender como fonte, mais eventos de execução,

