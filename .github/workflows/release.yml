@@ -43,7 +43,8 @@ jobs:
           --hidden-import evidence --hidden-import watch_server
           --hidden-import sigupdate --hidden-import http.server
           --hidden-import urllib.request --hidden-import hashlib
-          --hidden-import hmac --collect-submodules psutil telador.py
+          --hidden-import hmac --hidden-import service_state_scanner
+          --collect-submodules psutil telador.py
 
       - name: Smoke test (--help)
         run: ./dist/telador.exe --help

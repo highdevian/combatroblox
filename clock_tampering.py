@@ -24,6 +24,15 @@ import win_tools
 _JUMP_MIN_SECONDS = 600   # ignora saltos < 10 min (drift de NTP)
 _JUMP_BIG_SECONDS = 3600  # >= 1h = mais grave
 
+# Round-trip "explorer reload": pulo PRA FRENTE + ROLLBACK em <60s real, soma ~0.
+# Truque do curso Purple: mexer no relógio força o Explorer a recarregar config
+# sem matar/reiniciar o processo (não gera 6005/6006). Pulos individuais < 60s
+# o scanner principal ignora por design — aqui pegamos o PAR.
+_RT_LEG_MIN = 1     # cada perna do par (ida/volta) tem pelo menos 1s
+_RT_LEG_MAX = 60    # cada perna no máximo 60s (se maior, não é refresh, é rollback real)
+_RT_PAIR_WINDOW = 60  # ida e volta tem que ocorrer em <60s de wall clock
+_RT_BALANCE_TOL = 5   # |ida + volta| <=5s (soma ~0; não conta como par se não balanceia)
+
 # SIDs de contas de SERVIÇO (locale-independente). Mudança de relógio por uma
 # destas é correção automática do SO, não o ataque:
 #   S-1-5-18 = SYSTEM        (kernel / correção de boot / dual-boot)
@@ -118,6 +127,64 @@ def _clock_item(prev: str, new: str, subject: str = "", process: str = "",
     )
 
 
+def _detect_round_trip_pairs(events: list) -> list:
+    """Pares 4616 forward+rollback em <60s pelo MESMO SID interativo, soma ~0.
+
+    Bypass do trick "modifica explorer sem restartar": pulo pequeno pra frente,
+    Explorer refresha config, faz a mod, pulo de volta pra trás. Cada perna
+    individual o scanner principal ignora (<10min). Aqui pegamos o PADRÃO.
+
+    Sort e gap são calculados por `prev` (wall-clock real ANTES de cada salto)
+    porque `new` é o relógio JÁ MEXIDO — sort por `new` inverte a sequência
+    real quando o segundo evento é rollback. Núcleo testável, sem subprocess."""
+    parsed = []
+    for ev in events:
+        if _is_service_actor(ev.get("sid", ""), ev.get("process", "")):
+            continue
+        p = _parse_iso(ev.get("prev", ""))
+        n = _parse_iso(ev.get("new", ""))
+        if not p or not n:
+            continue
+        parsed.append((p, n, ev))
+    parsed.sort(key=lambda x: x[0])
+
+    out = []
+    used = set()
+    for i in range(len(parsed) - 1):
+        if i in used:
+            continue
+        p1, n1, ev1 = parsed[i]
+        delta1 = (n1 - p1).total_seconds()
+        if not (_RT_LEG_MIN <= delta1 <= _RT_LEG_MAX):
+            continue  # primeira perna: ida pra frente curta
+        p2, n2, ev2 = parsed[i + 1]
+        delta2 = (n2 - p2).total_seconds()
+        if not (-_RT_LEG_MAX <= delta2 <= -_RT_LEG_MIN):
+            continue  # segunda: volta pra trás curta
+        if ev1.get("sid") != ev2.get("sid"):
+            continue
+        # gap REAL entre os pulos = p2 - n1. Depois do ev1, relógio mostra n1;
+        # o tempo real passa T segundos, então no ev2 o relógio mostra p2 = n1 + T.
+        gap = (p2 - n1).total_seconds()
+        if not (0 < gap <= _RT_PAIR_WINDOW):
+            continue
+        if abs(delta1 + delta2) > _RT_BALANCE_TOL:
+            continue  # ida e volta tem que balancear (não é só ruído NTP)
+        used.add(i + 1)
+        when = p1.strftime("%Y-%m-%d %H:%M:%S")
+        who = ev1.get("subject") or "?"
+        out.append(_item(
+            label=f"Relógio pulou {int(delta1)}s pra frente e voltou em {int(gap)}s",
+            detail=f"Hora alterada {int(delta1):+d}s e depois {int(delta2):+d}s "
+                   f"({int(gap)}s entre os pulos), por {who}. Padrão de bypass: "
+                   f"forçar o Explorer a recarregar config de tempo SEM matar o "
+                   f"processo (não gera 6005/6006) pra fazer mod durante a janela. "
+                   f"Sync de NTP nunca alterna assim.",
+            severity="medium", matched="clock-roundtrip", timestamp=when,
+        ))
+    return out
+
+
 def _split_events(xml_text: str) -> list:
     """wevtutil /f:xml concatena <Event>…</Event> sem root único — separa."""
     out = []
@@ -191,6 +258,7 @@ def scan_clock_tampering() -> dict:
                          ev.get("process", ""), ev.get("sid", ""))
         if it:
             items.append(it)
+    items.extend(_detect_round_trip_pairs(events))
     return _result("Manipulação do relógio do sistema",
                    "Relógio voltado pra trás (anti-bypass de linha do tempo)", items)
 

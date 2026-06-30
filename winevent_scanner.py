@@ -87,13 +87,21 @@ def _parse_event_blobs(xml_text: str) -> list:
     return out
 
 
-def _query_events(channel: str, event_id: int, count: int = 300, parser=_parse_events):
+def _query_events(channel: str, event_id: int, count: int = 300,
+                  parser=_parse_events, provider: str | None = None):
     """Eventos de um canal via wevtutil, em XML. Lista de dicts, [] se vazio,
-    None se falhar/sem acesso. Isolado pra ser mockável nos testes."""
+    None se falhar/sem acesso. Isolado pra ser mockável nos testes.
+
+    `provider` filtra por Provider[@Name=...] — essencial pra EventIDs
+    promíscuos (104 disparado por vários providers, 501 só faz sentido com
+    Ntfs)."""
+    if provider:
+        q = f"/q:*[System[Provider[@Name='{provider}'] and (EventID={event_id})]]"
+    else:
+        q = f"/q:*[System[(EventID={event_id})]]"
     try:
         r = subprocess.run(
-            [win_tools.tool("wevtutil.exe"), "qe", channel,
-             f"/q:*[System[(EventID={event_id})]]",
+            [win_tools.tool("wevtutil.exe"), "qe", channel, q,
              f"/c:{count}", "/rd:true", "/f:xml"],
             capture_output=True, timeout=30,
         )
@@ -207,6 +215,27 @@ def _classify_process_creation(new_process: str, command_line: str):
 # Termos de ameaça do Defender ligados a cheat (gate anti-FP: NÃO flagga toda
 # detecção — PUA/trojan genérico não é prova de cheat de Roblox).
 _AV_CHEAT_TERMS = ("hacktool", "exploit", "injector", "cheat", "keylogger")
+
+
+def _classify_log_cleared(channel_label: str):
+    """(severity, matched, label) p/ 104 (log limpo via API) num canal NÃO-Security.
+
+    O 1102 (já em extra_forensics) cobre Security limpo; 104 pega System,
+    Application, PowerShell sendo zerados — anti-forense além do clássico.
+    Sempre HIGH — limpar log via clear-log é deliberado, não tem fluxo legítimo
+    rotineiro num PC de jogador."""
+    if not channel_label:
+        return None
+    return "high", f"log-cleared:{channel_label.lower()}", channel_label
+
+
+def _classify_usn_cleared(channel_label: str):
+    """(severity, matched, label) p/ 3079/501 — USN journal apagado.
+
+    O journal de mudanças do NTFS é a fonte de timeline de filesystem. Apagar
+    mata a evidência de criação/delete de arquivos. Pode ocorrer em desfrag
+    pesada ou chkdsk — MEDIUM por isso, não HIGH."""
+    return "medium", f"usn-cleared:{channel_label.lower()}", channel_label
 
 
 def _classify_defender_detection(blob: str):
@@ -376,7 +405,97 @@ def scan_defender_events() -> dict:
     return _result(name, desc, items)
 
 
+def scan_log_clearance() -> dict:
+    """Outros logs do Windows limpos/apagados (104 / 3079 / 501 NTFS).
+
+    Complementa o 1102 (cobre Security limpo, em extra_forensics) e o
+    scan_event_log_gap (cobre EventLog deletado FURTIVAMENTE, sem evento). Aqui
+    pegamos a limpeza via API que SOBROU evento:
+      - 104 (canais System/Application, Provider=Microsoft-Windows-Eventlog):
+        clear-log de um log NÃO-Security. Filtrar provider é OBRIGATÓRIO — sem
+        ele pega 104 de DOTNETRuntime, Office etc. (vira FP em qualquer PC).
+      - 3079 (canal Application, Provider Ntfs) e 501 (canal
+        Microsoft-Windows-Ntfs/Operational com fallback System, Provider Ntfs):
+        USN journal apagado/truncado."""
+    name = "Event Log: limpeza (104/501/3079)"
+    desc = "Outros logs limpos via clear-log e USN journal apagado (anti-forense)"
+    items = []
+    any_access = False
+
+    # --- 104 em System e Application (Provider=Microsoft-Windows-Eventlog) ---
+    for channel in ("System", "Application"):
+        events = _query_events(channel, 104, parser=_parse_event_blobs,
+                                provider="Microsoft-Windows-Eventlog")
+        if events is None:
+            continue
+        any_access = True
+        if not events:
+            continue
+        ev = events[0]  # /rd:true -> mais recente primeiro
+        res = _classify_log_cleared(channel)
+        if not res:
+            continue
+        sev, matched, label = res
+        when = _fmt_when(ev.get("_time", ""))
+        items.append(_item(
+            label=f"Log do Windows LIMPO: {label}",
+            detail=f"EventID 104 · canal {channel} · Provider Microsoft-Windows-Eventlog\n"
+                   f"Alguém usou clear-log na API pra zerar este log. Diferente do "
+                   f"1102 (que cobre Security): aqui é System/Application sendo "
+                   f"apagado. Anti-forense deliberado.",
+            severity=sev, matched=matched, timestamp=when,
+        ))
+
+    # --- 3079: USN journal apagado, canal Application + Provider Ntfs ---
+    events = _query_events("Application", 3079, parser=_parse_event_blobs,
+                            provider="Ntfs")
+    if events is not None:
+        any_access = True
+        if events:
+            ev = events[0]
+            sev, matched, label = _classify_usn_cleared("Application")
+            when = _fmt_when(ev.get("_time", ""))
+            items.append(_item(
+                label="USN journal apagado (Application / EID 3079)",
+                detail=f"EventID 3079 · canal Application · Provider Ntfs\n"
+                       f"O journal de mudanças do NTFS (USN) foi truncado/apagado. "
+                       f"Mata a linha do tempo de filesystem usada pelo scan_usn. "
+                       f"Pode ocorrer em desfrag pesada/chkdsk — confira janela.",
+                severity=sev, matched=matched, timestamp=when,
+            ))
+
+    # --- 501: USN journal apagado. Canal correto é Microsoft-Windows-Ntfs/Operational;
+    #     fallback System pra builds antigas que ainda emitem lá. Provider=Ntfs sempre. ---
+    ev501 = None
+    used_channel = None
+    for ch in ("Microsoft-Windows-Ntfs/Operational", "System"):
+        r = _query_events(ch, 501, parser=_parse_event_blobs, provider="Ntfs")
+        if r is None:
+            continue
+        any_access = True
+        if r:
+            ev501 = r[0]
+            used_channel = ch
+            break  # achou em um canal, não precisa do outro
+    if ev501 is not None:
+        sev, matched, _ = _classify_usn_cleared("System")
+        when = _fmt_when(ev501.get("_time", ""))
+        items.append(_item(
+            label=f"USN journal apagado (NTFS / EID 501)",
+            detail=f"EventID 501 · canal {used_channel} · Provider Ntfs\n"
+                   f"O journal de mudanças do NTFS (USN) foi truncado/apagado. "
+                   f"Mesmo papo do 3079 — pode ocorrer em desfrag pesada/chkdsk.",
+            severity=sev, matched=matched, timestamp=when,
+        ))
+
+    if not any_access:
+        return _result(name, desc, [],
+                       error="sem acesso ao Event Log (rode como admin)")
+    return _result(name, desc, items)
+
+
 ALL_WINEVENT_SCANNERS = [
     scan_windows_events,
     scan_defender_events,
+    scan_log_clearance,
 ]

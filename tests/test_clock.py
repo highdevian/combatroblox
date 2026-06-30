@@ -150,6 +150,76 @@ def test_real_machine_no_crash():
         assert it["severity"] in ("low", "medium", "high")
 
 
+# ============== Round-trip "explorer reload" ==============
+#
+# Pulo forward+rollback curto pelo MESMO usuário em <60s real = trick anti-
+# explorer-reload do curso Purple. Cada perna individual o scanner ignora
+# (<10min), aqui pegamos o PADRÃO.
+
+_USER_SID = "S-1-5-21-111-222-333-1001"
+
+
+def _ev(prev, new, sid=_USER_SID, subject="gabri", process="cmd.exe"):
+    return {"prev": prev, "new": new, "sid": sid, "subject": subject, "process": process}
+
+
+def test_roundtrip_user_pair_medium():
+    """+30s e -30s em ~5s real pelo mesmo usuário interativo = MEDIUM round-trip."""
+    pair = [
+        _ev("2026-06-08T17:00:00Z", "2026-06-08T17:00:30Z"),  # +30s
+        _ev("2026-06-08T17:00:35Z", "2026-06-08T17:00:05Z"),  # -30s, 5s real depois
+    ]
+    items = ct._detect_round_trip_pairs(pair)
+    assert len(items) == 1
+    assert items[0]["severity"] == "medium"
+    assert items[0]["matched"] == "clock-roundtrip"
+
+
+def test_roundtrip_service_ignored():
+    """+30/-30 por LOCAL SERVICE (NTP) NÃO conta como round-trip — é o SO."""
+    pair = [
+        _ev("2026-06-08T17:00:00Z", "2026-06-08T17:00:30Z", sid="S-1-5-19"),
+        _ev("2026-06-08T17:00:35Z", "2026-06-08T17:00:05Z", sid="S-1-5-19"),
+    ]
+    assert ct._detect_round_trip_pairs(pair) == []
+
+
+def test_roundtrip_unbalanced_ignored():
+    """+30 seguido de -5 não é round-trip — soma não bate."""
+    pair = [
+        _ev("2026-06-08T17:00:00Z", "2026-06-08T17:00:30Z"),
+        _ev("2026-06-08T17:00:35Z", "2026-06-08T17:00:30Z"),  # -5s
+    ]
+    assert ct._detect_round_trip_pairs(pair) == []
+
+
+def test_roundtrip_too_far_apart_ignored():
+    """Pulos com >60s entre eles não contam — janela exigida."""
+    pair = [
+        _ev("2026-06-08T17:00:00Z", "2026-06-08T17:00:30Z"),
+        _ev("2026-06-08T17:05:00Z", "2026-06-08T17:04:30Z"),  # 4.5min depois
+    ]
+    assert ct._detect_round_trip_pairs(pair) == []
+
+
+def test_roundtrip_different_sids_ignored():
+    """Pulos por SIDs diferentes não casam — não é o mesmo ator."""
+    pair = [
+        _ev("2026-06-08T17:00:00Z", "2026-06-08T17:00:30Z", sid=_USER_SID),
+        _ev("2026-06-08T17:00:35Z", "2026-06-08T17:00:05Z",
+            sid="S-1-5-21-999-888-777-1002"),
+    ]
+    assert ct._detect_round_trip_pairs(pair) == []
+
+
+def test_roundtrip_forward_only_not_counted_in_main_loop():
+    """REGRESSÃO: a integração no scan_clock_tampering não pode quebrar o
+    comportamento de 'forward sozinho = clean'. Forward sem rollback emparelhado
+    em <60s NÃO dispara nem o loop principal (>10min) nem o round-trip."""
+    only_fwd = [_ev("2026-06-08T17:00:00Z", "2026-06-08T17:00:30Z")]
+    assert ct._detect_round_trip_pairs(only_fwd) == []
+
+
 def test_slug_and_cluster():
     import evidence as ev
     assert ev._source_slug_from_name("Manipulação do relógio do sistema") == "clock_tampering"

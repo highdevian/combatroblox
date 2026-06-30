@@ -363,3 +363,165 @@ def test_defender_real_machine_no_crash():
     assert r["status"] in ("clean", "suspicious", "error")
     for it in r["items"]:
         assert it["severity"] in ("high", "medium")
+
+
+# ============== scan_log_clearance (104 / 3079 / 501) ==============
+#
+# 104 = log NÃO-Security limpo via clear-log (Security já é 1102, em extra_forensics).
+# 3079 (Application) / 501 (System NTFS) = USN journal apagado/truncado.
+
+def test_classify_log_cleared_high():
+    res = we._classify_log_cleared("System")
+    assert res is not None
+    sev, matched, label = res
+    assert sev == "high"
+    assert matched == "log-cleared:system"
+    assert label == "System"
+
+
+def test_classify_log_cleared_empty_none():
+    assert we._classify_log_cleared("") is None
+
+
+def test_classify_usn_cleared_medium():
+    sev, matched, label = we._classify_usn_cleared("Application")
+    assert sev == "medium"
+    assert matched == "usn-cleared:application"
+    assert label == "Application"
+
+
+def _patch_log_clearance(monkeypatch, mapping, captured_calls=None):
+    """mapping: {(channel, eid, provider): events_or_None}. Faltando = None.
+    Se captured_calls (list) for passada, cada chamada vira (channel, eid, provider)."""
+    def fake(channel, event_id, count=300, parser=we._parse_events, provider=None):
+        if captured_calls is not None:
+            captured_calls.append((channel, event_id, provider))
+        return mapping.get((channel, event_id, provider))
+    monkeypatch.setattr(we, "_query_events", fake)
+
+
+def test_scan_clearance_104_system_high(monkeypatch):
+    """104 no System (Provider Microsoft-Windows-Eventlog) = log limpo → HIGH."""
+    _patch_log_clearance(monkeypatch, {
+        ("System",      104,  "Microsoft-Windows-Eventlog"):
+            [{"_blob": "eventlog cleared", "_time": "2026-06-29T10:00:00Z"}],
+        ("Application", 104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 3079, "Ntfs"): [],
+        ("Microsoft-Windows-Ntfs/Operational", 501, "Ntfs"): [],
+        ("System",      501,  "Ntfs"): [],
+    })
+    r = we.scan_log_clearance()
+    assert r["status"] == "suspicious"
+    assert any(it["matched"] == "log-cleared:system" for it in r["items"])
+    assert all(it["severity"] in ("high", "medium") for it in r["items"])
+
+
+def test_scan_clearance_usn_medium(monkeypatch):
+    """3079 (Application/Ntfs) e 501 (Ntfs/Operational/Ntfs) = USN apagado → MEDIUM."""
+    _patch_log_clearance(monkeypatch, {
+        ("System",      104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 3079, "Ntfs"):
+            [{"_blob": "usn truncated", "_time": "2026-06-29T11:00:00Z"}],
+        ("Microsoft-Windows-Ntfs/Operational", 501, "Ntfs"):
+            [{"_blob": "ntfs usn", "_time": "2026-06-29T11:01:00Z"}],
+    })
+    r = we.scan_log_clearance()
+    matched = {it["matched"] for it in r["items"]}
+    assert "usn-cleared:application" in matched
+    assert "usn-cleared:system" in matched
+    for it in r["items"]:
+        assert it["severity"] == "medium"
+
+
+def test_scan_clearance_501_fallback_to_system(monkeypatch):
+    """501 com canal Ntfs/Operational vazio mas presente em System (fallback)."""
+    _patch_log_clearance(monkeypatch, {
+        ("System",      104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 3079, "Ntfs"): [],
+        ("Microsoft-Windows-Ntfs/Operational", 501, "Ntfs"): [],  # vazio
+        ("System",      501,  "Ntfs"):
+            [{"_blob": "ntfs", "_time": "2026-06-29T12:00:00Z"}],
+    })
+    r = we.scan_log_clearance()
+    assert any(it["matched"] == "usn-cleared:system" for it in r["items"])
+
+
+def test_scan_clearance_clean_when_empty(monkeypatch):
+    """Todos canais com 0 eventos = clean (acesso ok, nada apagado)."""
+    _patch_log_clearance(monkeypatch, {
+        ("System",      104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 3079, "Ntfs"): [],
+        ("Microsoft-Windows-Ntfs/Operational", 501, "Ntfs"): [],
+        ("System",      501,  "Ntfs"): [],
+    })
+    assert we.scan_log_clearance()["status"] == "clean"
+
+
+def test_scan_clearance_error_when_no_access(monkeypatch):
+    """Nenhum canal acessível (todos None) = error."""
+    _patch_log_clearance(monkeypatch, {})
+    assert we.scan_log_clearance()["status"] == "error"
+
+
+def test_scan_clearance_passes_provider_filter(monkeypatch):
+    """REGRESSÃO BUG #1: 104 SEMPRE consultado com Provider=Microsoft-Windows-Eventlog
+    (sem o filtro, pega 104 de DOTNETRuntime/Office, gera FP em qualquer PC)."""
+    calls = []
+    _patch_log_clearance(monkeypatch, {
+        ("System",      104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 104,  "Microsoft-Windows-Eventlog"): [],
+        ("Application", 3079, "Ntfs"): [],
+        ("Microsoft-Windows-Ntfs/Operational", 501, "Ntfs"): [],
+        ("System",      501,  "Ntfs"): [],
+    }, captured_calls=calls)
+    we.scan_log_clearance()
+    # Todas chamadas pra 104 têm que ter o provider correto
+    for ch, eid, prov in calls:
+        if eid == 104:
+            assert prov == "Microsoft-Windows-Eventlog", (
+                f"104 chamado SEM provider em {ch} — vai pegar FP")
+        elif eid in (501, 3079):
+            assert prov == "Ntfs", f"{eid} chamado SEM provider Ntfs em {ch}"
+
+
+def test_query_events_provider_in_query():
+    """REGRESSÃO BUG #1: _query_events com provider monta filtro Provider[@Name=...]."""
+    # Não roda wevtutil — só monta a query e verifica via intercepção do subprocess
+    captured = {}
+    class FakeRes:
+        returncode = 0
+        stdout = b""
+    def fake_run(cmd, capture_output=True, timeout=30):
+        captured["cmd"] = cmd
+        return FakeRes()
+    import subprocess as _sp
+    orig = _sp.run
+    _sp.run = fake_run
+    try:
+        we._query_events("System", 104, provider="Microsoft-Windows-Eventlog")
+    finally:
+        _sp.run = orig
+    query = next(a for a in captured["cmd"] if a.startswith("/q:"))
+    assert "Provider[@Name='Microsoft-Windows-Eventlog']" in query
+    assert "(EventID=104)" in query
+
+
+def test_clearance_registered_and_routed():
+    import evidence as ev
+    import report_assets
+    assert we.scan_log_clearance in we.ALL_WINEVENT_SCANNERS
+    # nome do scanner casa o slug anti_forense pelo mapper (contém "event log")
+    slug = ev._source_slug_from_name("Event Log: limpeza (104/501/3079)")
+    assert slug == "anti_forense"
+    assert "anti_forense" in ev.SOURCE_WEIGHTS
+    assert "anti_forense" in report_assets.SOURCE_LABELS
+
+
+def test_clearance_real_machine_no_crash():
+    r = we.scan_log_clearance()
+    assert r["status"] in ("clean", "suspicious", "error")
+    for it in r["items"]:
+        assert it["severity"] in ("high", "medium")

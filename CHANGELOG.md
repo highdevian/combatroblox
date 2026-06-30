@@ -2,6 +2,84 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.42.0] - 2026-06-30
+
+Roadmap do curso Purple ScreenShare (anti-bypass FiveM) cruzado com o stack
+atual; 3 lacunas reais viraram scanner. Auditoria pré-release pegou 6
+problemas de FP/bug — todos corrigidos antes do release.
+
+### Added
+
+- **Round-trip detection no `clock_tampering.py`**
+  (`_detect_round_trip_pairs`): pega pares 4616 forward+rollback curtos pelo
+  MESMO SID interativo em <60s real, soma ~0. Trick do bypass que altera o
+  relógio temporariamente pra forçar o Explorer a recarregar config (sem
+  matar/restartar — não gera 6005/6006). Cada perna individual era ignorada
+  pelo loop principal (<10min); aqui pegamos o padrão. MEDIUM, matched
+  `clock-roundtrip`. Sort e gap calculados por `prev` (wall-clock real antes
+  do salto), não por `new` (que está mexido) — sort por `new` invertia a
+  sequência quando o segundo evento era rollback.
+
+- **`scan_log_clearance` no `winevent_scanner.py`**: novo scanner cobrindo
+  Event Log apagado ALÉM do 1102 (que pega Security limpo, em
+  `extra_forensics.scan_anti_forensics`):
+  - **EventID 104** (canais System/Application, Provider
+    `Microsoft-Windows-Eventlog`): clear-log em log não-Security → HIGH.
+  - **EventID 3079** (Application, Provider `Ntfs`) e **501** (canal
+    `Microsoft-Windows-Ntfs/Operational` com fallback `System`, Provider
+    `Ntfs`): USN journal truncado/apagado → MEDIUM (pode ocorrer em desfrag
+    pesada/chkdsk — verifique janela).
+  Não duplica com `extra_forensics.scan_event_log_gap`, que pega deleção
+  FURTIVA do .evtx sem evento.
+
+- **`service_state_scanner.py`** — novo módulo. Checa STATUS RUNTIME (não
+  Start Type) de serviços forenses críticos parados:
+  - `eventlog` parado = HIGH sozinho (cega TODO Event Log enquanto parado).
+  - 3+ críticos parados juntos (`dps`, `diagtrack`, `pcasvc`, `cdpusersvc_*`)
+    = HIGH `multi` (combinação típica de AtlasOS/ReviOS/Ghost Spectre/Lite
+    Gamer — Windows modificado).
+  - 2 parados = MEDIUM `pair` (debloater de gamer comumente para Diagtrack
+    + DPS sem ser cheat).
+  - 1 isolado = MEDIUM `service-stopped:<nome>`.
+  Slug novo `service_state` (peso 0.85), label `Serviço forense parado`.
+  Defender RTP e SysMain *Disabled-via-registry* continuam nos scanners
+  separados (`defender_tampering.py`, `extra_forensics.scan_prefetch_sysmain`).
+
+### Anti-FP (auditoria pré-release)
+
+- **`104` SEMPRE filtrado por Provider `Microsoft-Windows-Eventlog`**: sem
+  isso, 104 de outros providers (DOTNETRuntime info, Office) gerava FP em PC
+  normal. `_query_events` agora aceita parâmetro opcional `provider` que
+  insere `Provider[@Name=...]` na query do `wevtutil`.
+- **`501` no canal correto** (`Microsoft-Windows-Ntfs/Operational`) com
+  fallback `System`; ambos com `Provider=Ntfs`. Sem provider, pegaria 501 de
+  outros providers (Service Control Manager etc.).
+- **`3079` com `Provider=Ntfs`**: mesmo motivo — Application channel tem
+  3079 de várias fontes.
+- **`sgrmbroker` fora da lista crítica**: trigger-start em Win11,
+  frequentemente Stopped em PC saudável; flaggar gerava FP estrutural.
+- **`SysMain` fora da lista crítica**: já coberto por
+  `extra_forensics.scan_prefetch_sysmain_disabled` via Start Type=Disabled;
+  incluir aqui duplicaria score no Confidence Engine.
+- **`cdpusersvc` dedup ordem-independente**: coleta em dois passes
+  (running_count + stopped_status). Só vira flag se TODAS as instâncias estão
+  paradas. Bug anterior dependia da ordem de iteração do SCM — se running
+  vinha antes de stopped, stopped era registrada errado.
+- **Combo `pair` rebaixado**: 2 críticos parados (sem eventlog) = MEDIUM
+  `pair` em vez de HIGH `multi`. Debloater scripts de gamer comumente param
+  Diagtrack+DPS sem ser cheat. HIGH `multi` agora exige 3+.
+
+### Plumbing
+
+`telador.py` (import + assemble_scanners), `evidence.py` (`SOURCE_WEIGHTS`:
+`service_state` 0.85; mapper de nome→slug: "serviços forenses" →
+`service_state`), `report_assets.py` (`SOURCE_LABELS`), `telador.spec`
+(`hiddenimports`: `service_state_scanner`).
+
+### Stats
+
+73 scanners (era 70), 492 testes (era 444). Suite full passa em ~50s.
+
 ## [3.41.4] - 2026-06-29
 
 ### Fixed

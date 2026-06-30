@@ -34,6 +34,7 @@ SOURCE_LABELS = {
     "user_accounts":      "Contas de Windows",
     "defender_tampering": "Defender adulterado",
     "clock_tampering":    "Relógio mudado",
+    "service_state":      "Serviço forense parado",
     "live_dll_injection": "DLL injetadas",
     "yara_signature":     "Assinatura binária (YARA)",
     "dma_hardware":       "Hardware DMA",
