@@ -75,6 +75,102 @@ def test_kernel_driver_user_path_medium():
     assert res and res[0] == "medium" and res[1] == "svc-install-userpath-driver"
 
 
+# ============== REGRESSÃO v3.42.0: FPs em PC de dev/produtividade ==============
+#
+# Reportados no run de smoke test do dono (v3.42.0):
+#   ● [HIGH] KProcessHacker3 → match: process hacker
+#   ● [MEDIUM] PDFWKRNL → svc-install-userpath-driver
+# Process Hacker é dual-use (sysadmin/dev/security); install OFICIAL em
+# Program Files não é BYOVD. PDFWKRNL é driver kernel de PDF virtual printer
+# (BullZip/Foxit/PDF24 etc.), nome bem específico de software legítimo.
+
+def test_process_hacker_official_install_suppressed():
+    """REGRESSÃO: KProcessHacker3 com ImagePath em \\Program Files\\Process Hacker 2\\
+    NÃO flagga — install oficial. Outras fontes (BAM, Prefetch, MUICache) ainda
+    pegam a presença como LOW; aqui suprimimos a duplicação do Event Log."""
+    res = we._classify_service_install(
+        "KProcessHacker3",
+        r"C:\Program Files\Process Hacker 2\kprocesshacker.sys",
+        "kernel mode driver")
+    assert res is None
+
+
+def test_system_informer_official_install_suppressed():
+    """System Informer (fork ativo do Process Hacker) — instalação em
+    %LOCALAPPDATA%\\Programs\\System Informer\\."""
+    res = we._classify_service_install(
+        "KSystemInformer",
+        r"C:\Users\gabri\AppData\Local\Programs\System Informer\SystemInformer.sys",
+        "kernel mode driver")
+    assert res is None
+
+
+def test_process_hacker_portable_in_downloads_still_flagged():
+    """ANTI-bypass: Process Hacker portable extraído em Downloads (pasta com
+    nome 'Process Hacker 2' fora do install oficial) continua flagga via
+    match_keyword. Suppression é SÓ pra Program Files / install oficial —
+    adversário usando portable extraído em path de user mantém o sinal."""
+    res = we._classify_service_install(
+        "KProcessHacker3",
+        r"C:\Users\x\Downloads\Process Hacker 2\kprocesshacker.sys",
+        "kernel mode driver")
+    assert res is not None
+    sev, _, _ = res
+    assert sev == "high"  # casa keyword "process hacker" via path com espaço
+
+
+def test_random_kernel_driver_in_downloads_with_obscure_name_medium():
+    """Kernel driver com nome NÃO em SUSPECT/BENIGN e SEM keyword no path,
+    plantado em Downloads, ainda vira MEDIUM via svc-install-userpath-driver."""
+    res = we._classify_service_install(
+        "KProcessHacker3",  # nome não casa keyword sozinho (sem espaço)
+        r"C:\Users\x\Downloads\kprocesshacker.sys",  # path idem
+        "kernel mode driver")
+    assert res is not None
+    sev, matched, _ = res
+    assert sev == "medium"
+    assert matched == "svc-install-userpath-driver"
+
+
+def test_pdfwkrnl_benign_driver_suppressed():
+    """REGRESSÃO: PDFWKRNL (BullZip PDF Writer) instalado de Downloads NÃO
+    flagga — nome em BENIGN_KERNEL_DRIVERS, embora path seja de user
+    (instaladores comumente rodam de Downloads)."""
+    res = we._classify_service_install(
+        "PDFWKRNL",
+        r"C:\Users\x\Downloads\bzpdfwriter_setup_temp\pdfwkrnl.sys",
+        "kernel mode driver")
+    assert res is None
+
+
+def test_pdf24_benign_driver_suppressed():
+    """Outro driver da BENIGN_KERNEL_DRIVERS pra garantir cobertura."""
+    res = we._classify_service_install(
+        "pdf24",
+        r"C:\Users\x\Downloads\pdf24creator\pdf24.sys",
+        "kernel mode driver")
+    assert res is None
+
+
+def test_random_userpath_kernel_driver_still_flagged():
+    """ANTI-bypass: kernel driver com nome aleatório em Downloads continua
+    MEDIUM. Suppression é SÓ pra nomes EXPLICITAMENTE benignos."""
+    res = we._classify_service_install(
+        "RandomDriver",
+        r"C:\Users\x\Downloads\randomdriver.sys",
+        "kernel mode driver")
+    assert res is not None
+    sev, matched, _ = res
+    assert sev == "medium"
+    assert matched == "svc-install-userpath-driver"
+
+
+def test_benign_drivers_list_present_in_module():
+    """Importação correta de BENIGN_KERNEL_DRIVERS / LEGIT_DEV_INSTALL_PATHS."""
+    assert "pdfwkrnl" in we.BENIGN_KERNEL_DRIVERS
+    assert any("process hacker" in p for p in we.LEGIT_DEV_INSTALL_PATHS)
+
+
 def test_usermode_service_user_path_clean():
     """Serviço USERMODE de %AppData% (updater legítimo etc.) NÃO flagga — só
     driver kernel-mode. Evita FP barulhento."""

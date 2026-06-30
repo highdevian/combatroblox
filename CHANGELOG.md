@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.42.1] - 2026-06-30
+
+**Hardening do `scan_windows_events`** — smoke test do dono na própria máquina
+pós-v3.42.0 mostrou 2 FPs reais que sobreviviam ao `fp_filter` (ou que o
+filtro só rebaixava no resumo final mas o scanner imprimia HIGH ao vivo).
+Patch: suprimir na fonte, sem precisar do filtro pós-processamento.
+
+### Anti-FP
+
+- **`LEGIT_DEV_INSTALL_PATHS`** (`extra_forensics.py`): paths de instalação
+  OFICIAL de ferramentas dual-use (Process Hacker, System Informer, Cheat
+  Engine, dnSpy, IDA, Ghidra, BullZip, Foxit, Wondershare, PDF24). Quando
+  o evento 7045 tem ImagePath nesse path, `_classify_service_install`
+  retorna `None` — install oficial não é BYOVD-dropper. Outras fontes
+  (BAM, Prefetch, MUICache) ainda pegam a presença como LOW. Resolve o
+  HIGH falso de `KProcessHacker3` que aparecia em qualquer PC com System
+  Informer instalado.
+- **`BENIGN_KERNEL_DRIVERS`** (`extra_forensics.py`): nomes específicos de
+  drivers kernel-mode de software legítimo de produtividade — PDF virtual
+  printers (PDFWKRNL, bzwriter, dopdf, fpdfinst, novapdf, pdf24,
+  pdfcreator, primopdf, wppwriter, doc2pdfm) e outros (obs-virtual-cam).
+  Esses casavam a heurística `svc-install-userpath-driver` porque
+  instaladores rodam de Downloads/Temp; agora o nome é gate de
+  suppressão. Resolve o MEDIUM falso de `PDFWKRNL` em qualquer PC com
+  PDF virtual printer instalado.
+- **Suppression em DOIS gates ANTES das heurísticas positivas** (Gate A:
+  path oficial; Gate B: nome benigno). Adversário tentando bypass com
+  Process Hacker portable em Downloads (path NÃO oficial) ou com driver
+  desconhecido mantém o sinal — Gate A só dispara em Program Files, Gate
+  B só em lista explícita.
+
+### Tests
+
+7 testes de regressão em `tests/test_winevent.py`:
+`test_process_hacker_official_install_suppressed`,
+`test_system_informer_official_install_suppressed`,
+`test_process_hacker_portable_in_downloads_still_flagged`,
+`test_random_kernel_driver_in_downloads_with_obscure_name_medium`,
+`test_pdfwkrnl_benign_driver_suppressed`,
+`test_pdf24_benign_driver_suppressed`,
+`test_random_userpath_kernel_driver_still_flagged`.
+
+**73 scanners, 500 testes.**
+
 ## [3.42.0] - 2026-06-30
 
 Roadmap do curso Purple ScreenShare (anti-bypass FiveM) cruzado com o stack

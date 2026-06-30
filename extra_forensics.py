@@ -1219,6 +1219,61 @@ SUSPECT_DRIVER_NAMES = {
     "physmem",                        # genérico de leitura de física
 }
 
+
+# Drivers kernel-mode legítimos com track-record claro de uso por software
+# de produtividade — PDF virtual printers, RGB controls em-bundle de hardware,
+# etc. Esses nomes NÃO são BYOVD conhecidos (não estão em SUSPECT_DRIVER_NAMES),
+# mas o nome casa a heurística `svc-install-userpath-driver` se o instalador
+# rodou de Downloads/Temp (comum). Suprime na fonte pra não gerar MEDIUM em
+# qualquer PC normal de quem tem PDF tools instaladas. Lista conservadora;
+# expandir só com nomes que claramente não fazem sentido em cenário de cheat.
+BENIGN_KERNEL_DRIVERS = {
+    # PDF virtual printers / kernel writers
+    "pdfwkrnl",         # BullZip PDF Printer / PDF Writer
+    "bzwriter",         # BullZip
+    "doc2pdfm",         # doc2pdf-Mate
+    "dopdf",            # doPDF
+    "fpdfinst",         # Foxit
+    "novapdf",          # novaPDF
+    "pdf24",            # PDF24
+    "pdfcreator",       # PDFCreator
+    "primopdf",         # PrimoPDF
+    # Wondershare PDFelement family
+    "wppwriter",
+    # Virtual webcam
+    "obs-virtual-cam",  # OBS Studio virtual camera
+}
+
+
+# Paths de instalação OFICIAL de ferramentas dual-use (Process Hacker, System
+# Informer, Cheat Engine, dnSpy, IDA, Ghidra etc.). Quando o evento 7045 aponta
+# pra binário NESSE path, é install legítimo — não BYOVD-dropper. Suprime no
+# winevent_scanner._classify_service_install pra UX consistente (sem precisar
+# que o fp_filter rebaixe depois). Path-match é substring lowercased; não
+# distingue Program Files de Program Files (x86).
+LEGIT_DEV_INSTALL_PATHS = (
+    "\\program files\\process hacker",
+    "\\program files (x86)\\process hacker",
+    "\\program files\\system informer",
+    "\\program files (x86)\\system informer",
+    "\\appdata\\local\\programs\\system informer",
+    "\\program files\\cheat engine",
+    "\\program files (x86)\\cheat engine",
+    "\\program files\\dnspy",
+    "\\program files\\dnspyex",
+    "\\program files\\ghidra",
+    "\\program files\\ida pro",
+    "\\program files (x86)\\ida pro",
+    # PDF tools com path bem definido — se evento 7045 do PDFWKRNL aponta
+    # pra path oficial, é install legítimo (extra-camada, BENIGN_KERNEL_DRIVERS
+    # já cobre pelo nome)
+    "\\program files\\bullzip",
+    "\\program files (x86)\\bullzip",
+    "\\program files\\foxit",
+    "\\program files\\wondershare",
+    "\\program files\\pdf24",
+)
+
 # Backslash literal precisa ser escapado com \\ aqui — `r"...\\"` em Python
 # resulta em 2 backslashes consecutivos (raw strings não permitem terminar
 # com backslash único), o que NUNCA bate um path real.

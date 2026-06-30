@@ -28,7 +28,11 @@ import xml.etree.ElementTree as ET
 
 import win_tools
 import matching
-from extra_forensics import SUSPECT_DRIVER_NAMES
+from extra_forensics import (
+    SUSPECT_DRIVER_NAMES,
+    BENIGN_KERNEL_DRIVERS,
+    LEGIT_DEV_INSTALL_PATHS,
+)
 from database import TRUSTED_DOMAINS
 
 
@@ -139,9 +143,33 @@ def _classify_service_install(service_name: str, image_path: str,
                              service_type: str = ""):
     """(severity, matched, label) p/ um 7045 suspeito; senão None.
 
-    Ordem: driver BYOVD conhecido (casa por nome EXATO, como o scan_kernel_drivers,
-    pra não dar FP com substring tipo 'asio') -> executor/kdmapper por keyword ->
-    DRIVER KERNEL plantado em pasta de usuário."""
+    Gates de suppressão (ANTES das heurísticas positivas):
+      A. ImagePath em path de instalação OFICIAL de ferramenta dual-use
+         (Process Hacker / System Informer / Cheat Engine / dnSpy / IDA /
+         Ghidra / PDF tools com path bem definido) → return None. Install
+         oficial não é BYOVD-dropper; outras fontes ainda pegam a presença
+         da ferramenta como LOW.
+      B. Nome do serviço/binário em BENIGN_KERNEL_DRIVERS (PDFWKRNL e cia.
+         de PDF virtual printers) → return None. Esses drivers casam a
+         heurística `svc-install-userpath-driver` porque setups rodam de
+         Downloads/Temp, mas o nome em si é específico de software legítimo.
+
+    Ordem das heurísticas positivas:
+      1. driver BYOVD conhecido (nome EXATO, como o scan_kernel_drivers, pra
+         não dar FP com substring tipo 'asio')
+      2. executor/kdmapper por keyword
+      3. DRIVER KERNEL plantado em pasta de usuário"""
+    low_path = (image_path or "").lower().replace("/", "\\")
+
+    # GATE A: install oficial de ferramenta dual-use → suprime
+    if low_path and any(p in low_path for p in LEGIT_DEV_INSTALL_PATHS):
+        return None
+
+    # GATE B: driver benigno conhecido (PDF kernel printer etc.) → suprime
+    for cand in (_driver_base(service_name), _driver_base(image_path)):
+        if cand in BENIGN_KERNEL_DRIVERS:
+            return None
+
     # 1) driver BYOVD conhecido (nome exato do ServiceName ou do binário)
     for cand in (_driver_base(service_name), _driver_base(image_path)):
         if cand in SUSPECT_DRIVER_NAMES:
@@ -157,8 +185,7 @@ def _classify_service_install(service_name: str, image_path: str,
     #    (updaters etc.) — flaggar tudo seria FP. Driver kernel de pasta gravável
     #    é o padrão do BYOVD-dropper, e raro em software legítimo.
     is_kernel = "kernel" in (service_type or "").lower()
-    low = (image_path or "").lower().replace("/", "\\")
-    if is_kernel and low and any(h in low for h in _USER_PATH_HINTS):
+    if is_kernel and low_path and any(h in low_path for h in _USER_PATH_HINTS):
         return "medium", "svc-install-userpath-driver", service_name or image_path
 
     return None
