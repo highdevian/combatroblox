@@ -234,6 +234,7 @@ def _render_section(finding: dict) -> str:
 
     if rows:
         table = f"""
+        <div class="table-wrap">
         <table class="sortable">
             <thead>
                 <tr>
@@ -247,6 +248,7 @@ def _render_section(finding: dict) -> str:
             </thead>
             <tbody>{''.join(rows)}</tbody>
         </table>
+        </div>
         """
     else:
         msg = finding.get("error") or "Nenhum vestígio encontrado nesta categoria."
@@ -849,15 +851,30 @@ CONTROLS_JS = """
         document.body.appendChild(t);
         setTimeout(() => t.remove(), 1600);
     }
+    // Copia com fallback. Aberto como file://, navigator.clipboard pode ser
+    // undefined — sem essa checagem o acesso lança TypeError síncrono (o
+    // .catch da promise não pega). Cai pra execCommand nesse caso.
+    function safeCopy(text, onOk) {
+        function fb() {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                if (onOk) onOk();
+            } catch (e) {}
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(onOk || function() {}, fb);
+        } else { fb(); }
+    }
     document.querySelectorAll('code').forEach(c => {
         if (c.classList.contains('clamp')) return;  // truncável tem handler próprio
         c.style.cursor = 'pointer';
         c.title = 'Clique pra copiar';
         c.addEventListener('click', (e) => {
             if (e.target.closest('.lightbox')) return;
-            navigator.clipboard.writeText(c.textContent).then(() => {
-                showToast('✓ Copiado');
-            }).catch(() => {});
+            safeCopy(c.textContent, () => showToast('✓ Copiado'));
         });
     });
 
@@ -867,7 +884,7 @@ CONTROLS_JS = """
         // Duplo-clique copia o conteúdo (acesso ao copy mantido)
         c.addEventListener('dblclick', (e) => {
             e.preventDefault();
-            navigator.clipboard.writeText(c.textContent).then(() => showToast('✓ Copiado')).catch(() => {});
+            safeCopy(c.textContent, () => showToast('✓ Copiado'));
         });
     });
 
@@ -1076,7 +1093,7 @@ CONTROLS_JS = """
         card.scrollIntoView({ behavior: 'smooth', block: 'start' });
         // Highlight curto
         card.style.transition = 'outline 0.4s';
-        card.style.outline = '2px solid rgba(255,77,79,0.4)';
+        card.style.outline = '2px solid oklch(0.62 0.21 28 / 0.5)';
         card.style.outlineOffset = '2px';
         setTimeout(() => { card.style.outline = ''; }, 800);
     }
@@ -2747,6 +2764,13 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     }
     .admin-warn { border-radius: 2px; }
 
+    /* Tabelas de detalhe (6 colunas) rolam na horizontal em telas estreitas.
+       Só no mobile: no desktop o wrapper fica overflow:visible pra não quebrar
+       o sticky header do thead (overflow-x:auto forçaria overflow-y:auto). */
+    @media (max-width: 700px) {
+        .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+
     /* Print: papel branco, preto no texto (herda cantos retos) */
     @media print {
         body::after { display: none; }
@@ -2757,7 +2781,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Relatório do Telador — {sys_info.get('host', '')}</title>
+    <title>Relatório do Telador — {_escape(sys_info.get('host', ''))}</title>
     <style>{CSS}{extra_css}</style>
 </head>
 <body>

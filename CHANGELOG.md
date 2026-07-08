@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.43.3] - 2026-07-08
+
+**Correções de uma revisão de QA/segurança** do relatório redesenhado (v3.43.2).
+
+### Segurança
+
+- **XSS via `<title>`** (`report.py`): o hostname da máquina
+  (`socket.gethostname()`) era interpolado no `<title>` sem escape — o único
+  ponto do relatório que não passava por `_escape`. Explorável com um payload
+  `</title>...` (provado em navegador). Exploração prática baixa (nome de PC
+  no Windows não aceita `<`/`>`), mas depender da validação do SO não é
+  controle de segurança. Agora escapado.
+
+### Frontend / robustez
+
+- **Cor legada em JS** (`report.py`): o highlight da navegação por teclado
+  (`j`/`k`) ainda usava o vermelho neon antigo; migrado pra oklch do site.
+- **Tabelas de detalhe** (`report.py`): 6 colunas rolam na horizontal em telas
+  estreitas (`.table-wrap` com `overflow-x` só no mobile — não quebra o sticky
+  header no desktop).
+- **Copiar código** (`report.py`): `navigator.clipboard.writeText` era chamado
+  direto; aberto como `file://` sem a API isso lançava `TypeError`. Agora tem
+  `safeCopy` com fallback pra `execCommand`.
+
 ## [3.43.2] - 2026-07-08
 
 **Relatório HTML redesenhado** pra bater com o site
