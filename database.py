@@ -661,18 +661,20 @@ SUSPICIOUS_DOMAINS = {
 # Domínios CONFIÁVEIS (allowlist). Download+execução (irm|iex) a partir destes
 # NÃO é flag — software legítimo que o dono instala por one-liner.
 #
-# VAZIO no código público DE PROPÓSITO: o que estiver aqui vira ponto cego em
-# QUALQUER PC telado. Cada um põe os SEUS domínios benignos num arquivo LOCAL
-# `trusted_domains.json` (ao lado do exe, ou via env TELADOR_TRUSTED_DOMAINS),
-# que fica fora do repo (.gitignore) — igual ao yara_rules.json. Ver
-# trusted_domains.example.json. load_trusted_domains() mescla no import.
+# O set abaixo contém domínios UNIVERSAIS — plataformas tão comuns que um
+# `Invoke-RestMethod` / `irm` para elas não é indício de cheat. O dono ainda
+# pode SOMAR domínios próprios via `trusted_domains.json` (ao lado do exe, ou
+# env TELADOR_TRUSTED_DOMAINS) — load_trusted_domains() mescla no import.
 #
 # Semântica: a allowlist só LIMPA o par download/execução (família de rede
 # iex/irm/iwr/downloadstring…). Red flag INDEPENDENTE na mesma linha (bypass de
 # Defender, anti-forense, encodedcommand…) ou nome de executor real continuam
 # acendendo — domínio confiável não dá passe livre pro resto. Casa com fronteira
 # de domínio (matching.domain_in_text): sub.x.tools casa, evilx.tools.co não.
-TRUSTED_DOMAINS = set()
+TRUSTED_DOMAINS = {
+    "discord.com",          # webhooks, bots — uso massivo na comunidade Roblox
+    "discordapp.com",       # alias antigo do Discord
+}
 
 _TRUSTED_DOMAINS_FILENAME = "trusted_domains.json"
 
