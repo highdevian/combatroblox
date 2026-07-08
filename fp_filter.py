@@ -510,20 +510,22 @@ def compute_verdict(findings: list) -> dict:
 
     # Critical hits são prova forense forte (hash conhecido, BYOVD ativo, etc).
     # 1 crítico já confirma. 2+ críticos cravam mesmo sem outras fontes.
+    # Cores em oklch = paleta do relatório HTML (forensic dark lab). O terminal
+    # usa ANSI próprio; este campo `color` é só pro HTML.
     if crit_count >= 2 or (crit_count >= 1 and sources_with_hits >= 2):
-        verdict, color = "CHEATER CONFIRMADO", "#ff4d4f"
+        verdict, color = "CHEATER CONFIRMADO", "oklch(0.62 0.21 28)"
     elif crit_count >= 1:
-        verdict, color = "ALTAMENTE SUSPEITO", "#ff4d4f"
+        verdict, color = "ALTAMENTE SUSPEITO", "oklch(0.62 0.21 28)"
     elif total_score >= 50 and sources_with_hits >= 3:
-        verdict, color = "CHEATER CONFIRMADO", "#ff4d4f"
+        verdict, color = "CHEATER CONFIRMADO", "oklch(0.62 0.21 28)"
     elif total_score >= 25 and sources_with_hits >= 2:
-        verdict, color = "ALTAMENTE SUSPEITO", "#ff4d4f"
+        verdict, color = "ALTAMENTE SUSPEITO", "oklch(0.62 0.21 28)"
     elif total_score >= 12 and sources_with_hits >= 2:
-        verdict, color = "SUSPEITO (REVISAR)", "#ffb020"
+        verdict, color = "SUSPEITO (REVISAR)", "oklch(0.72 0.14 28)"
     elif total_score >= 4:
-        verdict, color = "POSSÍVEIS PISTAS", "#ffe066"
+        verdict, color = "POSSÍVEIS PISTAS", "oklch(0.78 0.02 240)"
     else:
-        verdict, color = "LIMPO", "#3fbf7f"
+        verdict, color = "LIMPO", "oklch(0.72 0.14 160)"
 
     return {
         "verdict": verdict,

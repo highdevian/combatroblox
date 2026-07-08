@@ -22,7 +22,8 @@ from report_assets import (
     SOURCE_LABELS,
     CLUSTER_VERDICT_STYLE,
     get_svg_icon as _svg_icon,
-    MODERN_CSS as CSS
+    MODERN_CSS as CSS,
+    INK_CRIT, INK_HIGH, INK_MED, INK_LOW, INK_CLEAN, INK_MUTE,
 )
 
 def _src_label(slug: str) -> str:
@@ -60,7 +61,7 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=True)
         state_class = "hv-state-bad"
     elif suspect:
-        icon_key, headline, color = ("alert-triangle", "REVISAR — EVIDÊNCIA SUSPEITA", "#e8b339")
+        icon_key, headline, color = ("alert-triangle", "REVISAR — EVIDÊNCIA SUSPEITA", INK_MED)
         global_conf = max((c.confidence_pct for c in suspect), default=0)
         sub_msg = f"{len(suspect)} alvo(s) com evidência parcial — sem confirmação cruzada"
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=False)
@@ -68,7 +69,7 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
     else:
         # Sem cluster acionável — limpo. SVG shield-check em verde,
         # sem pulse (não há urgência), com glow sutil.
-        icon_key, headline, color = ("shield-check", "NENHUM EXECUTOR DETECTADO", "#3fbf7f")
+        icon_key, headline, color = ("shield-check", "NENHUM EXECUTOR DETECTADO", INK_CLEAN)
         global_conf = None
         sub_msg = "Nenhum target acima do limite de FP"
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=False)
@@ -105,7 +106,7 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
                 <div class="hv-card-verdict" style="color: {c_color}">{c.verdict}</div>
             </header>
             <div class="hv-card-meta">
-                <span class="hv-meta-pill" style="background: {c_color}20; color: {c_color}; border: 1px solid {c_color}50">
+                <span class="hv-meta-pill" style="background: color-mix(in oklch, {c_color} 14%, transparent); color: {c_color}; border: 1px solid color-mix(in oklch, {c_color} 45%, transparent)">
                     Confidence {c.confidence_pct}%
                 </span>
                 <span class="hv-meta-pill">
@@ -211,7 +212,7 @@ def _render_section(finding: dict) -> str:
 
         conf_html = ""
         if conf is not None:
-            conf_color = "#3fbf7f" if conf >= 70 else ("#ffb020" if conf >= 40 else "#888")
+            conf_color = INK_CLEAN if conf >= 70 else (INK_MED if conf >= 40 else INK_MUTE)
             conf_html = (f'<div class="conf-bar"><div class="conf-fill" '
                           f'style="width:{conf}%; background:{conf_color}"></div>'
                           f'<span class="conf-val">{conf}</span></div>')
@@ -336,7 +337,7 @@ def _render_summary(findings: list[dict], verdict: dict = None) -> str:
         low  = sum(1 for f in findings for i in f["items"] if i.get("severity") == "low")
         verdict = {
             "verdict": "LIMPO" if not (high + med + low) else "REVISAR",
-            "color": "#3fbf7f",
+            "color": INK_CLEAN,
             "score": 0,
             "high": high, "medium": med, "low": low,
         }
@@ -348,7 +349,7 @@ def _render_summary(findings: list[dict], verdict: dict = None) -> str:
     crit_n = verdict.get("critical", 0)
     crit_stat = ""
     if crit_n:
-        crit_stat = f'<div class="stat"><div class="num" style="color:#ff2a2a">{crit_n}</div><div>Critical</div></div>'
+        crit_stat = f'<div class="stat"><div class="num" style="color:{INK_CRIT}">{crit_n}</div><div>Critical</div></div>'
 
     return f"""
     <section class="card overview">
@@ -359,12 +360,12 @@ def _render_summary(findings: list[dict], verdict: dict = None) -> str:
         <p class="desc">Estatísticas brutas do scan — abaixo do veredito por correlação acima. Hit mais recente: <code>{_escape(recent)}</code>.</p>
         <div class="stats">
             {crit_stat}
-            <div class="stat"><div class="num" style="color:#ff4d4f">{verdict['high']}</div><div>High</div></div>
-            <div class="stat"><div class="num" style="color:#ffb020">{verdict['medium']}</div><div>Medium</div></div>
-            <div class="stat"><div class="num" style="color:#ffe066">{verdict['low']}</div><div>Low</div></div>
+            <div class="stat"><div class="num" style="color:{INK_HIGH}">{verdict['high']}</div><div>High</div></div>
+            <div class="stat"><div class="num" style="color:{INK_MED}">{verdict['medium']}</div><div>Medium</div></div>
+            <div class="stat"><div class="num" style="color:{INK_LOW}">{verdict['low']}</div><div>Low</div></div>
             {score_html}
             <div class="stat"><div class="num">{total}</div><div>Hits totais</div></div>
-            <div class="stat"><div class="num" style="color:#888">{errors}</div><div>Skips/Erros</div></div>
+            <div class="stat"><div class="num" style="color:{INK_MUTE}">{errors}</div><div>Skips/Erros</div></div>
         </div>
     </section>
     """
@@ -379,7 +380,7 @@ def _render_fp_stats(fp_stats: dict) -> str:
     if fp_stats.get("is_dev_env"):
         ev_list = "<br>".join(f"<code>{_escape(p)}</code>" for p in fp_stats["dev_evidence"][:5])
         dev_note = f"""
-        <p><strong style="color:#ffb020">⚠ Ambiente de dev detectado.</strong>
+        <p><strong style="color:{INK_MED}">⚠ Ambiente de dev detectado.</strong>
         Ferramentas como Cheat Engine, IDA, dnSpy, etc. foram rebaixadas pra LOW
         (uso legítimo provável). Indicadores:</p>
         <div class="dev-evidence">{ev_list}</div>
@@ -391,8 +392,8 @@ def _render_fp_stats(fp_stats: dict) -> str:
         <p class="desc">Pós-processamento removeu/rebaixou hits prováveis-FP. Use <code>--strict</code> pra desligar.</p>
         <div class="stats">
             <div class="stat"><div class="num">{fp_stats['total_items_in']}</div><div>Hits brutos</div></div>
-            <div class="stat"><div class="num" style="color:#3fbf7f">{fp_stats['items_whitelisted']}</div><div>Whitelistados</div></div>
-            <div class="stat"><div class="num" style="color:#ffb020">{fp_stats['items_downgraded']}</div><div>Rebaixados</div></div>
+            <div class="stat"><div class="num" style="color:{INK_CLEAN}">{fp_stats['items_whitelisted']}</div><div>Whitelistados</div></div>
+            <div class="stat"><div class="num" style="color:{INK_MED}">{fp_stats['items_downgraded']}</div><div>Rebaixados</div></div>
             <div class="stat"><div class="num">{fp_stats['total_items_out']}</div><div>Finais</div></div>
         </div>
         {dev_note}
@@ -639,23 +640,23 @@ def _render_charts(findings: list, verdict: dict) -> str:
     <div class="chart-card">
         <h3>Distribuição de Severidade</h3>
         <svg viewBox="0 0 140 140" class="donut">
-            <circle cx="70" cy="70" r="50" fill="none" stroke="#2a2a2e" stroke-width="14"/>
-            <circle cx="70" cy="70" r="50" fill="none" stroke="#ff4d4f" stroke-width="14"
+            <circle cx="70" cy="70" r="50" fill="none" stroke="oklch(0.22 0.008 260)" stroke-width="14"/>
+            <circle cx="70" cy="70" r="50" fill="none" stroke="{INK_HIGH}" stroke-width="14"
                 stroke-dasharray="{high_dash:.1f} {circumference:.1f}" transform="rotate(-90 70 70)"/>
-            <circle cx="70" cy="70" r="50" fill="none" stroke="#ffb020" stroke-width="14"
+            <circle cx="70" cy="70" r="50" fill="none" stroke="{INK_MED}" stroke-width="14"
                 stroke-dasharray="{med_dash:.1f} {circumference:.1f}"
                 stroke-dashoffset="{-high_dash:.1f}" transform="rotate(-90 70 70)"/>
-            <circle cx="70" cy="70" r="50" fill="none" stroke="#ffe066" stroke-width="14"
+            <circle cx="70" cy="70" r="50" fill="none" stroke="{INK_LOW}" stroke-width="14"
                 stroke-dasharray="{low_dash:.1f} {circumference:.1f}"
                 stroke-dashoffset="{-(high_dash + med_dash):.1f}" transform="rotate(-90 70 70)"/>
-            <text x="70" y="68" text-anchor="middle" fill="{verdict.get('color', '#fff')}"
+            <text x="70" y="68" text-anchor="middle" fill="{verdict.get('color', 'oklch(0.93 0.012 80)')}"
                 font-size="22" font-weight="800">{verdict.get('score', 0)}</text>
-            <text x="70" y="86" text-anchor="middle" fill="#888" font-size="10">SCORE</text>
+            <text x="70" y="86" text-anchor="middle" fill="{INK_MUTE}" font-size="10">SCORE</text>
         </svg>
         <div class="donut-legend">
-            <span><span class="dot" style="background:#ff4d4f"></span> High {high}</span>
-            <span><span class="dot" style="background:#ffb020"></span> Medium {med}</span>
-            <span><span class="dot" style="background:#ffe066"></span> Low {low}</span>
+            <span><span class="dot" style="background:{INK_HIGH}"></span> High {high}</span>
+            <span><span class="dot" style="background:{INK_MED}"></span> Medium {med}</span>
+            <span><span class="dot" style="background:{INK_LOW}"></span> Low {low}</span>
         </div>
     </div>
     """
@@ -698,9 +699,9 @@ def _render_empty_state() -> str:
     return """
     <section class="card empty-state" aria-label="Sistema limpo">
         <svg class="empty-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="32" cy="32" r="28" fill="none" stroke="#3fbf7f" stroke-width="2" opacity="0.4"/>
-            <circle cx="32" cy="32" r="22" fill="none" stroke="#3fbf7f" stroke-width="1.5" opacity="0.25"/>
-            <path d="M20 33 L29 42 L45 25" fill="none" stroke="#3fbf7f"
+            <circle cx="32" cy="32" r="28" fill="none" stroke="oklch(0.72 0.14 160)" stroke-width="2" opacity="0.4"/>
+            <circle cx="32" cy="32" r="22" fill="none" stroke="oklch(0.72 0.14 160)" stroke-width="1.5" opacity="0.25"/>
+            <path d="M20 33 L29 42 L45 25" fill="none" stroke="oklch(0.72 0.14 160)"
                   stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <h2>Sistema limpo</h2>
@@ -726,7 +727,7 @@ def _render_high_confidence(high_confidence: dict) -> str:
     for kw, info in sorted_kws:
         sources_str = ", ".join(_escape(s) for s in info["sources"])
         sev = info.get("worst_severity", "high")
-        color = SEVERITY_COLORS.get(sev, "#ff4d4f")
+        color = SEVERITY_COLORS.get(sev, INK_HIGH)
         rows.append(f"""
         <tr>
             <td class="hc-kw"><code style="color:{color}; font-weight:700">{_escape(kw)}</code></td>
@@ -738,7 +739,7 @@ def _render_high_confidence(high_confidence: dict) -> str:
     <section class="card high-confidence">
         <div class="card-head">
             <h2>🎯 Cross-Correlation — ALTA CONFIANÇA</h2>
-            <span class="badge" style="background:#ff4d4f">CHEATER</span>
+            <span class="badge" style="background:{INK_HIGH}">CHEATER</span>
         </div>
         <p class="desc">Keywords que apareceram em 3+ categorias diferentes. Praticamente
         impossível ser falso positivo — cara tentou apagar mas deixou rastro em várias fontes.</p>
@@ -766,9 +767,9 @@ def _render_controls() -> str:
                    placeholder="Buscar (krnl, wave, .lua, downloads...)   ·   atalho: /"
                    aria-label="Buscar nos hits" />
             <div class="filters" role="group" aria-label="Filtrar por severidade">
-                <button class="filter-btn" data-sev="high"   aria-pressed="true" style="--c:#ff4d4f">High</button>
-                <button class="filter-btn" data-sev="medium" aria-pressed="true" style="--c:#ffb020">Medium</button>
-                <button class="filter-btn" data-sev="low"    aria-pressed="true" style="--c:#ffe066">Low</button>
+                <button class="filter-btn" data-sev="high"   aria-pressed="true" style="--c:oklch(0.62 0.21 28)">High</button>
+                <button class="filter-btn" data-sev="medium" aria-pressed="true" style="--c:oklch(0.72 0.14 28)">Medium</button>
+                <button class="filter-btn" data-sev="low"    aria-pressed="true" style="--c:oklch(0.78 0.02 240)">Low</button>
                 <button id="show-all" class="filter-btn solid">Reset</button>
                 <span class="control-divider" aria-hidden="true"></span>
                 <button id="expand-all"   class="filter-btn ghost" type="button">Expandir tudo</button>
@@ -2372,6 +2373,383 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     @media (prefers-reduced-motion: reduce) {
         .term-body .typed { width: auto; }
         .term-cursor { display: none; }
+    }
+
+    /* ================================================================
+       === IDENTIDADE: forensic dark lab (bate com o site)
+       Reskin final pra casar com combatroblox-forensics.vercel.app:
+       preto frio + texto papel quente, Fraunces serif nos títulos,
+       Inter Tight no corpo, JetBrains Mono nos números/códigos,
+       grid-paper, faixas de perigo, chips de evidência, cantos retos.
+       Fontes reais caem em fallback do sistema (Georgia/Segoe/Consolas)
+       pra o relatório ficar 100% offline. Vem por ULTIMO -> precedência
+       final sobre a skin terminal-âmbar acima.
+       ================================================================ */
+
+    :root {
+        --radius: 2px;
+
+        /* Paleta exata do site (oklch). Preto frio, papel quente. */
+        --site-bg:          oklch(0.14 0.004 260);
+        --site-card:        oklch(0.165 0.004 260);
+        --site-popover:     oklch(0.19 0.006 260);
+        --site-sidebar:     oklch(0.19 0.006 260);
+        --site-muted:       oklch(0.22 0.008 260);
+        --site-paper:       oklch(0.93 0.012 80);
+        --site-hazard:      oklch(0.95 0.005 80);
+        --site-muted-fg:    oklch(0.58 0.012 260);
+        --site-cold:        oklch(0.78 0.02 240);
+        --site-destructive: oklch(0.62 0.21 28);
+        --site-evidence:    oklch(0.72 0.14 28);
+        --site-border:      oklch(1 0 0 / 8%);
+        --site-green:       oklch(0.72 0.14 160);
+
+        /* Remapeia os tokens internos do relatório -> paleta do site.
+           Tudo que usa var(--c-*) herda automaticamente. */
+        --c-bg-0: oklch(0.115 0.004 260);
+        --c-bg-1: var(--site-bg);
+        --c-bg-2: var(--site-card);
+        --c-bg-3: var(--site-card);
+        --c-bg-4: var(--site-muted);
+        --c-border: var(--site-border);
+        --c-border-soft: oklch(1 0 0 / 5%);
+        --c-text: var(--site-paper);
+        --c-text-mute: oklch(0.70 0.012 260);
+        --c-text-soft: var(--site-muted-fg);
+        --c-text-faint: oklch(0.44 0.01 260);
+        --c-amber: var(--site-paper);
+        --c-red: var(--site-destructive);
+        --c-orange: var(--site-evidence);
+        --c-yellow: var(--site-cold);
+        --c-green: var(--site-green);
+        accent-color: var(--site-cold);
+        color-scheme: dark;
+
+        --font-display: 'Fraunces', 'Georgia', 'Cambria', 'Times New Roman', serif;
+        --font-sans: 'Inter Tight', 'Segoe UI Variable Text', 'Segoe UI',
+                     system-ui, -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Cascadia Mono',
+                     'Consolas', ui-monospace, monospace;
+    }
+
+    /* --- Tipografia: desfaz o "mono em tudo" da skin terminal --- */
+    body, .nav-link, .nav-link-label, .sub, .desc, .card .desc, .summary,
+    button, input, td, .verdict-sub, .controls, .controls-meta,
+    .empty-state p, p, .report-attrib {
+        font-family: var(--font-sans);
+        letter-spacing: normal;
+    }
+    h1, h2, h3, .big-verdict, .page-header h1, .term-body .h1line,
+    .sidebar-head h3, .card h2, .overview h2, .empty-state h2 {
+        font-family: var(--font-display);
+        letter-spacing: -0.012em;
+        font-weight: 600;
+        text-transform: none;
+    }
+    code, pre, .stat .num, .conf-val, .hc-count, kbd, .pill, th,
+    .nav-badge, .nav-score, .sess-code, .sess-k, .bar-count, time,
+    .nav-group-title, .chart-card h3, .term-bar-title, .text-verdict,
+    .stat > div:last-child {
+        font-family: var(--font-mono);
+    }
+
+    /* --- Fundo: grid-paper + textura de grão (assinaturas do site) --- */
+    body {
+        background-color: var(--site-bg);
+        background-image:
+            linear-gradient(to right, oklch(1 0 0 / 0.018) 1px, transparent 1px),
+            linear-gradient(to bottom, oklch(1 0 0 / 0.018) 1px, transparent 1px);
+        background-size: 72px 72px;
+        color: var(--site-paper);
+    }
+    body::after {
+        content: ""; position: fixed; inset: 0; pointer-events: none;
+        z-index: 1; opacity: 0.025; mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    }
+
+    /* --- Cabeçalho: dossiê forense com faixa de perigo no topo --- */
+    .page-header {
+        position: relative;
+        background: var(--site-card);
+        border: 1px solid var(--site-border);
+        border-radius: 2px;
+    }
+    .page-header::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0;
+        height: 3px; z-index: 2;
+        background: repeating-linear-gradient(-45deg,
+            var(--site-hazard) 0 12px, oklch(0.16 0.005 260) 12px 24px);
+    }
+    .term-bar {
+        background: var(--site-popover);
+        border-bottom: 1px solid var(--site-border);
+    }
+    .td-r { background: var(--site-destructive); }
+    .td-y { background: var(--site-evidence); }
+    .td-g { background: var(--site-cold); }
+    .term-bar-title {
+        color: var(--site-muted-fg); text-transform: uppercase;
+        letter-spacing: 0.14em; font-size: 10px;
+    }
+    .term-body { padding: 22px 24px; }
+    .term-body .h1line, .page-header h1 {
+        color: var(--site-paper);
+        font-size: 34px; font-weight: 600; line-height: 1.05;
+        letter-spacing: -0.02em;
+    }
+    .term-cursor { background: var(--site-paper); }
+    .page-header .sub { color: var(--site-muted-fg); font-size: 12.5px; }
+
+    /* --- Cards --- */
+    .card {
+        background: var(--site-card);
+        border: 1px solid var(--site-border);
+        border-radius: 2px;
+    }
+    .card:hover {
+        border-color: color-mix(in oklch, var(--site-hazard) 24%, var(--site-border));
+    }
+    .card h2 {
+        color: var(--site-paper); font-size: 19px; text-transform: none;
+        letter-spacing: -0.014em; font-weight: 600;
+    }
+    .desc, .card .desc { color: var(--site-muted-fg); }
+    .summary { color: var(--site-paper); }
+    .status-suspicious::after { background: var(--site-destructive); }
+
+    /* --- Sidebar --- */
+    .sidebar { background: var(--site-sidebar); border-right: 1px solid var(--site-border); }
+    .sidebar-head { border-bottom: 1px solid var(--site-border); }
+    .sidebar-head h3 {
+        background: none; -webkit-text-fill-color: var(--site-paper);
+        color: var(--site-paper); letter-spacing: -0.01em; font-weight: 600;
+    }
+    .wordmark { color: var(--site-paper); }
+    .wm-prompt { color: var(--site-cold); }
+    .nav-group-title {
+        color: var(--site-muted-fg); text-transform: uppercase;
+        font-size: 10px; letter-spacing: 0.12em;
+    }
+    .nav-link { color: var(--site-muted-fg); border-radius: 2px; }
+    .nav-link:hover {
+        background: color-mix(in oklch, var(--site-paper) 5%, transparent);
+        color: var(--site-paper);
+    }
+    .nav-link.nav-hit { color: var(--site-paper); }
+    .nav-badge {
+        background: transparent; color: var(--site-destructive);
+        border: 1px solid color-mix(in oklch, var(--site-destructive) 40%, transparent);
+        border-radius: 2px;
+    }
+    .nav-score { border-radius: 2px; }
+
+    /* --- Severidade como chip de evidência (mono, caixa alta, sem colchete) --- */
+    .pill {
+        border-radius: 2px; padding: 3px 8px; font-weight: 600;
+        font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+        border: 1px solid; background: transparent;
+    }
+    .pill::before, .pill::after { content: none; }
+    .pill-high {
+        color: var(--site-destructive);
+        border-color: color-mix(in oklch, var(--site-destructive) 45%, transparent);
+        background: color-mix(in oklch, var(--site-destructive) 8%, transparent);
+    }
+    .pill-medium {
+        color: var(--site-evidence);
+        border-color: color-mix(in oklch, var(--site-evidence) 42%, transparent);
+        background: color-mix(in oklch, var(--site-evidence) 8%, transparent);
+    }
+    .pill-low {
+        color: var(--site-cold);
+        border-color: color-mix(in oklch, var(--site-cold) 42%, transparent);
+        background: color-mix(in oklch, var(--site-cold) 8%, transparent);
+    }
+
+    /* --- Tabelas --- */
+    th {
+        background: var(--site-popover); color: var(--site-muted-fg);
+        text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px;
+    }
+    table.sortable thead th { background: var(--site-popover); }
+    tr.row-high   { box-shadow: inset 3px 0 0 var(--site-destructive); }
+    tr.row-medium { box-shadow: inset 3px 0 0 var(--site-evidence); }
+    tr.row-low    { box-shadow: inset 3px 0 0 var(--site-cold); }
+    tbody tr:hover { background: color-mix(in oklch, var(--site-paper) 3%, transparent); }
+    code {
+        background: var(--site-popover);
+        border: 1px solid var(--site-border);
+        color: var(--site-paper); border-radius: 2px;
+    }
+    code:hover { background: var(--site-muted); color: var(--site-paper); }
+
+    /* --- Stats / veredito --- */
+    .stat {
+        background: var(--site-popover); border: 1px solid var(--site-border);
+        border-radius: 2px;
+    }
+    .stat:hover { background: var(--site-muted) !important; }
+    .stat .num { color: var(--site-paper); }
+    .stat > div:last-child {
+        text-transform: uppercase; letter-spacing: 0.12em; color: var(--site-muted-fg);
+    }
+    .big-verdict { letter-spacing: -0.02em; text-shadow: none; }
+    .verdict-sub { color: var(--site-muted-fg); }
+
+    /* --- Gráficos --- */
+    .chart-card {
+        background: var(--site-card); border: 1px solid var(--site-border);
+        border-radius: 2px;
+    }
+    .chart-card h3 {
+        color: var(--site-muted-fg); text-transform: uppercase; letter-spacing: 0.12em;
+    }
+    .bar-fill { background: var(--site-destructive); }
+    .bar-count { color: var(--site-paper); }
+
+    /* --- Alta confiança: borda vermelha + fita de perigo --- */
+    .high-confidence {
+        position: relative;
+        border-color: color-mix(in oklch, var(--site-destructive) 55%, transparent);
+    }
+    .high-confidence::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        background: repeating-linear-gradient(-45deg,
+            var(--site-hazard) 0 10px, oklch(0.16 0.005 260) 10px 20px);
+    }
+    .high-confidence h2 { color: var(--site-destructive); }
+    .hc-count { color: var(--site-evidence); }
+
+    /* --- Inputs / botões --- */
+    .controls input {
+        background: var(--site-popover); border: 1px solid var(--site-border);
+        color: var(--site-paper); border-radius: 2px;
+    }
+    .controls input:focus { border-color: var(--site-cold); background: var(--site-card); }
+    .filter-btn { border-radius: 2px; }
+    .filter-btn.ghost {
+        border: 1px solid var(--site-border); color: var(--site-muted-fg);
+    }
+    kbd {
+        background: var(--site-popover); border: 1px solid var(--site-border);
+        border-bottom-width: 2px; color: var(--site-paper);
+    }
+
+    /* --- Sessão --- */
+    .session { border-left: 3px solid var(--site-green); }
+    .sess-code {
+        color: var(--site-green); background: var(--site-popover);
+        border: 1px solid var(--site-border); border-radius: 2px;
+    }
+    .sess-ok { color: var(--site-green); }
+    .sess-warn { color: var(--site-evidence); }
+
+    /* --- Estado vazio (limpo) --- */
+    .empty-state h2 { color: var(--site-green); }
+
+    /* --- Links / rodapé / seleção / scrollbar / foco --- */
+    a { color: var(--site-cold); }
+    .report-attrib a:hover { color: var(--site-paper); }
+    .report-attrib .brand { color: var(--site-paper); font-family: var(--font-mono); }
+    ::selection {
+        background: color-mix(in oklch, var(--site-hazard) 22%, transparent);
+        color: var(--site-paper);
+    }
+    * { scrollbar-color: color-mix(in oklch, var(--site-paper) 25%, transparent) var(--site-bg); }
+    ::-webkit-scrollbar-track { background: var(--site-bg); }
+    ::-webkit-scrollbar-thumb {
+        background: color-mix(in oklch, var(--site-paper) 22%, transparent);
+        border: 2px solid var(--site-bg); border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: color-mix(in oklch, var(--site-paper) 36%, transparent);
+    }
+    *:focus-visible { outline: 2px solid var(--site-cold); }
+
+    /* --- Hero do veredito (protagonista): dossiê forense, sem glass --- */
+    .hero-verdict {
+        background: var(--site-card);
+        border: 1px solid var(--site-border);
+        border-radius: 2px;
+        backdrop-filter: none; -webkit-backdrop-filter: none;
+        box-shadow: none;
+        padding: 40px 32px 32px;
+    }
+    .hero-verdict::after {
+        height: 4px; opacity: 1;
+        background: repeating-linear-gradient(-45deg,
+            var(--site-hazard) 0 12px, oklch(0.16 0.005 260) 12px 24px);
+    }
+    .hv-state-bad {
+        border-color: color-mix(in oklch, var(--site-destructive) 45%, var(--site-border));
+        box-shadow: none;
+    }
+    .hv-state-warn {
+        border-color: color-mix(in oklch, var(--site-evidence) 40%, var(--site-border));
+        box-shadow: none;
+    }
+    .hv-state-clean {
+        border-color: color-mix(in oklch, var(--site-green) 40%, var(--site-border));
+        box-shadow: none;
+    }
+    .hv-icon-wrap { box-shadow: none; }
+    .hv-headline {
+        font-family: var(--font-display);
+        font-size: 40px; font-weight: 600; letter-spacing: -0.02em;
+        text-transform: none; text-shadow: none;
+    }
+    .hv-sub { color: var(--site-muted-fg); font-weight: 400; }
+    .hv-conf { color: var(--site-paper); font-weight: 500; }
+    .hv-copy {
+        background: var(--site-popover); border: 1px solid var(--site-border);
+        color: var(--site-paper); border-radius: 2px;
+        backdrop-filter: none; box-shadow: none; font-family: var(--font-sans);
+    }
+    .hv-copy:hover {
+        background: var(--site-muted);
+        border-color: color-mix(in oklch, var(--site-hazard) 30%, var(--site-border));
+        transform: none;
+    }
+    .hv-copy.copied {
+        background: color-mix(in oklch, var(--site-green) 18%, transparent);
+        border-color: var(--site-green); color: var(--site-green);
+    }
+    .hv-card {
+        background: var(--site-popover); border: 1px solid var(--site-border);
+        border-left-width: 3px; border-radius: 2px; backdrop-filter: none;
+    }
+    .hv-card:hover {
+        transform: none; box-shadow: none;
+        border-color: color-mix(in oklch, var(--site-hazard) 22%, var(--site-border));
+    }
+    .hv-card-name {
+        color: var(--site-paper); font-family: var(--font-display);
+        font-weight: 600; letter-spacing: -0.01em;
+    }
+    .hv-kind {
+        color: var(--site-muted-fg); background: transparent;
+        border: 1px solid var(--site-border); border-radius: 2px;
+        font-family: var(--font-mono); letter-spacing: 0.12em;
+    }
+    .hv-card-verdict { font-family: var(--font-mono); letter-spacing: 0.08em; }
+    .hv-meta-pill {
+        background: var(--site-card); border: 1px solid var(--site-border);
+        color: var(--site-muted-fg); border-radius: 2px;
+        font-family: var(--font-mono); letter-spacing: 0.04em;
+    }
+    .hv-sources li { color: var(--site-paper); }
+    .hv-check { color: var(--site-green); text-shadow: none; }
+    .hv-time { color: var(--site-muted-fg); border-top: 1px dashed var(--site-border); }
+    .hv-time code {
+        background: var(--site-card); color: var(--site-paper);
+        border: 1px solid var(--site-border);
+    }
+    .admin-warn { border-radius: 2px; }
+
+    /* Print: papel branco, preto no texto (herda cantos retos) */
+    @media print {
+        body::after { display: none; }
     }
     """
 

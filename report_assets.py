@@ -4,18 +4,28 @@ Contém CSS (modo premium glassmorphism), dicionários de cores e SVGs.
 Isolado para facilitar manutenção e limpar o report.py.
 """
 
-# Paleta "terminal forense premium" com tons mais vibrantes e ajustes
+# Paleta "forensic dark lab" — casa com o site (oklch). Estas cores são
+# emitidas em estilos INLINE (gráficos, dots, badges), fora do alcance do
+# CSS, então são a fonte única da verdade pra cor de severidade.
+INK_CRIT  = "oklch(0.58 0.22 25)"    # crítico — vermelho profundo
+INK_HIGH  = "oklch(0.62 0.21 28)"    # high — destructive do site
+INK_MED   = "oklch(0.72 0.14 28)"    # medium — evidence do site
+INK_LOW   = "oklch(0.78 0.02 240)"   # low — cold (azul dessaturado)
+INK_CLEAN = "oklch(0.72 0.14 160)"   # limpo/ok — verde forense
+INK_MUTE  = "oklch(0.58 0.012 260)"  # skip/neutro
+INK_PAPER = "oklch(0.93 0.012 80)"   # texto papel quente
+
 SEVERITY_COLORS = {
-    "critical": "#ff3333",  # Vermelho mais puro e vibrante
-    "high":     "#ff6b6b",  # Vermelho neon leve
-    "medium":   "#feca57",  # Âmbar/Amarelo dourado mais rico
-    "low":      "#c8d6e5",  # Cinza-azulado moderno para LOW
+    "critical": INK_CRIT,
+    "high":     INK_HIGH,
+    "medium":   INK_MED,
+    "low":      INK_LOW,
 }
 
 STATUS_BADGE = {
-    "clean":      ("LIMPO",    "#1dd1a1"),  # Verde menta brilhante
-    "suspicious": ("SUSPEITO", "#ff6b6b"),
-    "error":      ("SKIP",     "#8395a7"),  # Cinza azulado escuro
+    "clean":      ("LIMPO",    INK_CLEAN),
+    "suspicious": ("SUSPEITO", INK_HIGH),
+    "error":      ("SKIP",     INK_MUTE),
 }
 
 SOURCE_LABELS = {
@@ -62,10 +72,10 @@ SOURCE_LABELS = {
 }
 
 CLUSTER_VERDICT_STYLE = {
-    "CONFIRMED": ("shield-x",       "EXECUTOR CONFIRMADO",  "#ff3333"),
-    "DETECTED":  ("alert-octagon",  "EXECUTOR DETECTADO",   "#ff6b6b"),
-    "SUSPECT":   ("alert-triangle", "EVIDÊNCIA SUSPEITA",   "#feca57"),
-    "WEAK":      ("circle-dashed",  "PISTA FRACA",          "#c8d6e5"),
+    "CONFIRMED": ("shield-x",       "EXECUTOR CONFIRMADO",  INK_CRIT),
+    "DETECTED":  ("alert-octagon",  "EXECUTOR DETECTADO",   INK_HIGH),
+    "SUSPECT":   ("alert-triangle", "EVIDÊNCIA SUSPEITA",   INK_MED),
+    "WEAK":      ("circle-dashed",  "PISTA FRACA",          INK_LOW),
 }
 
 def get_svg_icon(key: str, size: int = 56, color: str = "currentColor", with_pulse: bool = False) -> str:
@@ -231,7 +241,7 @@ footer code { background: transparent; color: #888; border: none; }
     display: inline-flex; align-items: center; justify-content: center;
     width: 104px; height: 104px; margin: 0 auto 24px;
     border-radius: 50%;
-    background: radial-gradient(circle, var(--hv-accent, #888)15 0%, transparent 70%);
+    background: radial-gradient(circle, color-mix(in oklch, var(--hv-accent, transparent) 15%, transparent) 0%, transparent 70%);
     position: relative;
     box-shadow: 0 0 30px var(--hv-accent) inset;
 }

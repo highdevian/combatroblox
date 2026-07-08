@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.43.2] - 2026-07-08
+
+**Relatório HTML redesenhado** pra bater com o site
+(combatroblox-forensics.vercel.app). Antes o report e o site tinham
+identidades visuais totalmente diferentes; agora são a mesma família.
+
+### Visual / relatório
+
+- **Nova skin "forensic dark lab"** (`report.py`): paleta oklch exata do site
+  (preto frio + texto papel quente, destructive/evidence/cold), Fraunces serif
+  nos títulos, Inter Tight no corpo, JetBrains Mono nos números/códigos — com
+  fallback de sistema (Georgia/Segoe UI/Consolas) pra manter o relatório
+  **100% offline**. Grid-paper de fundo, faixas de perigo, chips de evidência,
+  cantos retos de 2px. É um bloco de override no fim do CSS — não reescreve o
+  relatório, só sobrepõe a identidade.
+- **Cores de severidade na fonte** (`report_assets.py`, `fp_filter.py`): as
+  cores emitidas *inline* (gráficos, stats, dots, veredito) migraram do neon
+  antigo pra paleta oklch do site, então donut/barras/números casam.
+
+### Fixes
+
+- **Alpha shorthand quebrava com oklch** (`report.py`, `report_assets.py`): o
+  código montava `{cor}20`/`{cor}50` e `var(--hv-accent)15` (alpha hex), que é
+  inválido com `oklch(...)`. Trocado por `color-mix(in oklch, ...)`.
+
 ## [3.43.1] - 2026-07-07
 
 **Fixes de FP e vazamento** achados no smoke test do dono na própria máquina
