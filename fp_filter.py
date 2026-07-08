@@ -199,13 +199,22 @@ def _parse_timestamp(ts_str: str) -> datetime | None:
     return None
 
 
-def apply_time_decay(severity: str, ts_str: str) -> tuple[str, str | None]:
+def apply_time_decay(severity: str, ts_str: str, corroboration: int = 1) -> tuple[str, str | None]:
     """
     Retorna (nova_severidade, motivo).
-    Decay:
+
+    Decay base por idade:
       < 30 dias  : sem decay
       30-90 dias : -1 nível
       90+ dias   : -2 níveis (efetivamente vai pra "low")
+
+    Corroboração multi-fonte RESISTE ao decay. O decay existe pra proteger de
+    UM artefato velho isolado (pista fraca que ficou pra trás). Mas o MESMO
+    alvo visto em várias fontes independentes é evidência forte não importa a
+    idade — 5 fontes batendo em Solara há 4 meses ainda é cheater. Então:
+      corroboração >= 3 fontes : não decai (idade irrelevante)
+      corroboração == 2 fontes : atenua um nível
+      corroboração <= 1 fonte  : decay cheio (o caso que o filtro protege)
     """
     ts = _parse_timestamp(ts_str)
     if ts is None:
@@ -214,16 +223,21 @@ def apply_time_decay(severity: str, ts_str: str) -> tuple[str, str | None]:
     age = datetime.now() - ts
     if age < timedelta(days=30):
         return severity, None
-    if age < timedelta(days=90):
-        new_sev = _downgrade(severity, 1)
-        if new_sev != severity:
-            return new_sev, f"hit antigo ({age.days}d) — rebaixado de {severity} pra {new_sev}"
+
+    # 3+ fontes corroborando o mesmo alvo: idade não enfraquece.
+    if corroboration >= 3:
         return severity, None
 
-    # Muito antigo (> 90 dias)
-    new_sev = _downgrade(severity, 2)
+    levels = 1 if age < timedelta(days=90) else 2
+    if corroboration == 2:
+        levels -= 1                      # 2 fontes seguram um nível de decay
+    if levels <= 0:
+        return severity, None
+
+    new_sev = _downgrade(severity, levels)
     if new_sev != severity:
-        return new_sev, f"hit antigo ({age.days}d) — rebaixado de {severity} pra {new_sev}"
+        extra = f", atenuado por {corroboration} fontes" if corroboration == 2 else ""
+        return new_sev, f"hit antigo ({age.days}d) — rebaixado de {severity} pra {new_sev}{extra}"
     return severity, None
 
 
@@ -345,6 +359,27 @@ def compute_confidence(item: dict) -> int:
 
 # ============================ Main post-processor ============================
 
+def _corroboration_by_item(findings: list) -> dict:
+    """Mapa id(item) -> nº de FONTES distintas que corroboram o MESMO alvo.
+
+    Reusa o clustering completo do Confidence Engine (evidence.build_clusters),
+    que já funde variantes no mesmo alvo (path->executor, aliases): assim
+    'solara', 'solara.exe', 'usn:solara' e o path do .exe contam como fontes do
+    MESMO Solara. Sem isso a corroboração ficaria fragmentada e o decay ainda
+    colapsaria o veredito de um cheater óbvio."""
+    try:
+        import evidence
+        clusters = evidence.build_clusters(evidence.findings_to_evidences(findings))
+    except Exception:
+        return {}
+    out = {}
+    for c in clusters:
+        n = c.n_sources
+        for ev in c.evidences:
+            out[id(ev.raw)] = n          # ev.raw É o dict do item original
+    return out
+
+
 def post_process_findings(findings: list) -> tuple[list, dict]:
     """
     Aplica todos os filtros de FP em todos os items.
@@ -356,6 +391,9 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
       - confidence (0-100)
     """
     dev = detect_dev_environment()
+    # Corroboração por alvo (nº de fontes) ANTES de decair — decide se um hit
+    # antigo resiste ao time-decay por estar corroborado em várias fontes.
+    corrob = _corroboration_by_item(findings)
     stats = {
         "is_dev_env": dev["is_dev"],
         "dev_evidence": dev["evidence"],
@@ -394,11 +432,17 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
                 item["severity"] = _downgrade(item["severity"], 2)
                 reasons.append(dev_reason)
 
-            # 4. Time decay
-            new_sev, decay_reason = apply_time_decay(item["severity"], item.get("timestamp", ""))
-            if decay_reason:
-                item["severity"] = new_sev
-                reasons.append(decay_reason)
+            # 4. Time decay — NÃO se aplica à costura de operador: ali o
+            # timestamp é a hora da PARTIDA (quando o swap ocorreu), não a idade
+            # de um artefato no disco. Evidência de um evento passado não perde
+            # força com o tempo — auditar uma série antiga tem que manter o peso.
+            if not (item.get("matched") or "").lower().startswith("seam-"):
+                n_src = corrob.get(id(item), 1)
+                new_sev, decay_reason = apply_time_decay(
+                    item["severity"], item.get("timestamp", ""), corroboration=n_src)
+                if decay_reason:
+                    item["severity"] = new_sev
+                    reasons.append(decay_reason)
 
             # Anotar
             if item["severity"] != original_sev:

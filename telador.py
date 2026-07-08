@@ -54,6 +54,7 @@ import yara_scan
 import dma_scanner
 import winevent_scanner
 import service_state_scanner
+import seam_scanner
 import capture
 import fp_filter
 import pe_analysis
@@ -108,7 +109,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
-    print(f"{GREY}  v3.42.1  ·  Confidence Engine  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.43.0  ·  Confidence Engine  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -491,6 +492,9 @@ def main():
     parser.add_argument("--codigo",        type=str, default=None,
                         help="Código de verificação ditado pelo supervisor no início da SS "
                              "(prova que o relatório é desta sessão ao vivo)")
+    parser.add_argument("--seam",          type=str, default=None,
+                        help="Analisa costura de operador: JSON com stats por partida da série "
+                             "(pega conta revezada/pilotada entre partidas). Ver seam.example.json")
     args = parser.parse_args()
 
     if not 1 <= args.threads <= 32:
@@ -604,6 +608,15 @@ def main():
             skip_history=args.no_history,
             skip_peripherals=args.no_peripherals,
         )
+
+    # Costura de operador (--seam): dado externo (stats por partida da liga),
+    # entra na chain como um scanner a mais quando o supervisor passa o arquivo.
+    # Roda pelo mesmo pipeline (console, veredito, HTML/JSON/MD) dos outros.
+    if args.seam:
+        seam_scanner.configure(args.seam)
+        chain.extend(seam_scanner.ALL_SEAM_SCANNERS)
+        print(f"{CYAN}[SEAM]{RESET} {GREY}Análise de costura de operador ligada "
+              f"({args.seam}){RESET}")
 
     # Dashboard local ao vivo (--watch). Sobe servidor em loopback antes do
     # scan; cada scanner que termina é streamado. Nada sai do PC.

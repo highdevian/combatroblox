@@ -91,6 +91,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "defender_tampering":   0.80,
     "clock_tampering":      0.70,
     "service_state":        0.85,   # serviço crítico parado runtime (eventlog/DPS/Diagtrack)
+    "operator_seam":        0.90,   # costura de operador: degrau de skill + troca de IP na mesma conta
     "hidden_files":         0.65,
     "filesystem":           0.70,
 }
@@ -253,6 +254,8 @@ def _infer_kind(label: str, matched: str) -> str:
     """Categoriza o target: executor / byovd / anti_forense / tool."""
     lbl = (label or "").lower()
     m = (matched or "").lower()
+    if m.startswith("seam-"):
+        return "operator_swap"
     if m.startswith(_MATCHED_PREFIXES_BYOVD):
         return "byovd"
     if m.startswith(_MATCHED_PREFIXES_ANTI):
@@ -289,6 +292,12 @@ def compute_target_id(item: dict) -> tuple[TargetId, str, str]:
       3) executor canônico via aliases — agrupa variantes textuais
       4) raw label — fallback, não agrupa nada com mais nada
     """
+    # 0) costura de operador — evento próprio (não é executor/arquivo). Agrupa
+    #    todos os seam-* num alvo só, com label e kind dedicados.
+    matched0 = (item.get("matched") or "").lower()
+    if matched0.startswith("seam-"):
+        return TargetId("operator_swap", "costura"), "Troca de operador", "operator_swap"
+
     # 1) hash
     pe = item.get("pe_info") or {}
     sha = (pe.get("sha256") or "").lower()
@@ -476,6 +485,7 @@ def _source_slug_from_name(scanner_name: str) -> str:
     n = (scanner_name or "").lower()
     # ordem importa — substrings mais específicas primeiro
     rules = [
+        ("costura de operador",   "operator_seam"),
         ("defender: detecção",    "defender_detection"),
         ("event log de execução", "event_log_exec"),
         ("dma",                   "dma_hardware"),

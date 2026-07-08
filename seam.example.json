@@ -1,0 +1,30 @@
+{
+  "_comentario": "Exemplo: conta 'membro_limpo' num amistoso melhor-de-5. Xitado pilotou as 2 primeiras (external), o dono jogou as 3 ultimas. Note o degrau em accuracy/HS/reacao E a troca de login_ip/ping exatamente entre a partida 2 e a 3.",
+  "matches": [
+    {
+      "match_id": "amistoso-r1", "timestamp": "2026-07-07T20:00:00",
+      "kd": 4.1, "accuracy": 0.74, "hs_pct": 0.61, "reaction_ms": 128,
+      "ping_ms": 19, "login_ip": "201.55.10.7", "device": "Windows-Desktop"
+    },
+    {
+      "match_id": "amistoso-r2", "timestamp": "2026-07-07T20:14:00",
+      "kd": 3.6, "accuracy": 0.70, "hs_pct": 0.57, "reaction_ms": 141,
+      "ping_ms": 22, "login_ip": "201.55.10.7", "device": "Windows-Desktop"
+    },
+    {
+      "match_id": "amistoso-r3", "timestamp": "2026-07-07T20:31:00",
+      "kd": 1.2, "accuracy": 0.41, "hs_pct": 0.22, "reaction_ms": 268,
+      "ping_ms": 47, "login_ip": "189.40.201.3", "device": "Windows-Desktop"
+    },
+    {
+      "match_id": "amistoso-r4", "timestamp": "2026-07-07T20:47:00",
+      "kd": 0.9, "accuracy": 0.38, "hs_pct": 0.19, "reaction_ms": 291,
+      "ping_ms": 44, "login_ip": "189.40.201.3", "device": "Windows-Desktop"
+    },
+    {
+      "match_id": "amistoso-r5", "timestamp": "2026-07-07T21:03:00",
+      "kd": 1.4, "accuracy": 0.44, "hs_pct": 0.25, "reaction_ms": 255,
+      "ping_ms": 49, "login_ip": "189.40.201.3", "device": "Windows-Desktop"
+    }
+  ]
+}

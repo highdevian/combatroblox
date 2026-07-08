@@ -16,6 +16,7 @@ Se um destes testes falhar, NÃO faça release até entender por quê.
 
 import os
 import sys
+from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -31,6 +32,18 @@ def _finding(name, items):
 def _it(label, matched, severity="medium", ts="", conf=60, detail=""):
     return {"label": label, "detail": detail, "matched": matched,
             "severity": severity, "timestamp": ts, "confidence": conf}
+
+
+def _recent(offset_secs=0):
+    """Timestamp FRESCO (2 dias atrás), relativo a agora.
+
+    Datas fixas (ex: '2026-06-03') viravam TIME-BOMB: quando a idade passa de
+    30 dias, o apply_time_decay rebaixa os hits high→medium e o veredito de
+    cheater desaba pra 'POSSÍVEIS PISTAS' — o teste apodrece sozinho conforme
+    o tempo real passa. O corpus representa um SS ATUAL, então os artefatos
+    têm que ser recentes DE VERDADE (relativos a agora), não uma data fixa."""
+    base = datetime.now() - timedelta(days=2)
+    return (base + timedelta(seconds=offset_secs)).strftime("%Y-%m-%d %H:%M:%S")
 
 
 # ============================================================================
@@ -107,22 +120,24 @@ def test_single_signed_webview_app_not_flagged_behaviorally():
 # de dar CONFIRMED, a detecção quebrou.
 
 def _cheater_findings():
+    # Timestamps FRESCOS relativos a agora (janela apertada de execução ~90s).
+    # Antes eram fixos em 2026-06-03 e o teste virava time-bomb — ver _recent().
     return [
         _finding("Prefetch", [
             _it(r"C:\Windows\Prefetch\SOLARA.EXE-A1B2C3D4.pf", "solara", "high",
-                ts="2026-06-03 14:23:00", conf=90)]),
+                ts=_recent(30), conf=90)]),
         _finding("Amcache", [
             _it(r"C:\Users\bob\AppData\Local\Solara\Solara.exe", "solara executor",
-                "high", ts="2026-06-03 14:23:05", conf=88)]),
+                "high", ts=_recent(35), conf=88)]),
         _finding("BAM", [
             _it("[BAM] solara.exe", "solara.exe", "high",
-                ts="2026-06-03 14:24:00", conf=85)]),
+                ts=_recent(90), conf=85)]),
         _finding("USN Journal", [
             _it(r"USN CREATE: C:\Users\bob\AppData\Local\Solara\Solara.exe",
-                "usn:solara", "high", ts="2026-06-03 14:22:50", conf=92)]),
+                "usn:solara", "high", ts=_recent(20), conf=92)]),
         _finding("Browser History (Chrome)", [
             _it("[Chrome DOWNLOAD] solara.exe from solara.cc", "solara", "high",
-                ts="2026-06-03 14:22:30", conf=88)]),
+                ts=_recent(0), conf=88)]),
     ]
 
 
@@ -155,3 +170,61 @@ def test_byovd_critical_alone_at_least_detected():
     clusters = ev.build_clusters(ev.findings_to_evidences(findings))
     assert clusters[0].has_critical
     assert clusters[0].verdict in ("DETECTED", "CONFIRMED")
+
+
+# ============================================================================
+#  CORPUS 3 — corroboração multi-fonte RESISTE ao time-decay
+# ============================================================================
+# O decay protege de UM artefato velho isolado. Mas o mesmo alvo em várias
+# fontes independentes é evidência forte mesmo velho — não pode colapsar.
+
+def _old(days):
+    return (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def test_old_multi_source_cheater_resists_decay():
+    """Solara em 5 fontes há 120 dias ainda TEM que acusar — corroboração
+    segura o decay (não é artefato velho isolado)."""
+    old = _old(120)
+    findings = [
+        _finding("Prefetch", [
+            _it(r"C:\Windows\Prefetch\SOLARA.EXE-A1B2C3D4.pf", "solara", "high", ts=old, conf=90)]),
+        _finding("Amcache", [
+            _it(r"C:\Users\bob\AppData\Local\Solara\Solara.exe", "solara executor", "high", ts=old, conf=88)]),
+        _finding("BAM", [
+            _it("[BAM] solara.exe", "solara.exe", "high", ts=old, conf=85)]),
+        _finding("USN Journal", [
+            _it(r"USN CREATE: C:\Users\bob\AppData\Local\Solara\Solara.exe", "usn:solara", "high", ts=old, conf=92)]),
+        _finding("Browser History (Chrome)", [
+            _it("[Chrome DOWNLOAD] solara.exe from solara.cc", "solara", "high", ts=old, conf=88)]),
+    ]
+    fp_filter._dev_cache = {"is_dev": False, "evidence": []}
+    processed, _ = fp_filter.post_process_findings(findings)
+    sev = [i["severity"] for f in processed for i in f["items"]]
+    assert all(s == "high" for s in sev), f"corroboração devia segurar o decay: {sev}"
+    v = fp_filter.compute_verdict(processed)
+    assert v["verdict"] in ("CHEATER CONFIRMADO", "ALTAMENTE SUSPEITO"), v["verdict"]
+
+
+def test_old_isolated_hit_still_decays():
+    """Hit velho ISOLADO (1 fonte) continua decaindo — proteção de FP intacta."""
+    findings = [_finding("Amcache", [
+        _it(r"C:\Users\x\AppData\Local\Temp\old.exe", "synapse", "high", ts=_old(120), conf=80)])]
+    fp_filter._dev_cache = {"is_dev": False, "evidence": []}
+    processed, _ = fp_filter.post_process_findings(findings)
+    sev = processed[0]["items"][0]["severity"]
+    assert sev == "low", f"hit isolado velho devia decair pra low, veio {sev}"
+
+
+def test_apply_time_decay_corroboration_levels():
+    old60, old120 = _old(60), _old(120)          # 30-90d e >90d
+    # 1 fonte: decay cheio
+    assert fp_filter.apply_time_decay("high", old60, 1)[0] == "medium"
+    assert fp_filter.apply_time_decay("high", old120, 1)[0] == "low"
+    # 2 fontes: atenua um nível
+    assert fp_filter.apply_time_decay("high", old60, 2)[0] == "high"     # 1-1 = 0 níveis
+    assert fp_filter.apply_time_decay("high", old120, 2)[0] == "medium"  # 2-1 = 1 nível
+    # 3+ fontes: não decai
+    assert fp_filter.apply_time_decay("high", old120, 3)[0] == "high"
+    # recente: nunca decai, independente de fonte
+    assert fp_filter.apply_time_decay("high", _recent(0), 1)[0] == "high"

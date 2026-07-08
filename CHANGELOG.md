@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.43.0] - 2026-07-07
+
+**Costura de operador (`--seam`)** — nova categoria de detecção pra conta
+revezada/pilotada entre partidas: o xitado joga na conta de um membro limpo,
+sai, e o dono limpo joga o resto. A tela ao vivo só prova quem controla a
+conta AGORA, não o passado — então isso escapa da SS normal. Além disso, o
+time-decay do `fp_filter` passou a resistir a corroboração multi-fonte.
+
+### Novo
+
+- **`seam_scanner.py`**: detecta troca de operador numa série de partidas.
+  Acha a costura (degrau de skill via z-score + d de Cohen entre dois blocos
+  contíguos) e corrobora com `login_ip`/`device` do histórico de login do
+  Roblox e `ping_ms`. Costura corroborada por IP/dispositivo = `critical`.
+  Consome um JSON de partidas (ver `seam.example.json`); é data-driven, então
+  NÃO entra no auto-scan de zero-arg — é ligado por `--seam <arquivo.json>` e
+  roda na chain do telador como qualquer scanner (console, veredito,
+  HTML/JSON/MD).
+- Gate de magnitude absoluta + bloco mínimo de 2 partidas pra costura só-skill
+  (corroborado por IP passa com 1) — mata FP de "esquenta" e de jogo isolado.
+
+### Confidence Engine
+
+- **`evidence.py`**: novo kind `operator_swap` e fonte `operator_seam` (peso
+  0.90). Toda evidência `seam-*` agrupa num alvo dedicado ("Troca de operador").
+
+### Anti-FP
+
+- **Decay ciente de corroboração** (`fp_filter.py`): o MESMO alvo visto em ≥3
+  fontes independentes não decai com a idade (5 fontes num Solara de 4 meses
+  ainda é cheater); 2 fontes atenuam um nível; 1 fonte (artefato velho isolado)
+  decai cheio, como antes. A contagem de fontes reusa o clustering do
+  Confidence Engine (merge path→executor), pra não fragmentar. A costura é
+  isenta de decay — ali o timestamp é a hora da partida, não idade de artefato.
+
+### Testes
+
+- `tests/test_seam.py`: 28 testes da costura de operador.
+- `tests/test_corpus.py`: corrige um teste time-bomb (o corpus de cheater usava
+  timestamps fixos que envelheciam além do limiar do decay e faziam o teste
+  falhar sozinho com o tempo — agora relativos a `now()`) e cobre a resistência
+  de corroboração ao decay.
+
 ## [3.42.1] - 2026-06-30
 
 **Hardening do `scan_windows_events`** — smoke test do dono na própria máquina
