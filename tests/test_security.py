@@ -72,6 +72,26 @@ def test_redacts_cpf_and_card():
     assert "[CARD]" in redaction.redact("cartao 1234 5678 9012 3456")
 
 
+def test_redacts_discord_webhook():
+    # URL de webhook (id + token no path) vaza acesso de POST no canal. Montada
+    # de PARTES com valores fake pra nenhum literal de segredo entrar no repo
+    # (o push protection do GitHub flaga webhook mesmo sintetico contiguo).
+    fake_id, fake_token = "1" * 18, "AbC" + "x" * 60
+    url = "https://discord.com/api/webhooks/" + fake_id + "/" + fake_token
+    out = redaction.redact(f'Invoke-RestMethod -Uri "{url}" -Method POST')
+    assert fake_token not in out            # token some
+    assert fake_id not in out               # id some junto
+    assert "[WEBHOOK-REDACTED]" in out
+
+
+def test_redacts_slack_webhook():
+    fake_path, fake_token = "T0/B0/", "z" * 24
+    url = "https://hooks.slack.com/services/" + fake_path + fake_token
+    out = redaction.redact(f"curl -X POST {url}")
+    assert fake_token not in out
+    assert "[WEBHOOK-REDACTED]" in out
+
+
 def test_does_not_touch_benign_text():
     benign = r"C:\Users\bob\AppData\Local\Solara\Solara.exe"
     assert redaction.redact(benign) == benign

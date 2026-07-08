@@ -216,6 +216,30 @@ def test_old_isolated_hit_still_decays():
     assert sev == "low", f"hit isolado velho devia decair pra low, veio {sev}"
 
 
+def test_cross_correlate_ignores_all_low_dualuse():
+    """Dual-use LOW em 6 fontes (Process Hacker num PC de dev) NÃO pode virar
+    'ALTA CONFIANÇA' — LOW é ambíguo por definição. Reproduz o FP do owner."""
+    import telador
+    findings = [
+        _finding(src, [_it("ProcessHacker.exe", "process hacker", "low")])
+        for src in ("MuiCache", "UserAssist", "BAM", "ShimCache", "Lixeira", "Pastas")
+    ]
+    hc = telador.cross_correlate(findings)
+    assert "process hacker" not in hc, "dual-use LOW em N fontes não é alta confiança"
+
+
+def test_cross_correlate_flags_real_medium_multi_source():
+    """Mas alvo com severidade real (>= medium) em 3+ fontes continua alta
+    confiança — o cheater que esqueceu de limpar alguns rastros."""
+    import telador
+    findings = [
+        _finding("Prefetch", [_it("solara.exe", "solara", "high")]),
+        _finding("Amcache", [_it("solara.exe", "solara", "high")]),
+        _finding("BAM", [_it("solara.exe", "solara", "medium")]),
+    ]
+    assert "solara" in telador.cross_correlate(findings)
+
+
 def test_apply_time_decay_corroboration_levels():
     old60, old120 = _old(60), _old(120)          # 30-90d e >90d
     # 1 fonte: decay cheio

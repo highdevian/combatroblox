@@ -31,6 +31,12 @@ PATTERNS = [
     (re.compile(r"\bAIza[A-Za-z0-9_\-]{30,}\b"), "AIza_[REDACTED]"),
     # AWS access key
     (re.compile(r"\bAKIA[A-Z0-9]{16}\b"), "AKIA[REDACTED]"),
+    # Discord/Slack webhook URLs (id + token no path) — vazam acesso de POST no
+    # canal. Regex do webhook ANTES do token de bot pra casar a URL inteira.
+    (re.compile(r"https?://(?:\w+\.)?discord(?:app)?\.com/api/(?:v\d+/)?webhooks/\d+/[\w-]{20,}", re.I),
+     "https://discord.com/api/webhooks/[WEBHOOK-REDACTED]"),
+    (re.compile(r"https?://hooks\.slack\.com/services/[A-Za-z0-9+/_-]{20,}", re.I),
+     "https://hooks.slack.com/services/[WEBHOOK-REDACTED]"),
     # Discord bot/user tokens (heuristic - long base64-ish strings after specific keywords)
     (re.compile(r"\b(M[A-Za-z\d]{23}\.[\w-]{6}\.[\w-]{27,})\b"), "[DISCORD-TOKEN-REDACTED]"),
     # Emails (mantém domain pra contexto, redige local-part)

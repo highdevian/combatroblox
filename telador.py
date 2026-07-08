@@ -109,7 +109,7 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
-    print(f"{GREY}  v3.43.0  ·  Confidence Engine  ·  100% local{RESET}\n")
+    print(f"{GREY}  v3.43.1  ·  Confidence Engine  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -344,10 +344,13 @@ def cross_correlate(findings: list) -> dict:
             if order.get(sev, 0) > order.get(entry["worst_severity"], 0):
                 entry["worst_severity"] = sev
 
-    # Filtra: só keywords que aparecem em 3+ scanners
+    # Filtra: keyword em 3+ scanners E com severidade real (>= medium). Um sinal
+    # que é LOW em TODAS as fontes é ambíguo/dual-use (ex: Process Hacker num PC
+    # de dev) — aparecer em 6 lugares não o torna "alta confiança", só presente
+    # em vários lugares. Sem isso, ferramenta legítima vira acusação falsa.
     high_confidence = {
         kw: info for kw, info in by_keyword.items()
-        if len(info["sources"]) >= 3
+        if len(info["sources"]) >= 3 and info["worst_severity"] != "low"
     }
     return high_confidence
 

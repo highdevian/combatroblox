@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.43.1] - 2026-07-07
+
+**Fixes de FP e vazamento** achados no smoke test do dono na própria máquina
+(um PC de dev limpo dava "ALTAMENTE SUSPEITO" e o relatório expunha um webhook).
+
+### Segurança / redação
+
+- **`redaction.py`**: mascara URLs de webhook do Discord e do Slack
+  (`discord.com/api/webhooks/<id>/<token>`, `hooks.slack.com/services/...`).
+  Antes, um `Invoke-RestMethod` pra webhook no histórico do PowerShell vazava
+  o token INTEIRO no relatório — que é feito justamente pra ser compartilhado.
+
+### Anti-FP
+
+- **`cross_correlate` ciente de severidade** (`telador.py`): um alvo que é LOW
+  em TODAS as fontes não vira mais "ALTA CONFIANÇA" só por aparecer em 3+
+  lugares. LOW é ambíguo por definição (ferramenta dual-use tipo Process
+  Hacker/System Informer num PC de dev) — cross-correlacionar ambíguo não
+  fabrica confiança. Alvo com severidade real (>= medium) em 3+ fontes
+  continua sinalizado.
+
 ## [3.43.0] - 2026-07-07
 
 **Costura de operador (`--seam`)** — nova categoria de detecção pra conta
