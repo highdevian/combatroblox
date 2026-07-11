@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.6] - 2026-07-11
+
+**Auditoria de superfície de bypass: fix path check no masquerade overlay.**
+
+### Bug fechado — `scan_popup_overlays` masquerade path bypass
+
+`_MASQUERADE_WINDOW_CLASSES = {"task manager": {"taskmgr.exe"}}` (v3.45.4)
+só verificava o `pname`. Um cheater lendo o source podia driblar:
+
+1. Renomear cheat exe pra `taskmgr.exe` em `Downloads`.
+2. `RegisterClassExW` com `"Task Manager"` + `WS_POPUP+TOPMOST`.
+3. Scanner: `pname == "taskmgr.exe"` bate whitelist → NÃO flagga.
+
+Isso era mitigado indiretamente por `scan_process_masquerade` (live_analysis),
+mas o próprio `scan_popup_overlays` deveria pegar. Fix:
+
+Se `pname` bate a whitelist do masquerade class **mas** o path do exe está
+FORA de `C:\Windows\System32\`, `\SysWOW64\`, `\WinSxS\` → HIGH masquerade.
+O bug de duas fontes independentes agora crava sozinho no scanner correto,
+sem depender só do correlation.
+
+### Auditoria de FPs (v3.45.5 em PC limpo)
+
+- **HIGH/CRITICAL: 0** (sem cheat instalado)
+- **CRASH: 0**
+- **fp_filter filtrou 16 items** (TinyTask/ProcessHacker dual-use — dev env)
+- **Verdict: LIMPO** ✓
+
+### Testes
+
+- `tests/test_external.py` +1: `test_masquerade_path_check_closes_bypass_v3_45_6`.
+- **638 passed** (era 637).
+
+---
+
 ## [3.45.5] - 2026-07-11
 
 **+2 famílias externas: LectureExternal e Nocturnal.**

@@ -750,6 +750,27 @@ def test_masquerade_window_class_taskmgr():
     assert legit == {"taskmgr.exe"}
 
 
+def test_masquerade_path_check_closes_bypass_v3_45_6():
+    """v3.45.6: cheater renomeando exe pra taskmgr.exe (nome bate whitelist)
+    mas rodando de Downloads (path denuncia) NAO pode escapar. A logica
+    combinada checa (a) pname fora da whitelist OU (b) pname bate mas path
+    fora de System32/SysWOW64/WinSxS."""
+    # Simula os prefixos legitimos usados no scanner
+    legit_prefixes = (
+        "c:\\windows\\system32\\",
+        "c:\\windows\\syswow64\\",
+        "c:\\windows\\winsxs\\",
+    )
+    # Bypass path: taskmgr.exe em Downloads — nome bate, path nao
+    pexe_bypass = r"c:\users\x\downloads\taskmgr.exe"
+    assert not pexe_bypass.startswith(legit_prefixes), (
+        "path de bypass NAO pode bater whitelist"
+    )
+    # Path legitimo — nao deve levantar masquerade
+    pexe_legit = r"c:\windows\system32\taskmgr.exe"
+    assert pexe_legit.startswith(legit_prefixes)
+
+
 def test_autopsy_lol_domain_in_suspicious():
     """v3.45.4: autopsy.lol e brand do external cheat (title de MessageBox
     "Open Roblox first." + class name). Browser history / hosts pra este

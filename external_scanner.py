@@ -2045,9 +2045,15 @@ def scan_popup_overlays() -> dict:
             seen_pids.add(pid_val)
 
             try:
-                pname = psutil.Process(pid_val).name().lower()
+                _proc = psutil.Process(pid_val)
+                pname = (_proc.name() or "?").lower()
+                try:
+                    pexe = (_proc.exe() or "").lower().replace("/", "\\")
+                except (psutil.AccessDenied, PermissionError):
+                    pexe = ""
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pname = "?"
+                pexe = ""
 
             if pname in _POPUP_OVERLAY_WHITELIST:
                 return True
@@ -2078,13 +2084,28 @@ def scan_popup_overlays() -> dict:
                 matched = f"popup-overlay-framework:{cls_low}:{pname}"
             # Detecção de masquerade: class name imita app do Windows (ex.
             # "Task Manager") mas o processo NÃO é o legítimo daquela class.
-            # Layuh (github.com/Russtels/Layuh-Roblox) usa exatamente esse
-            # truque, criando WNDCLASS "Task Manager" (obfuscada) pra passar
-            # despercebida no radar visual. Legítimo é criado só por taskmgr.exe.
+            # Layuh (github.com/Russtels/Layuh-Roblox) usa esse truque criando
+            # WNDCLASS "Task Manager" (obfuscada). Detecção em dois canais:
+            #   (a) pname fora da whitelist de exes legítimos, OU
+            #   (b) pname bate mas o exe path está FORA de System32/SysWOW64
+            #       (v3.45.6: fecha o bypass "renomear cheat pra taskmgr.exe
+            #       em Downloads" — o pname bate, mas o path denuncia).
             legit_exes = _MASQUERADE_WINDOW_CLASSES.get(cls_low)
-            if legit_exes is not None and pname not in legit_exes:
-                severity = "high"
-                matched = f"popup-overlay-masquerade:{cls_low}:{pname}"
+            if legit_exes is not None:
+                is_masquerade = pname not in legit_exes
+                if not is_masquerade and pexe:
+                    # pname bate whitelist — checa se o exe está no path certo
+                    # de System32/SysWOW64/WinSxS (onde vive o legítimo).
+                    _legit_prefixes = (
+                        "c:\\windows\\system32\\",
+                        "c:\\windows\\syswow64\\",
+                        "c:\\windows\\winsxs\\",
+                    )
+                    if not pexe.startswith(_legit_prefixes):
+                        is_masquerade = True
+                if is_masquerade:
+                    severity = "high"
+                    matched = f"popup-overlay-masquerade:{cls_low}:{pname}"
 
             items.append(_item(
                 label=f"Overlay POPUP+TOPMOST: {pname}",
