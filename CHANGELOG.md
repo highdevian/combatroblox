@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.44.3] - 2026-07-11
+
+**Anti-FP: TinyTask some no PC de dev (supervisor); em cheater continua.**
+
+- `DEV_SUPPRESS_KEYWORDS` no fp_filter: `tinytask` é removido do report
+  quando o ambiente é de desenvolvimento (VS/JetBrains/Git/etc).
+- Em máquina sem indicadores de dev, TinyTask segue MEDIUM multi-fonte.
+
 ## [3.44.2] - 2026-07-11
 
 **Anti-FP: allowlist de domínios quebra com BOM; exclusão Desktop não é HIGH.**

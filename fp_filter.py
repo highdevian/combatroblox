@@ -309,7 +309,30 @@ DEV_AMBIGUOUS_KEYWORDS = {
     "x32dbg.exe", "x64dbg.exe", "ollydbg.exe", "windbg.exe",
     "scylla.exe", "pe-bear.exe", "die.exe",
     "dll injector", "codex",
+    # Macro tools (dual-use): rebaixa em dev; em cheater continua MEDIUM
+    "tinytask", "tinytask.exe",
+    "autoclicker", "auto clicker", "op auto clicker",
 }
+
+# Em PC de DEV (Telador do supervisor), esconde TOTALmente — não polui o
+# report do próprio dono. Em PC de suspeito (não-dev) o match continua.
+# Cheater com TinyTask SEM IDE/JetBrains/etc ainda leva MEDIUM em 4 fontes.
+DEV_SUPPRESS_KEYWORDS = {
+    "tinytask", "tinytask.exe",
+}
+
+
+def _matched_is_suppressed(matched: str, suppress: set) -> bool:
+    m = (matched or "").lower().strip()
+    if not m:
+        return False
+    if m in suppress:
+        return True
+    # "tinytask" casa "tinytask-1.77-installer" via token
+    for tok in suppress:
+        if tok and tok in m:
+            return True
+    return False
 
 
 def adjust_for_dev_env(item: dict, is_dev: bool) -> tuple[dict, str | None]:
@@ -432,6 +455,13 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
             else:
                 wl = False
             if wl:
+                continue
+
+            # 1b. Em PC de dev: some dual-use do dono (TinyTask etc.) — não
+            # polui report. Em suspeito sem ambiente de dev, continua.
+            if dev["is_dev"] and _matched_is_suppressed(
+                    item.get("matched") or "", DEV_SUPPRESS_KEYWORDS):
+                stats["items_whitelisted"] += 1
                 continue
 
             # 2. Browser smart context
