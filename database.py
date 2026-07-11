@@ -780,6 +780,10 @@ SUSPICIOUS_DOMAINS = {
     "imtheo.lol":           "high",
     "rbxoffsets.com":       "high",
     "robloxoffsets.com":    "high",
+    # autopsy.lol — brand direta do external cheat pwpo/autopsy. Aparece como
+    # title de MessageBox ("Open Roblox first.") + class name da window ImGui.
+    # Um browser history pra este domínio ou hosts file referencia = cheater.
+    "autopsy.lol":          "high",
 
     # Marketplaces / forums grayhat
     "elitepvpers.com":      "medium",

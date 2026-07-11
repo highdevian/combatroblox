@@ -1874,6 +1874,18 @@ WS_EX_NOACTIVATE  = 0x08000000
 _KNOWN_EXTERNAL_WINDOW_CLASSES = {
     "glfw30",         # padrão da biblioteca GLFW (nord-external usa)
     "glfwwindow",     # variante
+    "autopsy.lol",    # v3.45.4 — janela literal do autopsy (pwpo/autopsy)
+}
+
+# Class names que EXTERNAL CHEATS usam como DISFARCE — batem com nome de app
+# do Windows mas o processo dono NÃO é o legítimo. Cada entrada:
+#   "class_name_lower": {"legit_exe_lower", ...}  (os EXEs que legitimamente
+# criam janela com essa class)
+# Se class name bate mas o process não está em legit_exes → HIGH masquerade.
+# Extraído de Layuh (github.com/Russtels/Layuh-Roblox) que usa class name
+# "Task Manager" (obfuscada com oxorany) pra imitar o Task Manager do Windows.
+_MASQUERADE_WINDOW_CLASSES = {
+    "task manager": {"taskmgr.exe"},
 }
 
 
@@ -2016,14 +2028,23 @@ def scan_popup_overlays() -> dict:
 
             # Escalador por class name conhecido de framework de external ESP.
             # GLFW30 = biblioteca GLFW cria janelas com essa class (repo
-            # github.com/nordlol/nord-external usa GLFW pra renderer).
-            # Aparecer POPUP+TOPMOST GLFW30 fora da whitelist é assinatura
-            # forte de external ESP — sobe pra HIGH em vez de MEDIUM.
+            # github.com/nordlol/nord-external usa GLFW pra renderer). Class
+            # name "autopsy.lol" = literal do autopsy. Aparecer POPUP+TOPMOST
+            # com uma dessas fora da whitelist é assinatura forte de external.
             severity = "medium"
             matched = f"popup-overlay:{pname}"
             if cls_low in _KNOWN_EXTERNAL_WINDOW_CLASSES:
                 severity = "high"
                 matched = f"popup-overlay-framework:{cls_low}:{pname}"
+            # Detecção de masquerade: class name imita app do Windows (ex.
+            # "Task Manager") mas o processo NÃO é o legítimo daquela class.
+            # Layuh (github.com/Russtels/Layuh-Roblox) usa exatamente esse
+            # truque, criando WNDCLASS "Task Manager" (obfuscada) pra passar
+            # despercebida no radar visual. Legítimo é criado só por taskmgr.exe.
+            legit_exes = _MASQUERADE_WINDOW_CLASSES.get(cls_low)
+            if legit_exes is not None and pname not in legit_exes:
+                severity = "high"
+                matched = f"popup-overlay-masquerade:{cls_low}:{pname}"
 
             items.append(_item(
                 label=f"Overlay POPUP+TOPMOST: {pname}",

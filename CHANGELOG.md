@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.4] - 2026-07-11
+
+**Window class names direto do fonte: `autopsy.lol` + masquerade "Task Manager".**
+
+Análise do source de `github.com/pwpo/autopsy` e `github.com/Russtels/Layuh-Roblox`
+(via `gh api search/code`) revelou **os nomes exatos das WNDCLASS** que os
+externals registram — IoCs muito mais fortes que match por process name.
+
+### `_KNOWN_EXTERNAL_WINDOW_CLASSES` (+1)
+
+- **`autopsy.lol`** — extraído de `autopsy/src/ui/graphic.cpp`:
+  ```cpp
+  Detail->WindowClass.lpszClassName = "autopsy.lol";
+  RegisterClassExA(&Detail->WindowClass);
+  Detail->Window = CreateWindowExA(... WS_POPUP, ...);
+  ```
+  Uma janela POPUP+TOPMOST com class literal `autopsy.lol` = crava. Zero FP.
+
+### `_MASQUERADE_WINDOW_CLASSES` (NOVO — 1 entrada)
+
+Layuh (`Layuh-Roblox/Layuh/cheat/menu/ui/render/overlay.cpp`) registra:
+```cpp
+WNDCLASSEXW wc = { ..., oxorany(L"Task Manager"), nullptr };
+::RegisterClassExW(&wc);
+::CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, wc.lpszClassName,
+                  oxorany(L"Task Manager"), WS_POPUP, ...);
+```
+
+O cheat cria uma janela com **classe e título "Task Manager"** — imita o
+Task Manager do Windows pra passar despercebido no SS visual. A obfuscação
+com `oxorany` só protege o binário; em runtime a class exposta é a string
+plain.
+
+Novo mapa `_MASQUERADE_WINDOW_CLASSES = {"task manager": {"taskmgr.exe"}}`:
+se `GetClassNameW` bate `Task Manager` mas o processo dono não é
+`taskmgr.exe` → HIGH masquerade. Match: `popup-overlay-masquerade:task manager:<pname>`.
+
+### `SUSPICIOUS_DOMAINS` (+1)
+
+- **`autopsy.lol`** — brand do cheat, aparece como title da `MessageBoxA(...,
+  "Open Roblox first.", "autopsy.lol", ...)` no `src/main.cpp`. DNS cache /
+  browser history / hosts file com este domínio = cheater tocou o autopsy.
+
+### Testes
+
+- `tests/test_external.py` +3: `test_autopsy_lol_window_class_registered`,
+  `test_masquerade_window_class_taskmgr`, `test_autopsy_lol_domain_in_suspicious`.
+- **632 passed** (era 629).
+
+### Contagem
+
+- `_KNOWN_EXTERNAL_WINDOW_CLASSES`: 2 → 3.
+- `_MASQUERADE_WINDOW_CLASSES`: 0 → 1 (novo mapa).
+- `SUSPICIOUS_DOMAINS`: 141 → **142**.
+
+---
+
 ## [3.45.3] - 2026-07-11
 
 **Aimbot Luau: 6 IoCs de APIs de executor pra aimbot/ESP.**

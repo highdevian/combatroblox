@@ -735,6 +735,29 @@ def test_glfw_window_class_escalates_popup_overlay():
     assert "glfwwindow" in es._KNOWN_EXTERNAL_WINDOW_CLASSES
 
 
+def test_autopsy_lol_window_class_registered():
+    """v3.45.4: Autopsy usa class name literal "autopsy.lol" (extraido de
+    src/ui/graphic.cpp em github.com/pwpo/autopsy)."""
+    assert "autopsy.lol" in es._KNOWN_EXTERNAL_WINDOW_CLASSES
+
+
+def test_masquerade_window_class_taskmgr():
+    """v3.45.4: Layuh (github.com/Russtels/Layuh-Roblox) registra WNDCLASS
+    com lpszClassName = oxorany(L"Task Manager") pra imitar o Task Manager.
+    Class Task Manager legitima e criada SO pelo taskmgr.exe."""
+    assert "task manager" in es._MASQUERADE_WINDOW_CLASSES
+    legit = es._MASQUERADE_WINDOW_CLASSES["task manager"]
+    assert legit == {"taskmgr.exe"}
+
+
+def test_autopsy_lol_domain_in_suspicious():
+    """v3.45.4: autopsy.lol e brand do external cheat (title de MessageBox
+    "Open Roblox first." + class name). Browser history / hosts pra este
+    dominio = cheater."""
+    from database import SUSPICIOUS_DOMAINS
+    assert SUSPICIOUS_DOMAINS.get("autopsy.lol") == "high"
+
+
 def test_keyauth_domains_in_suspicious():
     """KeyAuth SaaS de DRM usado por ~todo external pago (Layuh etc).
     Deteccao via DNS cache / network / browser history."""
