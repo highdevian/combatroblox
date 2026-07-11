@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.1] - 2026-07-11
+
+**Anti-FP CRITICAL: System (PID 4) e RobloxCrashHandler no handle scan.**
+
+- Whitelist `system` / PID 0+4 e `robloxcrashhandler.exe` (dump legítimo).
+- Auditoria máquina limpa pós-fp_filter: **0 hits visíveis**.
+
 ## [3.45.0] - 2026-07-11
 
 **External residual: Roblox FECHADO + SS pós-limpa (Winter-class).**

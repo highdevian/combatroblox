@@ -1077,6 +1077,10 @@ def _roblox_object_addresses(roblox_pids: list[int], all_handles: list = None) -
 
 # Processos que legitimamente abrem handles pro Roblox (não flagga).
 _HANDLE_WHITELIST = {
+    # Kernel / sistema (PID 4 "System" e irmãos — SEMPRE têm handles em tudo)
+    "system", "registry", "smss.exe", "csrss.exe", "wininit.exe",
+    "services.exe", "lsass.exe", "winlogon.exe", "fontdrvhost.exe",
+    "memory compression", "secure system",
     # AV / EDR
     "msmpeng.exe", "mssense.exe", "windefend.exe", "sense.exe",
     "avastsvc.exe", "avguard.exe", "mcshield.exe", "mbam.exe",
@@ -1088,8 +1092,9 @@ _HANDLE_WHITELIST = {
     # Shell / gerenciadores comuns que abrem handles limitados
     "explorer.exe", "taskmgr.exe", "sihost.exe", "dwm.exe",
     "searchindexer.exe", "csrss.exe",
-    # O próprio Roblox / Bloxstrap
+    # O próprio Roblox / Bloxstrap / crash handler (abre handle no Beta pra dump)
     "robloxplayerbeta.exe", "robloxplayerlauncher.exe",
+    "robloxcrashhandler.exe", "robloxstudiobeta.exe",
     "bloxstrap.exe", "fishstrap.exe",
     # Overlays legítimos
     "discord.exe", "nvcontainer.exe", "steam.exe", "rtss.exe",
@@ -1099,6 +1104,9 @@ _HANDLE_WHITELIST = {
     # Dev / shell
     "python.exe", "pythonw.exe",
 }
+
+# PIDs de kernel que nunca são external (mesmo se o nome vier "?")
+_HANDLE_WHITELIST_PIDS = frozenset({0, 4})  # Idle + System
 
 # Prefixos do próprio Telador (telador.exe, telador (64).exe, telador-3.44.0.exe…)
 _SELF_NAME_PREFIXES = ("telador", "combatroblox")
@@ -1196,6 +1204,10 @@ def scan_external_process_handles() -> dict:
             continue
         seen_owners.add(owner_pid)
 
+        # Kernel / System — nunca external
+        if owner_pid in _HANDLE_WHITELIST_PIDS:
+            continue
+
         # Resolve nome/exe do dono
         pname = "?"
         pexe = ""
@@ -1210,6 +1222,11 @@ def scan_external_process_handles() -> dict:
             pass
 
         if _is_process_whitelisted(pname, _HANDLE_WHITELIST, pexe):
+            continue
+        # crash handler e helpers Roblox (nome pode vir com path)
+        if "roblox" in pname and any(
+            x in pname for x in ("crash", "handler", "launcher", "player", "studio")
+        ):
             continue
 
         # Descreve o acesso

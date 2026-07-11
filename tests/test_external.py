@@ -211,6 +211,10 @@ def test_handle_whitelist_covers_av_and_debug_tools():
     assert "code.exe" in es._HANDLE_WHITELIST
     # E o próprio Roblox
     assert "robloxplayerbeta.exe" in es._HANDLE_WHITELIST
+    # FP CRITICAL: System (PID 4) e crash handler oficiais
+    assert "system" in es._HANDLE_WHITELIST
+    assert "robloxcrashhandler.exe" in es._HANDLE_WHITELIST
+    assert 4 in es._HANDLE_WHITELIST_PIDS
 
 
 def test_self_process_whitelist_covers_telador_variants():
