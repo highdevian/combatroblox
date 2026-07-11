@@ -1230,16 +1230,23 @@
             <div class="nav-group">
                 <div class="nav-group-title">Scanners ({{ findings|length }})</div>
                 {% for f in findings %}
-                {% set n_items = f.get('items', [])|length %}
-                {% set slug = f.name.lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-") %}
-                {% set worst = namespace(val='none') %}
+                {# Ignora meta_only na contagem: são items informativos
+                   (ex: "Roblox está rodando", "allowlist configurada") — não
+                   são hits que precisam de badge/coloração no menu. O painel
+                   principal segue mostrando eles. #}
+                {% set ns = namespace(count=0, worst='none') %}
                 {% for i in f.get('items', []) %}
-                    {% if i.get('severity') == 'high' %}{% set worst.val = 'high' %}{% endif %}
-                    {% if i.get('severity') == 'medium' and worst.val != 'high' %}{% set worst.val = 'medium' %}{% endif %}
-                    {% if i.get('severity') == 'low' and worst.val == 'none' %}{% set worst.val = 'low' %}{% endif %}
+                    {% if not i.get('meta_only') %}
+                        {% set ns.count = ns.count + 1 %}
+                        {% if i.get('severity') == 'high' %}{% set ns.worst = 'high' %}{% endif %}
+                        {% if i.get('severity') == 'medium' and ns.worst != 'high' %}{% set ns.worst = 'medium' %}{% endif %}
+                        {% if i.get('severity') == 'low' and ns.worst == 'none' %}{% set ns.worst = 'low' %}{% endif %}
+                    {% endif %}
                 {% endfor %}
+                {% set n_items = ns.count %}
+                {% set slug = f.name.lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-") %}
                 <a href="#scan-{{ slug }}" class="nav-link {% if n_items > 0 %}nav-hit{% else %}nav-clean{% endif %}">
-                    <span class="mini-sev mini-{{ worst.val }}" aria-hidden="true"></span>
+                    <span class="mini-sev mini-{{ ns.worst }}" aria-hidden="true"></span>
                     <span class="nav-link-label">{{ f.name }}</span>
                     {% if n_items > 0 %}<span class="nav-badge">{{ n_items }}</span>{% endif %}
                 </a>

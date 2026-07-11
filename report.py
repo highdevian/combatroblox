@@ -209,8 +209,19 @@ def _render_section(finding: dict) -> str:
     name = _escape(finding["name"])
     desc = _escape(finding["description"])
     status = finding["status"]
+    # Items informativos (meta_only=True) NÃO são suspeitos — são contexto
+    # (ex: "Roblox está rodando", "15 domínios na allowlist"). Se um scanner
+    # ficou só com meta_only pós-FP, o card não deve gritar "SUSPEITO".
+    all_items = finding.get("items", [])
+    n_real = sum(1 for i in all_items if not i.get("meta_only"))
+    n_meta = sum(1 for i in all_items if i.get("meta_only"))
+    if status == "suspicious" and n_real == 0 and n_meta > 0:
+        status = "clean"
+        summary_text = f"{n_meta} item(s) de contexto (informativo, sem hit real)"
+    else:
+        summary_text = finding["summary"]
     badge_text, badge_color = STATUS_BADGE.get(status, ("?", "#888"))
-    summary = _escape(finding["summary"])
+    summary = _escape(summary_text)
 
     rows = []
     sev_rank = {"high": 3, "medium": 2, "low": 1}
@@ -344,14 +355,17 @@ def _render_session(info: dict, exe_hash: str = "") -> str:
 
 
 def _render_summary(findings: list[dict], verdict: dict = None) -> str:
-    total = sum(len(f["items"]) for f in findings)
+    # Conta só items "reais" (ignora meta_only, que são contexto informativo,
+    # não hits — bate com o cálculo de items_out no fp_filter).
+    total = sum(1 for f in findings for i in f["items"] if not i.get("meta_only"))
     errors = sum(1 for f in findings if f["status"] == "error")
 
     if verdict is None:
-        # Fallback: usa contagem simples se não passou verdict
-        high = sum(1 for f in findings for i in f["items"] if i.get("severity") == "high")
-        med  = sum(1 for f in findings for i in f["items"] if i.get("severity") == "medium")
-        low  = sum(1 for f in findings for i in f["items"] if i.get("severity") == "low")
+        # Fallback: usa contagem simples se não passou verdict — igual, ignora meta.
+        def _real(items): return [i for i in items if not i.get("meta_only")]
+        high = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "high")
+        med  = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "medium")
+        low  = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "low")
         verdict = {
             "verdict": "LIMPO" if not (high + med + low) else "REVISAR",
             "color": INK_CLEAN,

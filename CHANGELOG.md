@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.9] - 2026-07-11
+
+**Fix HTML report: badges/contadores agora ignoram items informativos (meta_only).**
+
+### O que estava confuso
+
+CLI dizia `[FP] 22 → 0` (zero hits pós-filtro) e o painel mostrava
+"Nenhum vestígio encontrado nesta categoria". Mas o menu lateral tinha
+badges vermelhos: `DLL Injection (Roblox) 2`, `Allowlist de domínios 1`.
+
+O supervisor não sabia: "tá limpo ou tem 2 hits em DLL Injection?"
+
+### Causa
+
+Alguns items são marcados `meta_only=True` — contexto informativo, não
+hits reais. Exemplos:
+- `roblox-running` (só sinaliza que o Roblox está aberto)
+- `trusted-domains-active` (só informa que a allowlist tem N domínios)
+- `access-denied` (avisa que sem admin não leu certo scanner)
+
+`fp_filter.compute_verdict` já ignorava esses (o `22 → 0` estava correto),
+mas 3 lugares do relatório HTML **não** ignoravam:
+- badge de contagem no menu lateral (`nav-badge`)
+- bolinha de severidade no menu lateral (`mini-sev`)
+- contador de "Hits totais" e H/M/L do bloco "Detalhes técnicos"
+
+### Fix
+
+Todos os 3 pontos agora filtram `meta_only=True`:
+
+1. `templates/report.html` — menu lateral usa um loop com namespace que só
+   conta e colore por items non-meta_only.
+2. `report.py::_render_summary` — `total`, `high`, `medium`, `low`
+   ignoram meta_only (bate com o cálculo do fp_filter).
+3. `report.py::_render_section` — se um scanner ficou pós-FP só com
+   items meta_only, o card é rebaixado pra status `clean` com summary
+   "N item(s) de contexto (informativo, sem hit real)" em vez de
+   "SUSPEITO" com badge vermelho.
+
+### Impacto
+
+- Menu, contadores e cards agora batem com o veredito final da CLI.
+- Items meta_only continuam aparecendo no painel (contexto útil de leitura),
+  só não disparam badge falso de "hit".
+- 638 testes passando.
+
+---
+
 ## [3.45.8] - 2026-07-11
 
 **Amcache fix parte 2: copia hive + transaction logs (LOG1/LOG2) juntos.**
