@@ -80,6 +80,9 @@ python -m PyInstaller ^
     --hidden-import evidence ^
     --hidden-import watch_server ^
     --hidden-import sigupdate ^
+    --hidden-import external_scanner ^
+    --hidden-import anti_forensic_deep ^
+    --hidden-import scanner_registry ^
     --hidden-import http.server ^
     --hidden-import urllib.request ^
     --hidden-import hashlib ^

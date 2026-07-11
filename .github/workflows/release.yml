@@ -41,7 +41,9 @@ jobs:
           --hidden-import discord_cache --hidden-import network_scanners
           --hidden-import fresh_install --hidden-import extra_forensics
           --hidden-import evidence --hidden-import watch_server
-          --hidden-import sigupdate --hidden-import http.server
+          --hidden-import sigupdate --hidden-import external_scanner
+          --hidden-import anti_forensic_deep --hidden-import scanner_registry
+          --hidden-import http.server
           --hidden-import urllib.request --hidden-import hashlib
           --hidden-import hmac --hidden-import service_state_scanner
           --collect-submodules psutil telador.py
