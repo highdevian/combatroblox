@@ -698,3 +698,54 @@ def test_no_crash_on_real_machine():
         # Todo item tem severity válida
         for it in r["items"]:
             assert it["severity"] in ("critical", "high", "medium", "low")
+
+
+# ============================ v3.45.2: IoCs de repos publicos ============================
+
+def test_layuh_family_registered():
+    """Layuh-Roblox (github.com/Russtels) — external com KeyAuth."""
+    assert "layuh" in es.EXTERNAL_FAMILY_IDS
+    hit = es.classify_process_name("layuh.exe")
+    assert hit and hit[0] == "high" and hit[1] == "layuh"
+    hit2 = es.classify_process_name("layuhroblox.exe")
+    assert hit2 and hit2[1] == "layuh"
+
+
+def test_nord_external_family_registered():
+    """nord-external (github.com/nordlol) — universal ESP GLFW."""
+    assert "nord_external" in es.EXTERNAL_FAMILY_IDS
+    hit = es.classify_process_name("nord.exe")
+    assert hit and hit[0] == "high" and hit[1] == "nord_external"
+
+
+def test_autopsy_family_registered_but_bare_word_safe():
+    """autopsy (github.com/pwpo) — usermode-only. 'autopsy' bare NAO e IOC
+    (tambem e ferramenta forense legitima do Sleuth Kit); so o processo
+    autopsy.exe / autopsyloader / autopsy roblox contam."""
+    assert "autopsy" in es.EXTERNAL_FAMILY_IDS
+    hit = es.classify_process_name("autopsy.exe")
+    assert hit and hit[0] == "high" and hit[1] == "autopsy"
+    # basenames vazio: nao bate por pasta bare 'autopsy'
+    assert es.classify_basename("autopsy") is None
+
+
+def test_glfw_window_class_escalates_popup_overlay():
+    """Class name GLFW30 fora da whitelist = external ESP GLFW-based."""
+    assert "glfw30" in es._KNOWN_EXTERNAL_WINDOW_CLASSES
+    assert "glfwwindow" in es._KNOWN_EXTERNAL_WINDOW_CLASSES
+
+
+def test_keyauth_domains_in_suspicious():
+    """KeyAuth SaaS de DRM usado por ~todo external pago (Layuh etc).
+    Deteccao via DNS cache / network / browser history."""
+    from database import SUSPICIOUS_DOMAINS
+    for d in ("keyauth.win", "keyauth.cc", "keyauth.pro",
+              "keyauth.gg", "keyauth.to", "keyauth.us"):
+        assert SUSPICIOUS_DOMAINS.get(d) == "high", d
+
+
+def test_offset_feed_domains_in_suspicious():
+    """Sites de dump de offsets — ninguem legitimo visita."""
+    from database import SUSPICIOUS_DOMAINS
+    for d in ("imtheo.lol", "rbxoffsets.com", "robloxoffsets.com"):
+        assert SUSPICIOUS_DOMAINS.get(d) == "high", d

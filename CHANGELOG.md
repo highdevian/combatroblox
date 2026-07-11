@@ -2,6 +2,66 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.2] - 2026-07-11
+
+**IoCs de repos públicos: KeyAuth, offset feeds, 3 famílias novas, GLFW class.**
+
+Levantamento em 4 repos públicos de external Roblox (`Russtels/Layuh-Roblox`,
+`nordlol/nord-external`, `dev79kz/AimbotScript`, `pwpo/autopsy`) revelou
+IoCs concretos que o catálogo v3.45.1 ainda não cobria.
+
+### `SUSPICIOUS_DOMAINS` (+9 entradas HIGH)
+
+- **KeyAuth (6)** — SaaS de DRM/licensing embutido em ~todo external pago
+  (Layuh depende dele). Handshake HTTPS aparece em DNS cache, browser cache,
+  `scan_network_connections`. Um browser que fez DNS pra `keyauth.win` teve
+  cheat pago rodando aqui em algum momento.
+  - `keyauth.win`, `keyauth.cc`, `keyauth.pro`, `keyauth.gg`,
+    `keyauth.to`, `keyauth.us`
+- **Offset feeds (3)** — sites que publicam offsets do `RobloxPlayerBeta`
+  atualizados para cheaters sincronizarem builds. Ninguém legítimo visita.
+  Referenciados em `autopsy` (imtheo.lol/Offsets).
+  - `imtheo.lol`, `rbxoffsets.com`, `robloxoffsets.com`
+
+### `_FAMILY_CATALOG` (+3 famílias)
+
+- **`layuh`** — `Russtels/Layuh-Roblox`, C++ com KeyAuth + oxorany (obf
+  compile-time) + curl + zlib. Menciona interação "kernel/system-level".
+  Processos: `layuh.exe`, `layuhroblox.exe`, `layuhloader.exe`.
+- **`nord_external`** — `nordlol/nord-external`, universal ESP em C++ com
+  overlay GLFW. Renderer via GLFW = janela `WS_POPUP+TOPMOST` com class
+  name `GLFW30`. Processos: `nord.exe`, `nordexternal.exe`, `nord_external.exe`.
+- **`autopsy`** — `pwpo/autopsy`, external usermode-only C/C++. Referencia
+  `imtheo.lol/Offsets`. Processos: `autopsy.exe`, `autopsyloader.exe`.
+  **`autopsy` bare NÃO é IoC** (também é ferramenta forense legítima do
+  Sleuth Kit) — `basenames: []`, só entra por processo/token com "roblox".
+
+`dev79kz/AimbotScript` é Lua puro em-processo Roblox (delivery por executor
+Luau) — coberto pelas fontes internas existentes (Solara/Xeno-class), não
+requer nova família.
+
+### `scan_popup_overlays` — escalador por class name
+
+Janela `WS_POPUP+TOPMOST` fora da whitelist com class name em
+`_KNOWN_EXTERNAL_WINDOW_CLASSES = {"glfw30", "glfwwindow"}` sobe pra **HIGH**
+em vez de MEDIUM. Match rule: `popup-overlay-framework:<class>:<pname>`.
+Rationale: `GLFW30` fora de jogos indie/demos openGL POPUP+TOPMOST é
+assinatura de external ESP. `nord-external` cai aqui direto.
+
+### Testes
+
+- `tests/test_external.py` +6 testes: 3 famílias novas, GLFW const,
+  KeyAuth domains, offset feed domains.
+- **626 passed** (era 620).
+
+### Contagem
+
+- `SUSPICIOUS_DOMAINS`: 132 → 141.
+- Famílias em `_FAMILY_CATALOG`: 21 → **24**.
+- `SCANNER_COUNT`: mantém 90 (só melhorias de catálogo, sem scanners novos).
+
+---
+
 ## [3.45.1] - 2026-07-11
 
 **Anti-FP CRITICAL: System (PID 4) e RobloxCrashHandler no handle scan.**

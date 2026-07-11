@@ -763,6 +763,24 @@ SUSPICIOUS_DOMAINS = {
     "spoofer.gg":           "high",
     "hwid-spoofer.com":     "high",
 
+    # KeyAuth — SaaS de DRM/licensing usado em ~todo external pago
+    # (auth handshake HTTPS aparece em DNS cache / net conns / browser cache).
+    # Extraído de repos públicos (Layuh-Roblox usa keyauth). Um browser fez
+    # DNS pra keyauth.win → cheat pago rodou aqui em algum momento.
+    "keyauth.win":          "high",
+    "keyauth.cc":           "high",
+    "keyauth.pro":          "high",
+    "keyauth.gg":           "high",
+    "keyauth.to":           "high",
+    "keyauth.us":           "high",
+
+    # Offset feeds — sites que publicam offsets do RobloxPlayerBeta atualizados
+    # pra cheaters syncarem seus builds. Ninguém legítimo visita.
+    # imtheo.lol referenciado no repo autopsy (github.com/pwpo/autopsy).
+    "imtheo.lol":           "high",
+    "rbxoffsets.com":       "high",
+    "robloxoffsets.com":    "high",
+
     # Marketplaces / forums grayhat
     "elitepvpers.com":      "medium",
     "unknowncheats.me":     "medium",

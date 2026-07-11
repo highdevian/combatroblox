@@ -298,6 +298,61 @@ _FAMILY_CATALOG: dict[str, dict] = {
             "external esp", "external cheat", "roblox external",
         ],
     },
+
+    # --- Repos públicos GitHub (pesquisa 2026) ---
+    "layuh": {
+        # github.com/Russtels/Layuh-Roblox — external C++ com KeyAuth + oxorany
+        # obfuscator + curl + zlib + nlohmann. Menciona interação "kernel/
+        # system-level" mas o exe usermode aparece com nome "layuh".
+        "label": "Layuh (external C++ com KeyAuth + kernel/system-level)",
+        "severity": "high",
+        "processes": [
+            "layuh.exe", "layuhroblox.exe", "layuh_roblox.exe",
+            "layuh-roblox.exe", "layuhloader.exe", "layuh loader.exe",
+        ],
+        "tokens": [
+            "layuh roblox", "layuh-roblox", "layuh_roblox",
+            "layuhloader", "layuh loader",
+        ],
+        "basenames": ["layuh", "layuh roblox", "layuh-roblox"],
+        "aliases": ["layuh loader", "layuh-roblox", "layuhroblox"],
+    },
+    "nord_external": {
+        # github.com/nordlol/nord-external — universal ESP em C++ com overlay
+        # GLFW. Janela com class name GLFW30 (padrão da lib) — pega no
+        # scan_popup_overlays via classname.
+        "label": "Nord External (universal ESP GLFW)",
+        "severity": "high",
+        "processes": [
+            "nord.exe", "nordexternal.exe", "nord_external.exe",
+            "nord-external.exe", "nordesp.exe", "nord esp.exe",
+        ],
+        "tokens": [
+            "nord external", "nord-external", "nord_external",
+            "nord esp",
+        ],
+        "basenames": ["nord external", "nord-external", "nordexternal"],
+        "aliases": ["nord esp", "nord-external"],
+    },
+    "autopsy": {
+        # github.com/pwpo/autopsy — external usermode-only C/C++. Referencia
+        # imtheo.lol/Offsets (site de dump que também está em SUSPICIOUS_DOMAINS).
+        "label": "Autopsy (external usermode-only)",
+        "severity": "high",
+        "processes": [
+            "autopsy.exe", "autopsyroblox.exe", "autopsy_roblox.exe",
+            "autopsy-roblox.exe", "autopsyloader.exe",
+        ],
+        "tokens": [
+            "autopsy roblox", "autopsy-roblox", "autopsy_roblox",
+            "autopsyloader",
+        ],
+        # "autopsy" bare é palavra comum (também é um projeto de forense do
+        # Sleuth Kit) — só entra combinado com "roblox" ou como executável.
+        # basenames vazio de propósito pra não FP com o Autopsy legítimo.
+        "basenames": [],
+        "aliases": ["autopsy roblox", "autopsyloader"],
+    },
 }
 
 # Domínios públicos associados a products external (browser history / DNS)
@@ -1811,6 +1866,17 @@ WS_EX_NOACTIVATE  = 0x08000000
 
 # Whitelist de processos que legitimamente têm janela POPUP+TOPMOST sem transparency.
 # Foi montada com base em varredura de PC limpo (todos os hits foram estes).
+# Class names de framework de janela usados por externals — quando bate com
+# POPUP+TOPMOST fora da whitelist, sobe severidade pra HIGH. Muito baixo FP:
+# GLFW é usado tipicamente por jogos indie / demos openGL — não por apps
+# de produtividade que teriam janela POPUP+TOPMOST. Um app POPUP+TOPMOST
+# escrito em GLFW não-whitelistado é assinatura de external ESP.
+_KNOWN_EXTERNAL_WINDOW_CLASSES = {
+    "glfw30",         # padrão da biblioteca GLFW (nord-external usa)
+    "glfwwindow",     # variante
+}
+
+
 _POPUP_OVERLAY_WHITELIST = {
     # Shell / Windows
     "explorer.exe", "textinputhost.exe", "shellexperiencehost.exe",
@@ -1946,13 +2012,25 @@ def scan_popup_overlays() -> dict:
             cls_buf = ctypes.create_unicode_buffer(256)
             user32.GetClassNameW(hwnd, cls_buf, 256)
             cls = cls_buf.value or ""
+            cls_low = cls.lower()
+
+            # Escalador por class name conhecido de framework de external ESP.
+            # GLFW30 = biblioteca GLFW cria janelas com essa class (repo
+            # github.com/nordlol/nord-external usa GLFW pra renderer).
+            # Aparecer POPUP+TOPMOST GLFW30 fora da whitelist é assinatura
+            # forte de external ESP — sobe pra HIGH em vez de MEDIUM.
+            severity = "medium"
+            matched = f"popup-overlay:{pname}"
+            if cls_low in _KNOWN_EXTERNAL_WINDOW_CLASSES:
+                severity = "high"
+                matched = f"popup-overlay-framework:{cls_low}:{pname}"
 
             items.append(_item(
                 label=f"Overlay POPUP+TOPMOST: {pname}",
                 detail=f"PID {pid_val} · janela {w}x{h} · class '{cls}'"
                        + (f" · título '{title}'" if title else " · sem título"),
-                severity="medium",
-                matched=f"popup-overlay:{pname}",
+                severity=severity,
+                matched=matched,
             ))
         except Exception as e:
             debug.dbg("popup overlay scan falhou", e)
