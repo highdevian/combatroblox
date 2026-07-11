@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.44.1] - 2026-07-11
+
+**Anti-FP: o próprio Telador e scripts de dev/docs não viram “executor”.**
+
+- Self-whitelist: `telador.exe`, `telador (64).exe`, `telador-*.exe` fora de
+  footprint / post-Roblox / correlation / handles.
+- Script block 4104 + PS history: wordlists, `match_keyword`, docs/release
+  notes e path `combatroblox` não disparam por citar nome de família.
+- `trusted_domains.example.json` com domínios de dev/pkg comuns (x.ai,
+  opencode, scoop, etc.) — copie pra `%LOCALAPPDATA%\Telador\trusted_domains.json`.
+
 ## [3.44.0] - 2026-07-11
 
 **Caça a external PRIVATE (Winter-class): 11 detecções + forense pós-mortem

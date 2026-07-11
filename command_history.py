@@ -44,21 +44,30 @@ _SIGNATURE_LIST_MIN_KEYWORDS = 3
 
 
 def _is_signature_list(line: str) -> bool:
-    """True quando a linha enumera VÁRIOS executores numa alternância de regex
-    (`a|b|c|...`) — assinatura de detecção, não invocação.
+    """True quando a linha enumera VÁRIOS executores — assinatura/wordlist,
+    não invocação.
 
-    Cobre o que o _is_search_pattern NÃO pega: a atribuição crua sem verbo de
-    busca, ex.: `$cheat = 'solara|xeno|wave|krnl|fluxus|...'` de um script de
-    screenshare/anti-cheat (inclusive o próprio Telador, que embute a lista).
+    Cobre:
+      - alternância regex: `$cheat = 'solara|xeno|wave|krnl|fluxus|...'`
+      - lista Python/PS: `['solara','xeno','wave','krnl',...]`
 
-    Exige uma ALTERNÂNCIA de verdade: ≥2 pipes E ≥3 executores distintos. O `>=2`
-    pipes evita o FN de uma linha que só tem 1 pipe não-relacionado mas cita
-    vários executores soltos (ex.: `solara.exe; krnl.exe; fluxus.exe | tee log`
-    roda 3 executores de fato — não é wordlist)."""
-    if line.count("|") < 2:
-        return False
+    NÃO cobre `solara.exe; krnl.exe; fluxus.exe` (execução real de vários).
+    Exige ≥3 keywords distintos + forma de lista (pipes OU vírgulas em literais)."""
     import matching
-    return matching.count_distinct_keywords(line) >= _SIGNATURE_LIST_MIN_KEYWORDS
+    n = matching.count_distinct_keywords(line)
+    if n < _SIGNATURE_LIST_MIN_KEYWORDS:
+        return False
+    low = line.lower()
+    # Execução real de vários .exe separados por ; — NÃO é wordlist
+    if low.count(".exe") >= 2 and (";" in line or " & " in low or "&&" in line):
+        return False
+    # Alternância regex clássica
+    if line.count("|") >= 2:
+        return True
+    # Lista de literais (Python/PS) com vírgulas: 'a','b','c' ou "a","b"
+    if line.count(",") >= 2:
+        return True
+    return False
 
 
 def _is_search_pattern(line: str, matched_kw: str) -> bool:
@@ -137,16 +146,20 @@ def _match_in_line(line: str) -> tuple[str | None, str | None]:
         return dom, dsev
 
     # 3. Executor keywords no comando (word-boundary, anti-FP)
+    # FP: wordlist / docs do próprio Telador antes de casar keyword isolado
+    if _is_signature_list(line):
+        return None, None
+    low_meta = lower
+    if any(t in low_meta for t in (
+        "telador", "combatroblox", "match_keyword", "changelog",
+        "external_scanner", "winter-class", "family_catalog",
+    )):
+        return None, None
     kw, sev = matching.match_keyword(line)
     if kw:
         # FP: comando de BUSCA por esses tokens (auditoria, não execução).
         # Ex.: `Where-Object PathName -match 'winring0|kdmapper|gmer'`
         if _is_search_pattern(line, kw):
-            return None, None
-        # FP: linha que ENUMERA vários executores numa alternância é lista de
-        # assinatura (script anti-cheat / o próprio Telador), não execução.
-        # Ex.: `$cheat = 'solara|xeno|wave|krnl|fluxus|...'`
-        if _is_signature_list(line):
             return None, None
         return kw, sev
 

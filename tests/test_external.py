@@ -213,6 +213,17 @@ def test_handle_whitelist_covers_av_and_debug_tools():
     assert "robloxplayerbeta.exe" in es._HANDLE_WHITELIST
 
 
+def test_self_process_whitelist_covers_telador_variants():
+    """REGRESSÃO FP: telador (64).exe / telador-3.44.0.exe NÃO é external."""
+    assert es._is_self_process("telador.exe", r"C:\Users\x\Downloads\telador.exe")
+    assert es._is_self_process("telador (64).exe", r"C:\Users\x\Downloads\telador (64).exe")
+    assert es._is_self_process("telador-3.44.0.exe", r"C:\x\telador-3.44.0.exe")
+    assert es._is_process_whitelisted(
+        "telador (64).exe", es._FOOTPRINT_WHITELIST,
+        r"C:\Users\x\Downloads\telador (64).exe")
+    assert not es._is_self_process("cheat.exe", r"C:\Users\x\Downloads\cheat.exe")
+
+
 # ============================ Integração ============================
 
 _EXPECTED_EXTERNAL = {

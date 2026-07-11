@@ -201,23 +201,65 @@ _PS_DOWNLOAD = ("downloadstring", "downloadfile", "downloaddata", "net.webclient
                 "wget ", "curl ")
 
 
+# Tokens de META: o script é o próprio Telador / auditoria / release notes,
+# não um cheater rodando Solara. Keyword sozinho nesses contextos = FP.
+_META_SCRIPT_TOKENS = (
+    "telador", "combatroblox", "match_keyword", "executor_keywords",
+    "changelog", "external_scanner", "anti_forensic", "scan_external",
+    "source_weights", "confidence engine", "winter-class",
+    "family_catalog", "_family_catalog", "trusted_domains",
+)
+
+
+def _is_meta_or_wordlist_script(text: str) -> bool:
+    """True se o script é wordlist/assinatura/docs do Telador, não execução."""
+    if not text:
+        return False
+    # 3+ keywords distintos = enumeração (lista de assinatura / teste)
+    if matching.count_distinct_keywords(text) >= 3:
+        return True
+    low = text.lower()
+    if any(t in low for t in _META_SCRIPT_TOKENS):
+        return True
+    # Lista Python/PS de strings com keywords
+    try:
+        from command_history import _is_signature_list, _is_search_pattern
+        if _is_signature_list(text):
+            return True
+        ekw, _ = matching.match_keyword(text)
+        if ekw and _is_search_pattern(text, ekw):
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def _classify_scriptblock(text: str):
     """(severity, matched, label) p/ um 4104 suspeito; senão None.
 
-    HIGH se: (a) cita nome de executor; ou (b) BAIXA e EXECUTA na mesma linha
-    (download cradle clássico). Download puro (sem iex) NÃO flagga — é uso
-    legítimo comum de PowerShell."""
+    HIGH se: (a) cita nome de executor de verdade; ou (b) BAIXA e EXECUTA na
+    mesma linha (download cradle clássico). Download puro (sem iex) NÃO flagga.
+    Keyword em docs/wordlist/teste do próprio Telador = ignorado (anti-FP)."""
     if not text:
         return None
-    # (a) nome de executor no script -> inequívoco (domínio confiável NÃO limpa
-    #     isto: se cita executor real, é evidência independente).
+    # Meta / wordlist primeiro — senão "serotonin" em release notes vira HIGH
+    if _is_meta_or_wordlist_script(text):
+        # Ainda flagga cradle de download+iex de domínio NÃO confiável
+        low = text.lower()
+        if any(d in low for d in _PS_DOWNLOAD) and any(e in low for e in _PS_EXEC):
+            if any(matching.domain_in_text(dom, low) for dom in TRUSTED_DOMAINS):
+                return None
+            # cradle real dentro de script longo: só se NÃO for meta de docs
+            # (release notes não tem irm|iex). Meta + cradle = raro e suspeito.
+            if not any(t in low for t in ("telador", "combatroblox", "match_keyword",
+                                           "changelog", "external_scanner")):
+                return "high", "ps-scriptblock:download+iex", "download+iex"
+        return None
+    # (a) nome de executor no script
     ekw, _ = matching.match_keyword(text)
     if ekw:
         return "high", ekw, ekw
-    # (b) download + execução juntos -> cradle. Mas se a fonte é um domínio
-    #     CONFIÁVEL (allowlist), o cradle é instalador legítimo do dono — não
-    #     flagga. Pega tanto o install-plugin.ps1 baixado quanto scripts grandes
-    #     que só casam (b) por terem download e iex em linhas não relacionadas.
+    # (b) download + execução juntos -> cradle; domínio CONFIÁVEL limpa
     low = text.lower()
     if any(d in low for d in _PS_DOWNLOAD) and any(e in low for e in _PS_EXEC):
         if any(matching.domain_in_text(dom, low) for dom in TRUSTED_DOMAINS):

@@ -1,6 +1,8 @@
-﻿[
+[
   "x.ai",
   "opencode.ai",
+  "ps.lua.tools",
+  "lua.tools",
   "get.scoop.sh",
   "chocolatey.org",
   "python.org",
@@ -8,5 +10,6 @@
   "rustup.rs",
   "raw.githubusercontent.com",
   "cdn.jsdelivr.net",
-  "github.com"
+  "github.com",
+  "objects.githubusercontent.com"
 ]

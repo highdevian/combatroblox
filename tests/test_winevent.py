@@ -255,6 +255,26 @@ def test_scriptblock_untrusted_cradle_still_high():
     assert res[1] == "ps-scriptblock:download+iex"
 
 
+def test_scriptblock_meta_docs_with_keyword_clean():
+    """REGRESSÃO FP: release notes / path combatroblox mencionando Serotonin
+    NÃO é executor rodando — é meta do próprio Telador."""
+    blob = (
+        r'cd "C:\Users\x\Desktop\projetos\combatroblox-release"; '
+        "python -c notes Telador v3.44.0 Serotonin (external) scanners"
+    )
+    assert we._classify_scriptblock(blob) is None
+
+
+def test_scriptblock_keyword_wordlist_clean():
+    """REGRESSÃO FP: lista Python de keywords (teste match_keyword) não flagga."""
+    blob = (
+        "python -c \"import matching; "
+        "[matching.match_keyword(t) for t in "
+        "['solara','krnl','fluxus','serotonin']]\""
+    )
+    assert we._classify_scriptblock(blob) is None
+
+
 # ----------------------------- scanner (mockado) -----------------------------
 
 def _patch(monkeypatch, system=None, ps=None, security=None):

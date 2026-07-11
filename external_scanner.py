@@ -976,9 +976,38 @@ _HANDLE_WHITELIST = {
     "obs64.exe", "obs32.exe", "obs.exe",
     # Debuggers de dev (whitelist parcial; se dev abre debugger no Roblox é seu problema)
     "devenv.exe", "code.exe",
-    # O Telador
-    "python.exe", "pythonw.exe", "telador.exe",
+    # Dev / shell
+    "python.exe", "pythonw.exe",
 }
+
+# Prefixos do próprio Telador (telador.exe, telador (64).exe, telador-3.44.0.exe…)
+_SELF_NAME_PREFIXES = ("telador", "combatroblox")
+
+
+def _is_self_process(pname: str, exe: str = "") -> bool:
+    """True se o processo é o próprio Telador / build local (nunca é external)."""
+    n = (pname or "").lower()
+    if n.endswith(".exe"):
+        stem = n[:-4]
+    else:
+        stem = n
+    # "telador", "telador (64)", "telador-3.44.0"
+    for pref in _SELF_NAME_PREFIXES:
+        if stem == pref or stem.startswith(pref + " ") or stem.startswith(pref + "-") or stem.startswith(pref + "_"):
+            return True
+    low = (exe or "").lower().replace("/", "\\")
+    if "\\combatroblox" in low or "\\telador" in low:
+        # Só se o basename também parece o produto (evita pasta genérica)
+        base = os.path.basename(low)
+        if base.startswith("telador") or base.startswith("combatroblox"):
+            return True
+    return False
+
+
+def _is_process_whitelisted(pname: str, whitelist: set, exe: str = "") -> bool:
+    if (pname or "").lower() in whitelist:
+        return True
+    return _is_self_process(pname, exe)
 
 # Bits de acesso que caracterizam "external memory reader" no processo alvo.
 # PROCESS_VM_READ = ler memória. PROCESS_VM_OPERATION+WRITE = escrever/patchar.
@@ -1052,7 +1081,7 @@ def scan_external_process_handles() -> dict:
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
 
-        if pname in _HANDLE_WHITELIST:
+        if _is_process_whitelisted(pname, _HANDLE_WHITELIST, pexe):
             continue
 
         # Descreve o acesso
@@ -1108,6 +1137,8 @@ _FOOTPRINT_WHITELIST = {
     # Launchers / anti-cheat
     "bloxstrap.exe", "fishstrap.exe", "robloxplayerbeta.exe",
     "robloxplayerlauncher.exe", "robloxstudiobeta.exe",
+    # O próprio Telador (exato; variantes via _is_self_process)
+    "telador.exe",
     # Utilidades comuns em AppData
     "1password.exe", "bitwarden.exe", "everything.exe", "flow.launcher.exe",
     "powertoys.exe", "translucenttb.exe", "lghub.exe", "lghub_agent.exe",
@@ -1175,7 +1206,7 @@ def scan_external_memory_footprint() -> dict:
             exe = proc.info.get("exe") or ""
             if not exe:
                 continue
-            if pname in _FOOTPRINT_WHITELIST:
+            if _is_process_whitelisted(pname, _FOOTPRINT_WHITELIST, exe):
                 continue
 
             low_exe = exe.lower().replace("/", "\\")
@@ -1829,8 +1860,8 @@ def scan_post_roblox_processes() -> dict:
             if not exe:
                 continue
 
-            # Skip: whitelist ampla (o mesmo do footprint + roblox helpers comuns)
-            if pname in _FOOTPRINT_WHITELIST:
+            # Skip: whitelist ampla (o mesmo do footprint + self Telador)
+            if _is_process_whitelisted(pname, _FOOTPRINT_WHITELIST, exe):
                 continue
             # Skip: crash handler e helpers do Roblox
             if pname in {"robloxcrashhandler.exe", "robloxlauncher.exe"}:
@@ -2175,6 +2206,10 @@ def scan_external_correlation() -> dict:
                 pass
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
+
+        # Nunca cravar o próprio Telador (telador (64).exe, etc.)
+        if _is_self_process(pname, pexe):
+            continue
 
         sev = "critical" if len(uniq) >= 3 else "high"
         sources_str = " + ".join(uniq)
