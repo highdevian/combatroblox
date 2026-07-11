@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.44.4] - 2026-07-11
+
+**Anti-FP: dual-use do supervisor some no PC de dev.**
+
+- `DEV_SUPPRESS_KEYWORDS`: TinyTask, Process Hacker, System Informer,
+  AutoClicker, exclusões Defender de pasta/dev (portfolio, JetBrains).
+- Em cheater sem ambiente de dev, esses sinais continuam.
+
 ## [3.44.3] - 2026-07-11
 
 **Anti-FP: TinyTask some no PC de dev (supervisor); em cheater continua.**

@@ -26,26 +26,42 @@ def test_dev_env_downgrades_cheat_engine(monkeypatch):
         assert remaining[0].get("fp_reason")
 
 
-def test_dev_env_suppresses_tinytask_completely(monkeypatch):
-    """REGRESSÃO FP: TinyTask no PC do supervisor (dev) some do report.
-    Em cheater sem ambiente de dev, continua (ver outro teste)."""
+def test_dev_env_suppresses_dualuse_fps(monkeypatch):
+    """REGRESSÃO FP: dual-use do supervisor some no PC de dev.
+    TinyTask, Process Hacker, AutoClicker, exclusão portfolio/JetBrains."""
     monkeypatch.setattr(
         fp_filter,
         "detect_dev_environment",
         lambda: {"is_dev": True, "evidence": ["C:\\VS", "C:\\Git"]},
     )
-    findings = [{
-        "name": "Prefetch", "status": "suspicious", "summary": "1",
-        "items": [{
-            "label": "TINYTASK-1.77-INSTALLER.TMP",
-            "detail": r"C:\Windows\Prefetch\TINYTASK.pf",
-            "severity": "medium", "matched": "tinytask", "timestamp": "",
-        }],
-    }]
+    items = [
+        {"label": "TINYTASK", "detail": "x", "severity": "medium",
+         "matched": "tinytask", "timestamp": ""},
+        {"label": "ProcessHacker.exe", "detail": "x", "severity": "low",
+         "matched": "process hacker", "timestamp": ""},
+        {"label": "System Informer.lnk", "detail": "x", "severity": "low",
+         "matched": "system informer", "timestamp": ""},
+        {"label": "WER crash: OP Auto Clicker", "detail": "x", "severity": "medium",
+         "matched": "autoclicker", "timestamp": ""},
+        {"label": "Exclusão portfolio", "detail": r"C:\Users\x\Desktop\portfolio",
+         "severity": "medium", "matched": "exclusao-pasta-usuario", "timestamp": ""},
+        {"label": "Exclusão JetBrains", "detail": r"C:\Users\x\JetBrains",
+         "severity": "low", "matched": "exclusao-dev", "timestamp": ""},
+        # executor real NÃO some
+        {"label": "solara.exe", "detail": "x", "severity": "high",
+         "matched": "solara", "timestamp": ""},
+    ]
+    findings = [{"name": "mix", "status": "suspicious", "summary": "n", "items": items}]
     out, stats = fp_filter.post_process_findings(findings)
-    assert stats["items_whitelisted"] >= 1
-    assert out[0]["items"] == []
-    assert out[0]["status"] == "clean"
+    remaining = {(it.get("matched") or "").lower() for it in out[0]["items"]}
+    assert "tinytask" not in remaining
+    assert "process hacker" not in remaining
+    assert "system informer" not in remaining
+    assert "autoclicker" not in remaining
+    assert "exclusao-pasta-usuario" not in remaining
+    assert "exclusao-dev" not in remaining
+    assert "solara" in remaining
+    assert stats["items_whitelisted"] >= 6
 
 
 def test_non_dev_still_flags_tinytask(monkeypatch):

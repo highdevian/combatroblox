@@ -316,9 +316,19 @@ DEV_AMBIGUOUS_KEYWORDS = {
 
 # Em PC de DEV (Telador do supervisor), esconde TOTALmente — não polui o
 # report do próprio dono. Em PC de suspeito (não-dev) o match continua.
-# Cheater com TinyTask SEM IDE/JetBrains/etc ainda leva MEDIUM em 4 fontes.
+# Dual-use + exclusões de pasta que o dev tem de verdade.
 DEV_SUPPRESS_KEYWORDS = {
+    # Macro / clicker
     "tinytask", "tinytask.exe",
+    "autoclicker", "auto clicker", "op auto clicker", "opautoclicker",
+    "speed autoclicker", "gsautoclicker",
+    # Debug / sysadmin dual-use
+    "process hacker", "processhacker", "processhacker.exe",
+    "system informer", "systeminformer", "systeminformer.exe",
+    "peview", "peview.exe",
+    "cheat engine", "cheatengine",
+    # Exclusões Defender do próprio dev (portfolio, JetBrains, etc.)
+    "exclusao-pasta-usuario", "exclusao-dev", "exclusao-processo",
 }
 
 

@@ -151,7 +151,10 @@ def test_feeds_cluster_engine():
 
 # ====== fp_filter integration (mantido do v3.29.1) ======
 
-def test_fp_filter_whitelists_dev_defender_path_inside_full_item_text():
+def test_fp_filter_suppresses_dev_defender_exclusions_on_dev_pc():
+    """Em PC de dev, exclusões Defender de pasta (portfolio, JetBrains) somem.
+    Antes: JetBrains ia por path whitelist e portfolio ficava — agora ambos
+    caem no DEV_SUPPRESS (matched exclusao-pasta-usuario / exclusao-dev)."""
     fp._dev_cache = {"is_dev": True, "evidence": ["x", "y"]}
     findings = [{
         "name": "Adulteração do Windows Defender",
@@ -176,9 +179,9 @@ def test_fp_filter_whitelists_dev_defender_path_inside_full_item_text():
 
     processed, stats = fp.post_process_findings(findings)
 
-    assert stats["items_whitelisted"] == 1
-    assert len(processed[0]["items"]) == 1
-    assert "portfolio" in processed[0]["items"][0]["label"].lower()
+    assert stats["items_whitelisted"] >= 2
+    assert processed[0]["items"] == []
+    assert processed[0]["status"] == "clean"
 
 
 # ============== FP fixes v3.29.2 ==============
