@@ -224,6 +224,42 @@ def test_self_process_whitelist_covers_telador_variants():
     assert not es._is_self_process("cheat.exe", r"C:\Users\x\Downloads\cheat.exe")
 
 
+def test_handle_scan_clean_when_roblox_closed(monkeypatch):
+    """Roblox fechado NÃO é erro de cobertura — meta_only + clean."""
+    monkeypatch.setattr(es, "_roblox_pids", lambda: [])
+    r = es.scan_external_process_handles()
+    assert r["status"] in ("clean", "suspicious")
+    assert r.get("error") in (None, "")
+    assert any(i.get("meta_only") for i in r["items"]) or r["status"] == "clean"
+
+
+def test_post_roblox_uses_prefetch_anchor_when_closed(monkeypatch):
+    """Com Roblox fechado, ancora em Prefetch e ainda flagga residual."""
+    import time
+    now = time.time()
+    monkeypatch.setattr(es, "HAS_PSUTIL", True)
+    monkeypatch.setattr(es, "_roblox_session_context", lambda: {
+        "live_pids": [], "live": False, "last_run_ts": now - 600, "anchor_ts": now - 600,
+    })
+    procs = [
+        _FakeProc(2, "cheat.exe", r"C:\Users\x\Downloads\cheat.exe", create_time=now - 300),
+    ]
+    monkeypatch.setattr(es.psutil, "process_iter", lambda attrs=None: iter(procs))
+    monkeypatch.setattr(es, "_is_exe_signed", lambda p: False)
+    r = es.scan_post_roblox_processes()
+    assert r["status"] == "suspicious"
+    assert any("cheat" in (it.get("matched") or "") for it in r["items"])
+
+
+def test_basename_key_extraction():
+    assert es._extract_basename_key({
+        "matched": "external-footprint:foo.exe", "label": "x",
+    }) == "foo.exe"
+    assert es._extract_basename_key({
+        "matched": "post-roblox:bar.exe", "label": "x",
+    }) == "bar.exe"
+
+
 # ============================ Integração ============================
 
 _EXPECTED_EXTERNAL = {
@@ -237,6 +273,8 @@ _EXPECTED_EXTERNAL = {
     "scan_post_roblox_processes",
     "scan_suspicious_named_pipes",
     "scan_random_name_executables",
+    "scan_unsigned_user_network",
+    "scan_suspicious_process_ancestry",
     "scan_external_correlation",
 }
 
@@ -253,10 +291,12 @@ def test_all_scanners_registered():
         es.scan_post_roblox_processes,
         es.scan_suspicious_named_pipes,
         es.scan_random_name_executables,
+        es.scan_unsigned_user_network,
+        es.scan_suspicious_process_ancestry,
         es.scan_external_correlation,
     ):
         assert fn in es.ALL_EXTERNAL_SCANNERS
-    assert len(es.ALL_EXTERNAL_SCANNERS) == 11
+    assert len(es.ALL_EXTERNAL_SCANNERS) == 13
 
 
 def test_slug_routing():
@@ -299,7 +339,7 @@ def test_scanner_registry_includes_external_group():
     import scanner_registry as sr
     reg = sr.build_registry()
     ext = [m for m in reg if m.group == "external"]
-    assert len(ext) == 11
+    assert len(ext) == 13
     names = {m.fn_name for m in ext}
     assert names == _EXPECTED_EXTERNAL
 
@@ -378,15 +418,18 @@ def _hit_finding(pid, matched="x"):
 
 
 def _stub_correlation_sources(monkeypatch, overrides: dict):
-    """Stub de todos os scanners que _collect_suspect_pids consome."""
+    """Stub de todos os scanners que _collect_suspect_groups consome."""
     defaults = {
         "scan_external_processes": _clean_finding,
+        "scan_external_artifacts": _clean_finding,
         "scan_external_process_handles": _clean_finding,
         "scan_external_memory_footprint": _clean_finding,
         "scan_kernel_only_egress": _clean_finding,
         "scan_popup_overlays": _clean_finding,
         "scan_post_roblox_processes": _clean_finding,
         "scan_random_name_executables": _clean_finding,
+        "scan_unsigned_user_network": _clean_finding,
+        "scan_suspicious_process_ancestry": _clean_finding,
     }
     overlay_fn = overrides.pop("scan_overlay_windows", _clean_finding)
     defaults.update(overrides)
@@ -505,6 +548,9 @@ def test_post_roblox_scanner_flags_process_started_after(monkeypatch):
                   r"C:\Users\x\Downloads\cheat.exe", create_time=200),
     ]
     monkeypatch.setattr(es, "HAS_PSUTIL", True)
+    monkeypatch.setattr(es, "_roblox_session_context", lambda: {
+        "live_pids": [1], "live": True, "last_run_ts": 100, "anchor_ts": 100,
+    })
     monkeypatch.setattr(es.psutil, "process_iter", lambda attrs=None: iter(procs))
     monkeypatch.setattr(es, "_is_exe_signed", lambda p: False)
     r = es.scan_post_roblox_processes()
@@ -521,18 +567,26 @@ def test_post_roblox_scanner_ignores_process_before(monkeypatch):
                   r"C:\Users\x\Roblox\rbx.exe", create_time=200),
     ]
     monkeypatch.setattr(es, "HAS_PSUTIL", True)
+    monkeypatch.setattr(es, "_roblox_session_context", lambda: {
+        "live_pids": [1], "live": True, "last_run_ts": 200, "anchor_ts": 200,
+    })
     monkeypatch.setattr(es.psutil, "process_iter", lambda attrs=None: iter(procs))
     monkeypatch.setattr(es, "_is_exe_signed", lambda p: False)
     assert es.scan_post_roblox_processes()["status"] == "clean"
 
 
-def test_post_roblox_scanner_needs_roblox_running(monkeypatch):
+def test_post_roblox_scanner_no_anchor_is_clean_meta(monkeypatch):
+    """Sem Roblox vivo nem Prefetch: clean + meta (não error)."""
     procs = [_FakeProc(2, "cheat.exe",
                        r"C:\Users\x\Downloads\cheat.exe", create_time=100)]
     monkeypatch.setattr(es, "HAS_PSUTIL", True)
+    monkeypatch.setattr(es, "_roblox_session_context", lambda: {
+        "live_pids": [], "live": False, "last_run_ts": None, "anchor_ts": None,
+    })
     monkeypatch.setattr(es.psutil, "process_iter", lambda attrs=None: iter(procs))
     r = es.scan_post_roblox_processes()
-    assert r["status"] == "error"
+    assert r["status"] in ("clean", "suspicious")
+    assert r.get("error") in (None, "")
 
 
 def test_popup_overlay_whitelist_covers_shell():
@@ -639,4 +693,4 @@ def test_no_crash_on_real_machine():
         assert "items" in r and isinstance(r["items"], list)
         # Todo item tem severity válida
         for it in r["items"]:
-            assert it["severity"] in ("high", "medium", "low")
+            assert it["severity"] in ("critical", "high", "medium", "low")

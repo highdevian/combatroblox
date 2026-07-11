@@ -907,51 +907,171 @@ def _roblox_pids() -> list[int]:
     return pids
 
 
-def _roblox_object_addresses(roblox_pids: list[int], all_handles: list) -> set:
-    """Retorna o conjunto de endereços de objeto kernel (Object) que correspondem
-    aos processos do Roblox. Descobre olhando NOSSOS handles: quando o Telador
-    abriu um handle pro PID do Roblox, o Object aparece na tabela — casamos por
-    UniqueProcessId==nosso_pid + PID do handle == Roblox. Alternativa: qualquer
-    handle na tabela cujo UniqueProcessId (dono) seja o Roblox e Object aponte
-    pra si mesmo — mas o processo tem handle pra si próprio, então cada Roblox
-    PID cria pelo menos um Object único.
+def _enable_debug_privilege() -> bool:
+    """Tenta SeDebugPrivilege — melhora OpenProcess em processos protegidos.
+    Falha silenciosa se não-admin."""
+    if not HAS_KERNEL32:
+        return False
+    try:
+        advapi = ctypes.windll.advapi32
+        TOKEN_ADJUST_PRIVILEGES = 0x0020
+        TOKEN_QUERY = 0x0008
+        SE_PRIVILEGE_ENABLED = 0x00000002
 
-    Estratégia final (a mais simples e correta): pra cada handle na tabela cujo
-    UniqueProcessId (dono do handle) == PID do Roblox e cujo HandleValue é o
-    pseudo-handle -1 do próprio processo, o Object aponta pro EPROCESS do Roblox.
-    Como pseudo-handle é especial e nem sempre aparece, a gente extrai TODOS os
-    Objects usados como target de qualquer handle e depois checa qual é Roblox
-    por outro caminho — não trivial. Solução robusta: abrir um handle nosso pro
-    Roblox e ler nosso próprio Object dele (via handle table)."""
+        class LUID(ctypes.Structure):
+            _fields_ = [("LowPart", wintypes.DWORD), ("HighPart", wintypes.LONG)]
+
+        class LUID_AND_ATTRIBUTES(ctypes.Structure):
+            _fields_ = [("Luid", LUID), ("Attributes", wintypes.DWORD)]
+
+        class TOKEN_PRIVILEGES(ctypes.Structure):
+            _fields_ = [("PrivilegeCount", wintypes.DWORD),
+                        ("Privileges", LUID_AND_ATTRIBUTES * 1)]
+
+        h_token = wintypes.HANDLE()
+        if not advapi.OpenProcessToken(
+                kernel32.GetCurrentProcess(),
+                TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+                ctypes.byref(h_token)):
+            return False
+        try:
+            luid = LUID()
+            if not advapi.LookupPrivilegeValueW(None, "SeDebugPrivilege", ctypes.byref(luid)):
+                return False
+            tp = TOKEN_PRIVILEGES()
+            tp.PrivilegeCount = 1
+            tp.Privileges[0].Luid = luid
+            tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED
+            return bool(advapi.AdjustTokenPrivileges(
+                h_token, False, ctypes.byref(tp), 0, None, None))
+        finally:
+            kernel32.CloseHandle(h_token)
+    except Exception:
+        return False
+
+
+def _roblox_last_run_ts() -> float | None:
+    """Última execução do Roblox SEM precisar dele vivo.
+    Prefetch (mtime do .pf) é o proxy mais estável pós-fecho/cleaner parcial."""
+    candidates = []
+    prefetch = os.path.expandvars(r"%SystemRoot%\Prefetch")
+    if os.path.isdir(prefetch):
+        try:
+            for fn in os.listdir(prefetch):
+                low = fn.lower()
+                if low.startswith("robloxplayerbeta") and low.endswith(".pf"):
+                    try:
+                        candidates.append(os.path.getmtime(os.path.join(prefetch, fn)))
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+    # Versões instaladas — last write na pasta do client
+    for base in (
+        os.path.expandvars(r"%LOCALAPPDATA%\Roblox\Versions"),
+        os.path.expandvars(r"%PROGRAMFILES(X86)%\Roblox\Versions"),
+    ):
+        if not os.path.isdir(base):
+            continue
+        try:
+            for root, _dirs, files in os.walk(base):
+                for fn in files:
+                    if fn.lower() == "robloxplayerbeta.exe":
+                        try:
+                            candidates.append(os.path.getmtime(os.path.join(root, fn)))
+                        except OSError:
+                            pass
+                break  # só 1 nível de versions\version-xxx
+        except OSError:
+            pass
+    return max(candidates) if candidates else None
+
+
+def _roblox_session_context() -> dict:
+    """Contexto unificado: Roblox vivo OU última sessão residual."""
+    live = _roblox_pids()
+    last = _roblox_last_run_ts()
+    anchor = None
+    if live and HAS_PSUTIL:
+        times = []
+        for pid in live:
+            try:
+                times.append(psutil.Process(pid).create_time())
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        if times:
+            anchor = min(times)
+    if anchor is None:
+        anchor = last
+    return {
+        "live_pids": live,
+        "live": bool(live),
+        "last_run_ts": last,
+        "anchor_ts": anchor,
+    }
+
+
+def _roblox_object_addresses(roblox_pids: list[int], all_handles: list = None) -> set:
+    """Resolve Object (EPROCESS) do Roblox pra casar handles alheios.
+
+    BUG FIX v3.45: antes o mapa de handles era capturado ANTES do OpenProcess,
+    então o handle novo nunca aparecia → 'Não consegui resolver o objeto'.
+    Agora: OpenProcess → re-query da tabela → casa HandleValue.
+
+    Fallback: Objects de tipo Process referenciados por handles DONOS=Roblox
+    com máscara de self-query (aproximação quando OpenProcess falha)."""
     if not (HAS_PSUTIL and HAS_KERNEL32):
         return set()
 
-    our_pid = os.getpid()
-    # Mapa: HandleValue nosso -> Object
-    our_handles_to_object = {
-        h.HandleValue: h.Object
-        for h in all_handles
-        if h.UniqueProcessId == our_pid
-    }
-
-    roblox_objects = set()
+    _enable_debug_privilege()
+    opened = []
     for rpid in roblox_pids:
-        # Tenta abrir handle QUERY_LIMITED (não requer admin pra maioria dos
-        # processos de usuário, e SEMPRE funciona pro Roblox rodando no mesmo
-        # user context).
         h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, rpid)
         if not h:
-            # Retry com QUERY_INFORMATION
             h = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, rpid)
         if not h:
-            continue
+            # último recurso: VM_READ (às vezes liberado no mesmo user)
+            h = kernel32.OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION, False, rpid)
+        if h:
+            opened.append(int(h))
+
+    roblox_objects = set()
+    our_pid = os.getpid()
+
+    # Re-query DEPOIS dos OpenProcess pra o mapa incluir os handles novos
+    fresh = _query_system_handles() or (all_handles or [])
+    our_map = {
+        int(h.HandleValue): h.Object
+        for h in fresh
+        if int(h.UniqueProcessId) == our_pid
+    }
+    for hv in opened:
+        obj = our_map.get(hv)
+        if obj:
+            roblox_objects.add(obj)
         try:
-            # Nosso handle novo → qual Object?
-            obj = our_handles_to_object.get(int(h))
-            if obj:
-                roblox_objects.add(obj)
-        finally:
-            kernel32.CloseHandle(h)
+            kernel32.CloseHandle(hv)
+        except Exception:
+            pass
+
+    if roblox_objects:
+        return roblox_objects
+
+    # Fallback: handles cujo DONO é o Roblox e o tipo é Process —
+    # inclui self-handle (Object = EPROCESS do próprio Roblox).
+    # Heurística: Object mais referenciado por handles donos=roblox.
+    from collections import Counter
+    process_type_idx = _find_process_type_index(fresh)
+    cnt = Counter()
+    for h in fresh:
+        if int(h.UniqueProcessId) not in roblox_pids:
+            continue
+        if process_type_idx >= 0 and h.ObjectTypeIndex != process_type_idx:
+            continue
+        cnt[h.Object] += 1
+    if cnt:
+        # top object por frequência ≈ self EPROCESS
+        roblox_objects.add(cnt.most_common(1)[0][0])
     return roblox_objects
 
 
@@ -1034,7 +1154,15 @@ def scan_external_process_handles() -> dict:
 
     rpids = _roblox_pids()
     if not rpids:
-        return _result(name, desc, [], error="Roblox não está rodando — abra o jogo antes")
+        # Roblox FECHADO é o cenário real de SS — handle live não aplica.
+        # Não é erro de cobertura: pós-mortem/residual cobrem o resto.
+        return _result(name, desc, [_item(
+            label="Roblox fechado — handle scan não aplica",
+            detail="Handles PROCESS_VM_* só existem com o client vivo. "
+                   "Cheater fecha o Roblox antes do AnyDesk. Use correlation "
+                   "residual + Defender/WER/Prefetch (scanners pós-mortem).",
+            severity="low", matched="handle-roblox-closed", meta_only=True,
+        )])
 
     all_handles = _query_system_handles()
     if not all_handles:
@@ -1183,11 +1311,12 @@ def _is_exe_signed(path: str):
 
 
 def scan_external_memory_footprint() -> dict:
-    """Processos com Working Set > 50 MB, exe NÃO-assinado, rodando de pasta
-    gravável pelo usuário, com Roblox ativo. External precisa buferizar
-    leituras da memória do Roblox — RAM inflada é tell involuntário. Só flagga
-    quando os 3 sinais combinam (RAM + user path + não-assinado) e Roblox está
-    ativo. Whitelist cobre apps comuns em AppData.
+    """Processos com Working Set > 50 MB, exe NÃO-assinado, em pasta de usuário.
+
+    Com Roblox VIVO: MEDIUM (classic — external buferizando).
+    Com Roblox FECHADO: ainda flagga se o processo foi criado perto da última
+    sessão do Roblox (Prefetch) — residual pós-fecho, severidade MEDIUM.
+    Sem âncora de sessão recente: LOW (candidato residual genérico).
     """
     name = "Working set de external reader"
     desc = "Processo não-assinado com RAM inflada em pasta de usuário (external buferizando Roblox)"
@@ -1195,9 +1324,11 @@ def scan_external_memory_footprint() -> dict:
     if not HAS_PSUTIL:
         return _result(name, desc, [], error="psutil não instalado")
 
-    rpids = _roblox_pids()
-    if not rpids:
-        return _result(name, desc, [], error="Roblox não está rodando — abra o jogo antes")
+    ctx = _roblox_session_context()
+    live = ctx["live"]
+    anchor = ctx.get("anchor_ts")
+    # Janela residual: ±2h da última sessão Roblox (fechou o jogo e o external)
+    residual_window = 2 * 3600
 
     items = []
     for proc in psutil.process_iter(["pid", "name", "exe", "create_time"]):
@@ -1210,20 +1341,16 @@ def scan_external_memory_footprint() -> dict:
                 continue
 
             low_exe = exe.lower().replace("/", "\\")
-            # Skip: dentro de path legítimo
             if low_exe.startswith(_LEGIT_PATH_PREFIXES):
                 continue
-            # Skip: WindowsApps / Packages / SystemApps (UWP)
             if any(tok in low_exe for tok in (
                 "\\windowsapps\\", "\\systemapps\\",
                 "\\appdata\\local\\packages\\",
             )):
                 continue
-            # Só pega quem tá em user path clássico OU em ProgramData / raiz do C
             if not any(tok in low_exe for tok in _USER_PATH_TOKENS):
                 continue
 
-            # Working set
             try:
                 mi = psutil.Process(proc.info["pid"]).memory_info()
                 ws_mb = mi.rss / (1024 * 1024)
@@ -1232,22 +1359,29 @@ def scan_external_memory_footprint() -> dict:
             if ws_mb < _WS_THRESHOLD_MB:
                 continue
 
-            # Verifica assinatura
             signed = _is_exe_signed(exe)
             if signed is not False:
-                continue  # assinado ou desconhecido → benefício da dúvida
+                continue
 
-            ts = _fmt_ts(proc.info.get("create_time") or 0)
+            ct = proc.info.get("create_time") or 0
+            ts = _fmt_ts(ct)
+            if live:
+                sev = "medium"
+                mode = "Roblox vivo"
+            elif anchor and abs(ct - anchor) <= residual_window:
+                sev = "medium"
+                mode = f"residual (criado perto da sessão Roblox {_fmt_ts(anchor)})"
+            else:
+                sev = "low"
+                mode = "residual genérico (Roblox fechado, sem âncora de sessão)"
+
             items.append(_item(
                 label=f"External reader (pegada de RAM): {pname}",
                 detail=f"PID {proc.info['pid']} · RAM {ws_mb:.0f} MB · {exe}\n"
-                       f"Processo NÃO-ASSINADO em pasta de usuário com working set "
-                       f"acima de {_WS_THRESHOLD_MB} MB, com Roblox ativo. External "
-                       f"precisa buferizar as leituras da memória do Roblox — RAM "
-                       f"inflada é tell involuntário. Whitelist cobre Discord, "
-                       f"Spotify, VS Code e utilitários comuns em AppData; se caiu "
-                       f"aqui, é candidato principal a external.",
-                severity="medium",
+                       f"Modo: {mode}\n"
+                       f"NÃO-assinado, user path, working set > {_WS_THRESHOLD_MB} MB. "
+                       f"External buferiza leituras — RAM inflada é tell.",
+                severity=sev,
                 matched=f"external-footprint:{pname}",
                 timestamp=ts,
             ))
@@ -1424,7 +1558,12 @@ def scan_remote_threads_in_roblox() -> dict:
 
     rpids = _roblox_pids()
     if not rpids:
-        return _result(name, desc, [], error="Roblox não está rodando — abra o jogo antes")
+        return _result(name, desc, [_item(
+            label="Roblox fechado — thread remota não aplica",
+            detail="CreateRemoteThread no client só se vê com o jogo vivo. "
+                   "SS pós-fecho: use residual/pós-mortem.",
+            severity="low", matched="remote-thread-roblox-closed", meta_only=True,
+        )])
 
     items = []
     for rpid in rpids:
@@ -1818,10 +1957,11 @@ _POST_ROBLOX_GRACE_SEC = 3
 
 
 def scan_post_roblox_processes() -> dict:
-    """Flagga processos NÃO-assinados, em user path, que começaram DEPOIS do
-    Roblox. External só existe pra atacar o Roblox — típico rodar o external
-    depois de abrir o jogo. Sinal comportamental sozinho não crava (MEDIUM),
-    mas eleva no correlation quando combinado com handle/overlay/footprint.
+    """Flagga processos NÃO-assinados em user path iniciados APÓS o Roblox.
+
+    Roblox VIVO: create_time do client.
+    Roblox FECHADO: âncora = última sessão via Prefetch (mtime .pf) — o
+    cenário real de SS (fecha jogo + fecha cheat + limpa + AnyDesk).
     """
     name = "Processo iniciado após o Roblox"
     desc = "Processo não-assinado em user path que começou depois do RobloxPlayerBeta"
@@ -1829,41 +1969,47 @@ def scan_post_roblox_processes() -> dict:
     if not HAS_PSUTIL:
         return _result(name, desc, [], error="psutil não instalado")
 
-    # Menor create_time entre PIDs do Roblox
+    ctx = _roblox_session_context()
     roblox_min_ts = None
-    for p in psutil.process_iter(["pid", "name", "create_time"]):
-        try:
-            n = (p.info.get("name") or "").lower()
-            if n in {rn.lower() for rn in ROBLOX_PROCESS_NAMES}:
-                ct = p.info.get("create_time")
-                if ct is None:
-                    continue
+    if ctx["live"]:
+        for pid in ctx["live_pids"]:
+            try:
+                ct = psutil.Process(pid).create_time()
                 if roblox_min_ts is None or ct < roblox_min_ts:
                     roblox_min_ts = ct
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            continue
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+    if roblox_min_ts is None:
+        roblox_min_ts = ctx.get("last_run_ts")
 
     if roblox_min_ts is None:
-        return _result(name, desc, [], error="Roblox não está rodando")
+        return _result(name, desc, [_item(
+            label="Sem âncora de sessão Roblox",
+            detail="Prefetch/client não encontrados — não dá pra datar pós-Roblox. "
+                   "Outros scanners residual/pós-mortem ainda rodam.",
+            severity="low", matched="post-roblox-no-anchor", meta_only=True,
+        )])
 
-    # Threshold: strictly after (com grace pra spawn em cascata do launcher)
     cutoff = roblox_min_ts + _POST_ROBLOX_GRACE_SEC
+    # Residual: processos ainda vivos criados até 6h depois da sessão
+    max_after = roblox_min_ts + 6 * 3600
+    mode = "vivo" if ctx["live"] else "residual-prefetch"
 
     items = []
-    for proc in psutil.process_iter(["pid", "name", "exe", "create_time"]):
+    for proc in psutil.process_iter(["pid", "name", "exe", "create_time", "ppid"]):
         try:
             pname = (proc.info.get("name") or "").lower()
             ct = proc.info.get("create_time") or 0
             if ct <= cutoff:
                 continue
+            if not ctx["live"] and ct > max_after:
+                continue
             exe = proc.info.get("exe") or ""
             if not exe:
                 continue
 
-            # Skip: whitelist ampla (o mesmo do footprint + self Telador)
             if _is_process_whitelisted(pname, _FOOTPRINT_WHITELIST, exe):
                 continue
-            # Skip: crash handler e helpers do Roblox
             if pname in {"robloxcrashhandler.exe", "robloxlauncher.exe"}:
                 continue
 
@@ -1875,11 +2021,9 @@ def scan_post_roblox_processes() -> dict:
                 "\\appdata\\local\\packages\\",
             )):
                 continue
-            # Só flagga se está em user path (Downloads/Temp/Desktop/...)
             if not any(tok in low_exe for tok in _USER_PATH_TOKENS):
                 continue
 
-            # Assinatura: só flagga se COMPROVADAMENTE não-assinado
             signed = _is_exe_signed(exe)
             if signed is not False:
                 continue
@@ -1888,11 +2032,10 @@ def scan_post_roblox_processes() -> dict:
             delta = ct - roblox_min_ts
             items.append(_item(
                 label=f"Processo pós-Roblox: {pname}",
-                detail=f"PID {proc.info['pid']} · iniciado {delta:.1f}s após o Roblox · {exe}\n"
-                       f"Processo NÃO-assinado em pasta de usuário, iniciado DEPOIS do "
-                       f"Roblox. Sinal comportamental: cheat externo tipicamente roda "
-                       f"depois de abrir o jogo pra ter alvo. Sozinho é MEDIUM; combinado "
-                       f"com handle/overlay/footprint no correlation vira HIGH/CRITICAL.",
+                detail=f"PID {proc.info['pid']} · +{delta:.0f}s após âncora Roblox · {exe}\n"
+                       f"Modo: {mode} · âncora={_fmt_ts(roblox_min_ts)}\n"
+                       f"NÃO-assinado em user path, iniciado DEPOIS do Roblox. "
+                       f"External tipicamente sobe depois do jogo (ou fica residual).",
                 severity="medium",
                 matched=f"post-roblox:{pname}",
                 timestamp=ts,
@@ -2087,22 +2230,147 @@ def scan_random_name_executables() -> dict:
 
 
 
-# ============================ Correlacao de sinais (Winter/Matcha/etc) ============================
+# ============================ (11) Rede de processo user-path nao-assinado ============================
 
-def _roblox_pids_correlation() -> list:
+# Pais legítimos que spawnam instaladores/helpers (não flagga ancestry sozinho)
+_LEGIT_PARENTS = {
+    "explorer.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "wt.exe",
+    "svchost.exe", "services.exe", "taskeng.exe", "taskhostw.exe",
+    "sihost.exe", "runtimebroker.exe", "chrome.exe", "msedge.exe",
+    "discord.exe", "steam.exe", "bloxstrap.exe", "fishstrap.exe",
+}
+
+
+def scan_unsigned_user_network() -> dict:
+    """NÃO-assinado em user path com TCP ESTABLISHED pra IP público.
+    External private phone-home / loader. Funciona COM ou SEM Roblox aberto."""
+    name = "Rede: processo user-path não-assinado"
+    desc = "Exe não-assinado em pasta de usuário com conexão TCP externa"
+
     if not HAS_PSUTIL:
-        return []
-    names_lower = {n.lower() for n in _RBX_NAMES}
-    pids = []
-    for p in psutil.process_iter(["pid", "name"]):
+        return _result(name, desc, [], error="psutil não instalado")
+
+    try:
+        conns = psutil.net_connections(kind="tcp")
+    except (psutil.AccessDenied, PermissionError):
+        return _result(name, desc, [], error="Acesso negado ao net_connections (rode como admin)")
+    except Exception as e:
+        return _result(name, desc, [], error=str(e))
+
+    by_pid = {}
+    for c in conns:
+        if c.status != (getattr(psutil, "CONN_ESTABLISHED", "ESTABLISHED")):
+            if str(c.status).upper() != "ESTABLISHED":
+                continue
+        if not c.raddr:
+            continue
+        rip = c.raddr.ip if hasattr(c.raddr, "ip") else c.raddr[0]
+        if _is_private_or_loopback_ip(str(rip)):
+            continue
+        if not c.pid:
+            continue
+        by_pid.setdefault(c.pid, set()).add(f"{rip}:{getattr(c.raddr, 'port', c.raddr[1] if len(c.raddr)>1 else '?')}")
+
+    items = []
+    for pid, remotes in by_pid.items():
         try:
-            n = (p.info.get("name") or "").lower()
-            if n in names_lower:
-                pids.append(p.info["pid"])
+            p = psutil.Process(pid)
+            pname = (p.name() or "").lower()
+            try:
+                exe = p.exe() or ""
+            except (psutil.AccessDenied, PermissionError):
+                continue
+            if not exe or _is_process_whitelisted(pname, _FOOTPRINT_WHITELIST, exe):
+                continue
+            low = exe.lower().replace("/", "\\")
+            if low.startswith(_LEGIT_PATH_PREFIXES):
+                continue
+            if not any(t in low for t in _USER_PATH_TOKENS):
+                continue
+            if _is_exe_signed(exe) is not False:
+                continue
+            ts = ""
+            try:
+                ts = _fmt_ts(p.create_time())
+            except Exception:
+                pass
+            sample = ", ".join(sorted(remotes)[:4])
+            items.append(_item(
+                label=f"User-path + rede externa: {pname} (PID {pid})",
+                detail=f"{exe}\nRemotes: {sample}\n"
+                       f"NÃO-assinado em pasta de usuário com TCP pública. "
+                       f"Loader/external phone-home — funciona com Roblox fechado.",
+                severity="high",
+                matched=f"user-net:{pname}",
+                timestamp=ts,
+            ))
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
-    return pids
 
+    return _result(name, desc, items)
+
+
+def scan_suspicious_process_ancestry() -> dict:
+    """NÃO-assinado em user path spawnado por explorer/cmd logo após sessão Roblox.
+    Winter-class: double-click no Downloads depois de fechar o jogo."""
+    name = "Ancestralidade suspeita (pós-sessão Roblox)"
+    desc = "Exe não-assinado em user path com parent shell, perto da sessão Roblox"
+
+    if not HAS_PSUTIL:
+        return _result(name, desc, [], error="psutil não instalado")
+
+    ctx = _roblox_session_context()
+    anchor = ctx.get("anchor_ts")
+    # Sem âncora: ainda olha últimos 6h (SS no mesmo dia)
+    import time as _time
+    now = _time.time()
+    window_start = (anchor - 300) if anchor else (now - 6 * 3600)
+    window_end = (anchor + 6 * 3600) if anchor else now
+
+    items = []
+    for proc in psutil.process_iter(["pid", "name", "exe", "create_time", "ppid"]):
+        try:
+            pname = (proc.info.get("name") or "").lower()
+            ct = proc.info.get("create_time") or 0
+            if ct < window_start or ct > window_end:
+                continue
+            exe = proc.info.get("exe") or ""
+            if not exe or _is_process_whitelisted(pname, _FOOTPRINT_WHITELIST, exe):
+                continue
+            low = exe.lower().replace("/", "\\")
+            if low.startswith(_LEGIT_PATH_PREFIXES):
+                continue
+            if not any(t in low for t in _USER_PATH_TOKENS):
+                continue
+            if _is_exe_signed(exe) is not False:
+                continue
+            ppid = proc.info.get("ppid") or 0
+            parent_name = "?"
+            try:
+                parent_name = (psutil.Process(ppid).name() or "?").lower()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            # Interessa: shell do user (double-click Downloads) OU parent não-sistema
+            shell_parents = ("explorer.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "wt.exe")
+            if parent_name in _LEGIT_PARENTS and parent_name not in shell_parents:
+                continue
+            items.append(_item(
+                label=f"Spawn suspeito: {pname} ← {parent_name} (PID {proc.info['pid']})",
+                detail=f"{exe}\nParent: {parent_name} (PID {ppid})\n"
+                       f"Âncora Roblox: {_fmt_ts(anchor) if anchor else '(últimas 6h)'}\n"
+                       f"NÃO-assinado em user path spawnado por shell/parent perto da sessão. "
+                       f"Padrão Winter-class: fecha o jogo, roda o external, limpa.",
+                severity="medium",
+                matched=f"ancestry:{pname}",
+                timestamp=_fmt_ts(ct),
+            ))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    return _result(name, desc, items)
+
+
+# ============================ Correlacao de sinais (Winter/Matcha/etc) ============================
 
 def _extract_pid_from_item(it: dict) -> int:
     for key in ("label", "detail"):
@@ -2113,111 +2381,196 @@ def _extract_pid_from_item(it: dict) -> int:
     return 0
 
 
-def _collect_suspect_pids() -> dict:
-    """Roda os sinais de external (catalogo + tecnicos) e agrega por PID.
-    Um PID em 2+ fontes = external quase certo."""
-    suspects = {}
+def _extract_basename_key(it: dict) -> str:
+    """Chave estável pra correlacionar com Roblox FECHADO (PID morreu)."""
+    matched = (it.get("matched") or "").lower()
+    for prefix in (
+        "external-handle:", "external-footprint:", "post-roblox:",
+        "random-name:", "user-net:", "ancestry:", "external-proc:",
+        "external-path:", "popup-overlay:", "kernel-only-egress:",
+    ):
+        if matched.startswith(prefix):
+            rest = matched[len(prefix):]
+            # external-proc:family:name.exe → name
+            parts = rest.split(":")
+            base = parts[-1] if parts else rest
+            base = os.path.basename(base).lower()
+            if base.endswith(".exe") or len(base) > 2:
+                return base
+    # label fallback
+    label = (it.get("label") or "").lower()
+    m = re.search(r"([a-z0-9_\-\.\{\}]+\.exe)", label)
+    if m:
+        return m.group(1)
+    return ""
 
-    def _add(pid, source):
-        if pid <= 0:
+
+def _collect_suspect_groups() -> dict:
+    """Agrega sinais por PID (vivo) E por basename (residual pós-fecho).
+
+    key -> {"sources": [...], "pids": set, "label": str, "ts": str}
+    """
+    groups = {}
+
+    def _add(key: str, source: str, pid: int = 0, label: str = "", ts: str = ""):
+        if not key:
             return
-        suspects.setdefault(pid, []).append(source)
+        g = groups.setdefault(key, {"sources": [], "pids": set(), "label": label or key, "ts": ts})
+        g["sources"].append(source)
+        if pid > 0:
+            g["pids"].add(pid)
+        if label and len(label) > len(g["label"]):
+            g["label"] = label
+        if ts and not g["ts"]:
+            g["ts"] = ts
 
-    for scanner_fn, tag in [
+    scanners = [
         (scan_external_processes, "family-catalog"),
+        (scan_external_artifacts, "artifact-disk"),
         (scan_external_process_handles, "handle"),
         (scan_external_memory_footprint, "footprint"),
         (scan_kernel_only_egress, "egress"),
         (scan_popup_overlays, "popup-overlay"),
         (scan_post_roblox_processes, "post-roblox"),
         (scan_random_name_executables, "random-name"),
-    ]:
+        (scan_unsigned_user_network, "user-net"),
+        (scan_suspicious_process_ancestry, "ancestry"),
+    ]
+    for scanner_fn, tag in scanners:
         try:
             r = scanner_fn()
-            for it in r.get("items", []):
+            for it in r.get("items", []) or []:
                 if it.get("meta_only"):
                     continue
                 pid = _extract_pid_from_item(it)
-                if pid:
-                    _add(pid, tag)
+                base = _extract_basename_key(it)
+                # Chave: prefira pid vivo; senão basename
+                if pid > 0:
+                    _add(f"pid:{pid}", tag, pid, it.get("label") or "", it.get("timestamp") or "")
+                if base and not base.startswith("pid:"):
+                    _add(f"base:{base}", tag, pid, it.get("label") or base, it.get("timestamp") or "")
         except Exception as e:
             debug.dbg("correlation " + tag + " scan falhou", e)
 
     try:
         import live_analysis as _la
         r = _la.scan_overlay_windows()
-        for it in r.get("items", []):
+        for it in r.get("items", []) or []:
             if it.get("meta_only"):
                 continue
             pid = _extract_pid_from_item(it)
-            if pid:
-                _add(pid, "overlay-layered")
+            base = _extract_basename_key(it)
+            if pid > 0:
+                _add(f"pid:{pid}", "overlay-layered", pid, it.get("label") or "", it.get("timestamp") or "")
+            if base:
+                _add(f"base:{base}", "overlay-layered", pid, it.get("label") or base, it.get("timestamp") or "")
     except Exception as e:
         debug.dbg("correlation overlay-layered scan falhou", e)
 
-    return suspects
+    # Merge pid↔basename: se pid:X tem basename do processo, unifica sources no base
+    if HAS_PSUTIL:
+        for key, g in list(groups.items()):
+            if not key.startswith("pid:"):
+                continue
+            try:
+                pid = int(key.split(":")[1])
+                pname = (psutil.Process(pid).name() or "").lower()
+            except Exception:
+                continue
+            if not pname:
+                continue
+            bkey = f"base:{pname}"
+            if bkey in groups:
+                groups[bkey]["sources"].extend(g["sources"])
+                groups[bkey]["pids"].update(g["pids"])
+            else:
+                # promove
+                groups[bkey] = {
+                    "sources": list(g["sources"]),
+                    "pids": set(g["pids"]),
+                    "label": g["label"],
+                    "ts": g["ts"],
+                }
+
+    return groups
 
 
 def scan_external_correlation() -> dict:
-    """Correlaciona sinais de external no MESMO PID. Nenhum app legitimo cai em 2+ sinais.
+    """Correlaciona sinais de external por PID (vivo) e por basename (pós-fecho).
 
-    Sinais:
-      - family-catalog : bate _FAMILY_CATALOG (Matcha/Severe/DX9/Serotonin/...)
-      - handle         : handle PROCESS_VM_READ no RobloxPlayerBeta
-      - footprint      : RAM > 50 MB + user path + nao-assinado
-      - egress         : conhost/dwm/csrss com TCP externa
-      - popup-overlay  : janela POPUP+TOPMOST (D3D/DComp overlay)
-      - overlay-layered: janela LAYERED+TRANSPARENT+TOPMOST (ESP classico)
-      - post-roblox    : nao-assinado, user path, iniciado depois do Roblox
-      - random-name    : .exe com nome hex/base32/GUID em user path
+    Sinais: family-catalog, artifact-disk, handle, footprint, egress,
+    popup-overlay, overlay-layered, post-roblox, random-name, user-net, ancestry.
 
-    Regras: 3+ sinais = CRITICAL (crava sozinho); 2 sinais = HIGH. Externals
-    PRIVATE (Winter, etc, sem match de nome) caem aqui pela combinacao de
-    handle + overlay + footprint.
+    2+ sinais = HIGH; 3+ = CRITICAL.
+    Funciona com Roblox FECHADO via chave basename + residual.
     """
     name = "Correlacao de sinais de external (private cheats, Winter-class)"
-    desc = "Multiplos sinais convergindo no mesmo PID"
+    desc = "Multiplos sinais no mesmo PID ou basename (vivo ou residual)"
 
     if not HAS_PSUTIL:
         return _result(name, desc, [], error="psutil nao instalado")
 
-    suspects = _collect_suspect_pids()
-    if not suspects:
+    groups = _collect_suspect_groups()
+    if not groups:
         return _result(name, desc, [])
 
     items = []
-    for pid, sources in suspects.items():
-        uniq = sorted(set(sources))
-        if len(uniq) < 2:
-            continue
-        pname = "?"
-        pexe = ""
-        pcreated = ""
-        try:
-            p = psutil.Process(pid)
-            pname = (p.name() or "?").lower()
+    seen_bases = set()
+    for key, g in groups.items():
+        # Prefira reportar base:* (evita duplicar pid+base); se só pid, reporta pid
+        if key.startswith("pid:"):
+            # se já tem base do mesmo processo, skip pid-only
             try:
-                pexe = p.exe() or ""
-            except (psutil.AccessDenied, PermissionError):
-                pexe = "(sem acesso)"
-            try:
-                pcreated = _fmt_ts(p.create_time())
+                pid = int(key.split(":")[1])
+                pname = (psutil.Process(pid).name() or "").lower()
+                if f"base:{pname}" in groups:
+                    continue
             except Exception:
                 pass
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+        if key.startswith("base:"):
+            base = key[5:]
+            if base in seen_bases:
+                continue
+            # self
+            if _is_self_process(base, ""):
+                continue
+            seen_bases.add(base)
 
-        # Nunca cravar o próprio Telador (telador (64).exe, etc.)
+        uniq = sorted(set(g["sources"]))
+        if len(uniq) < 2:
+            continue
+
+        pname = key.split(":", 1)[-1]
+        pexe = ""
+        pcreated = g.get("ts") or ""
+        pid_show = ""
+        if g["pids"]:
+            pid = next(iter(g["pids"]))
+            pid_show = f" (PID {pid})"
+            try:
+                p = psutil.Process(pid)
+                pname = (p.name() or pname).lower()
+                try:
+                    pexe = p.exe() or ""
+                except (psutil.AccessDenied, PermissionError):
+                    pexe = "(sem acesso)"
+                try:
+                    pcreated = _fmt_ts(p.create_time())
+                except Exception:
+                    pass
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
         if _is_self_process(pname, pexe):
             continue
 
         sev = "critical" if len(uniq) >= 3 else "high"
         sources_str = " + ".join(uniq)
-        detail_txt = pexe + " (iniciado " + (pcreated or "?") + ")"
-        detail_txt += "\nSinais convergentes: " + sources_str + " (" + str(len(uniq)) + " fontes)."
-        detail_txt += "\nNenhum app legitimo cai em 2+ sinais de external. Este e o alvo."
+        detail_txt = (pexe or g.get("label") or pname) + " (iniciado " + (pcreated or "?") + ")"
+        detail_txt += "\nChave: " + key + " · sinais: " + sources_str + " (" + str(len(uniq)) + ")."
+        detail_txt += "\nCorrelação PID e/ou basename — funciona com Roblox fechado."
         items.append(_item(
-            label="EXTERNAL confirmado por correlacao: " + pname + " (PID " + str(pid) + ")",
+            label="EXTERNAL confirmado por correlacao: " + pname + pid_show,
             detail=detail_txt,
             severity=sev,
             matched="external-corr:" + pname + ":" + str(len(uniq)),
@@ -2232,7 +2585,7 @@ ALL_EXTERNAL_SCANNERS = [
     # Catalogo + artefatos (3.43.5-3.43.7)
     scan_external_processes,
     scan_external_artifacts,
-    # Deteccoes tecnicas (3.44.0)
+    # Deteccoes tecnicas (3.44+)
     scan_external_process_handles,
     scan_external_memory_footprint,
     scan_remote_threads_in_roblox,
@@ -2241,5 +2594,8 @@ ALL_EXTERNAL_SCANNERS = [
     scan_post_roblox_processes,
     scan_suspicious_named_pipes,
     scan_random_name_executables,
-    scan_external_correlation,  # roda por ultimo - agrega dos outros
+    # Residual / Roblox fechado (3.45)
+    scan_unsigned_user_network,
+    scan_suspicious_process_ancestry,
+    scan_external_correlation,  # por ultimo - agrega
 ]

@@ -281,9 +281,9 @@ _DX_SHADER_CACHE_ROOTS = (
 # Janela relevante: últimas 24h (cobre a sessão do dia). Dentro dela, procuramos
 # BURSTS — muitos shaders comprimidos em janela pequena (15 min) = renderização
 # nova. Threshold conservador pra não FP com sessão longa do Roblox.
-_DXCACHE_RECENT_WINDOW_SEC = 24 * 60 * 60  # últimas 24h
-_DXCACHE_BURST_WINDOW_SEC  = 15 * 60       # janela de burst: 15 min
-_DXCACHE_BURST_THRESHOLD   = 5             # 5+ shaders em 15 min = burst
+_DXCACHE_RECENT_WINDOW_SEC = 48 * 60 * 60  # últimas 48h (SS no dia seguinte)
+_DXCACHE_BURST_WINDOW_SEC  = 20 * 60       # janela de burst: 20 min
+_DXCACHE_BURST_THRESHOLD   = 3             # 3+ shaders em 20 min = burst (ESP fino)
 
 
 def scan_dxshader_cache() -> dict:

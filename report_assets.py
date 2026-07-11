@@ -60,6 +60,8 @@ SOURCE_LABELS = {
     "post_roblox_proc":   "Processo pós-Roblox",
     "suspicious_pipe":    "Named pipe suspeito",
     "random_name_exe":    "Nome aleatório (.exe)",
+    "user_path_network":  "Rede (user-path não-assinado)",
+    "suspicious_ancestry": "Ancestralidade pós-Roblox",
     # v3.44.0 — forense pós-mortem
     "defender_history":   "Defender (histórico)",
     "dxshader_burst":     "DirectX Shader Cache",

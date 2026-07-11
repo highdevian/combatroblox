@@ -107,6 +107,8 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "post_roblox_proc":     0.70,   # não-assinado iniciado após Roblox
     "suspicious_pipe":      0.60,   # named pipe random — IPC reader/renderer
     "random_name_exe":      0.75,   # nome hex/base32/GUID em user path
+    "user_path_network":    0.88,   # não-assinado user path + TCP pública (loader)
+    "suspicious_ancestry":  0.72,   # spawn shell→unsigned perto da sessão Roblox
 
     # v3.44.0 — forense pós-mortem (sobrevive a cleaner)
     "defender_history":     0.92,   # Defender viu o exe — sobrevive a "Clear History"
@@ -628,6 +630,8 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("processo iniciado após o roblox", "post_roblox_proc"),
         ("named pipes suspeitos", "suspicious_pipe"),
         ("executável com nome aleatório", "random_name_exe"),
+        ("rede: processo user-path", "user_path_network"),
+        ("ancestralidade suspeita", "suspicious_ancestry"),
         # v3.44.0 — forense pós-mortem
         ("defender: histórico de detecções", "defender_history"),
         ("directx shader cache",  "dxshader_burst"),

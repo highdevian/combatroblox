@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.0] - 2026-07-11
+
+**External residual: Roblox FECHADO + SS pós-limpa (Winter-class).**
+
+- **Handles**: fix OpenProcess→re-query (bug que quebrava resolução do
+  EPROCESS); SeDebugPrivilege; fallback por frequência; Roblox fechado =
+  meta_only (não erro de cobertura).
+- **Footprint / post-Roblox / remote-thread**: âncora Prefetch quando o
+  client não está vivo; residual ±2h / +6h da última sessão.
+- **Novos**: `scan_unsigned_user_network` (user-path + TCP pública),
+  `scan_suspicious_process_ancestry` (shell→unsigned perto da sessão).
+- **Correlation**: por PID **e** basename (sobrevive a fechar o processo);
+  merge pid↔base; inclui artefatos em disco + rede + ancestry.
+- **DXCache**: threshold 3/20min, janela 48h.
+- SCANNER_COUNT 88 → **90**.
+
 ## [3.44.4] - 2026-07-11
 
 **Anti-FP: dual-use do supervisor some no PC de dev.**
