@@ -306,6 +306,38 @@ def test_trusted_domains_localappdata_fallback(tmp_path, monkeypatch):
     assert cands.index(expected) > 0
 
 
+def test_load_trusted_domains_strips_bom_and_skips_broken(tmp_path, monkeypatch):
+    """REGRESSÃO FP: PowerShell Set-Content -Encoding utf8 grava BOM.
+    utf-8-sig engole; JSON quebrado no 1º candidato NÃO impede o 2º."""
+    import database as db
+    bad = tmp_path / "bad.json"
+    good_dir = tmp_path / "Telador"
+    good_dir.mkdir()
+    good = good_dir / "trusted_domains.json"
+    # 1º candidato: lixo
+    bad.write_text("not-json", encoding="utf-8")
+    # 2º: lista válida COM BOM UTF-8
+    good.write_bytes(b"\xef\xbb\xbf" + b'["ps.lua.tools","x.ai"]\n')
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("TELADOR_TRUSTED_DOMAINS", raising=False)
+    # força ordem: bad primeiro, LOCALAPPDATA segundo
+    monkeypatch.setattr(
+        db, "_trusted_domains_candidates",
+        lambda: [str(bad), str(good)],
+    )
+    saved = set(db.TRUSTED_DOMAINS)
+    try:
+        db.TRUSTED_DOMAINS.clear()
+        db.TRUSTED_DOMAINS.update({"discord.com"})  # baseline
+        n = db.load_trusted_domains()
+        assert n == 2
+        assert "ps.lua.tools" in db.TRUSTED_DOMAINS
+        assert "x.ai" in db.TRUSTED_DOMAINS
+    finally:
+        db.TRUSTED_DOMAINS.clear()
+        db.TRUSTED_DOMAINS.update(saved)
+
+
 def test_trusted_domains_userprofile_fallback(tmp_path, monkeypatch):
     """USERPROFILE\\AppData\\Local é fallback redundante pro caso de LOCALAPPDATA
     unset (contexto de exe elevado anomalo, env truncado etc)."""

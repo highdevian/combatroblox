@@ -73,8 +73,12 @@ def _probe_dev_folder(original_path: str) -> bool:
     return False
 
 
-_USER_WRITABLE = ("\\downloads", "\\temp", "\\appdata", "\\users\\public",
-                  "\\desktop", "\\roaming", "\\local\\")
+# Paths graváveis onde cheater costuma dropar (HIGH se excluir sem ser dev).
+_USER_DROP_PATHS = ("\\downloads", "\\temp", "\\appdata", "\\users\\public",
+                    "\\local\\temp", "\\local\\")
+# Desktop/Documents/Roaming: devs excluem projeto por perf com frequência.
+# Sem marcador de repo → MEDIUM (revisar), não HIGH (não crava sozinho).
+_USER_PROJECT_PATHS = ("\\desktop", "\\documents", "\\roaming")
 
 _KIND_LABEL = {"path": "pasta", "process": "processo", "extension": "extensão"}
 
@@ -99,13 +103,19 @@ def _classify_exclusion(value: str, kind: str):
         # IDE/runtime conhecida (lista hard-coded) → baixo risco
         if _is_dev_exclusion_path(v):
             return "low", "exclusao-dev"
-        if any(s in low for s in _USER_WRITABLE) and not low.startswith(
+        in_drop = any(s in low for s in _USER_DROP_PATHS)
+        in_project = any(s in low for s in _USER_PROJECT_PATHS)
+        if (in_drop or in_project) and not low.startswith(
                 ("c:\\program files", "c:\\programdata")):
             # Probe do conteúdo: pasta com marcadores de projeto (.git, package.json…)
             # → repo de dev no Desktop/Documents, exclusão por perf, não cheat.
             if _probe_dev_folder(v):
                 return "low", "exclusao-dev"
-            return "high", "exclusao-pasta-usuario"
+            # Downloads/Temp/AppData sem marcador = HIGH (drop clássico de cheat).
+            # Desktop/Documents sem marcador = MEDIUM (muitas vezes portfolio/projeto).
+            if in_drop:
+                return "high", "exclusao-pasta-usuario"
+            return "medium", "exclusao-pasta-usuario"
 
     # Processo excluído fora de Program Files / Windows
     if kind == "process" and low and not low.startswith(

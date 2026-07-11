@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.44.2] - 2026-07-11
+
+**Anti-FP: allowlist de domínios quebra com BOM; exclusão Desktop não é HIGH.**
+
+- `load_trusted_domains`: `utf-8-sig` (BOM do PowerShell) + tenta o próximo
+  candidato se o JSON estiver quebrado (antes travava nos 2 Discord defaults).
+- Exclusão Defender em Desktop/Documents sem marcador de repo: MEDIUM
+  (portfolio/projeto). Downloads/Temp/AppData continuam HIGH.
+
 ## [3.44.1] - 2026-07-11
 
 **Anti-FP: o próprio Telador e scripts de dev/docs não viram “executor”.**

@@ -833,26 +833,34 @@ def _trusted_domains_candidates() -> list:
 
 
 def load_trusted_domains() -> int:
-    """Mescla o primeiro trusted_domains.json encontrado no set TRUSTED_DOMAINS,
-    IN-PLACE (mesmo objeto que command_history/winevent referenciam). Formato:
-    lista JSON de strings, ex.: ["ps.lua.tools"]. Degrada graciosamente —
-    arquivo ausente/inválido nunca quebra. Retorna nº de domínios somados."""
+    """Mescla trusted_domains.json no set TRUSTED_DOMAINS (in-place).
+
+    Tenta TODOS os candidatos: se o primeiro está com BOM/JSON quebrado,
+    segue pro próximo (antes retornava 0 e a allowlist ficava só Discord —
+    FP clássico de irm|iex legítimo). utf-8-sig engole BOM do PowerShell
+    Set-Content. Formato: lista JSON de strings. Retorna nº de domínios
+    somados."""
+    added = 0
     for path in _trusted_domains_candidates():
         if not path or not os.path.isfile(path):
             continue
         try:
-            with open(path, "r", encoding="utf-8") as fh:
+            with open(path, "r", encoding="utf-8-sig") as fh:
                 data = json.load(fh)
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            return 0
+            continue  # tenta o próximo caminho
         if not isinstance(data, list):
-            return 0
-        added = 0
+            continue
         for d in data:
             if isinstance(d, str) and d.strip():
-                TRUSTED_DOMAINS.add(d.strip().lower())
-                added += 1
-        return added
+                dom = d.strip().lower()
+                if dom not in TRUSTED_DOMAINS:
+                    TRUSTED_DOMAINS.add(dom)
+                    added += 1
+        # Achou um arquivo válido — não precisa mesclar todos (primeiro
+        # intencional vence: env > lado do exe > LOCALAPPDATA).
+        if added or data is not None:
+            return added
     return 0
 
 
