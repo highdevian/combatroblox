@@ -100,6 +100,39 @@ def test_native_roblox_apis_not_high():
         assert database.SCRIPT_RED_FLAGS.get(api) != "high", f"{api} não pode ser HIGH"
 
 
+# ---------- v3.45.3: aimbot Luau (github.com/dev79kz/AimbotScript) ----------
+
+def test_aimbot_luau_executor_apis_high():
+    """APIs de executor pra aimbot/ESP: mousemoverel, drawing.new(, fovcircle,
+    aim-snap CFrame — todas HIGH. Roblox nativo não expõe nenhuma."""
+    for k in ("mousemoverel", "drawing.new(", "fovcircle",
+              "camera.cframe = cframe.new(camera.cframe.position"):
+        assert database.SCRIPT_RED_FLAGS.get(k) == "high", k
+
+
+def test_aimbot_luau_borderline_apis_medium():
+    """APIs públicas mas ~exclusivamente usadas em ESP/wallcheck — MEDIUM
+    (existe uso legítimo raro em UI custom de jogo dev)."""
+    assert database.SCRIPT_RED_FLAGS.get("worldtoviewportpoint") == "medium"
+    assert database.SCRIPT_RED_FLAGS.get("getpartsobscuringtarget") == "medium"
+
+
+def test_aimbot_script_full_pattern_matches():
+    """Script completo do repo dispara HIGH em pelo menos uma flag decisiva."""
+    script = """
+    local mousemoverel = mousemoverel or Input.MouseMove
+    Environment.FOVCircle = Drawing.new("Circle")
+    local Vector = Camera:WorldToViewportPoint(target.Position)
+    Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+    """.lower()
+    hits = [k for k, sev in database.SCRIPT_RED_FLAGS.items()
+            if sev == "high" and k in script]
+    # Pelo menos mousemoverel + drawing.new( + fovcircle + camera aim-snap
+    assert "mousemoverel" in hits
+    assert "drawing.new(" in hits
+    assert "camera.cframe = cframe.new(camera.cframe.position" in hits
+
+
 # --------------------------- Verdict ignora meta_only ---------------------------
 
 def test_verdict_ignores_meta_only():

@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.3] - 2026-07-11
+
+**Aimbot Luau: 6 IoCs de APIs de executor pra aimbot/ESP.**
+
+Análise do repo `github.com/dev79kz/AimbotScript` (o próprio título diz
+"External" mas é Luau in-process, precisa de executor Solara/Xeno-class)
+revelou que o Telador cobre `getgenv()`/`getgc()`/`hookfunction` mas
+**não cobria** as APIs de executor mais decisivas pra aim/ESP.
+
+### `SCRIPT_RED_FLAGS` (+6)
+
+**HIGH (4)** — zero uso legítimo:
+- **`mousemoverel`**: função exposta APENAS por executor pra mover o mouse
+  do OS a partir do script Lua (aim-assist "external" saindo do Roblox).
+  Roblox client nativo nunca expõe. Um match aqui = executor rodou aim.
+- **`drawing.new(`**: Drawing API é exclusiva de executor. Roblox não expõe
+  Drawing.new. Primitivas `"Circle"` (FOV), `"Square"` (ESP box), `"Line"`
+  (tracer), `"Text"` (name/HP).
+- **`fovcircle`**: nome de variável distintivo do combo aimbot + FOV
+  visualizer. Se aparece em cache/log/prefetch, é aimbot dropado.
+- **`camera.cframe = cframe.new(camera.cframe.position`**: aim-snap
+  clássico (rotaciona câmera pra apontar exatamente no alvo). Match
+  case-insensitive por substring — sobrevive a whitespace variation.
+  Nenhum jogo dev normal escreve isso.
+
+**MEDIUM (2)** — APIs públicas, uso quase-exclusivo em cheat:
+- **`worldtoviewportpoint`**: projeção 3D → 2D. Necessária pra desenhar
+  ESP mas tem uso raro em UI custom de jogo.
+- **`getpartsobscuringtarget`**: raycast entre câmera e alvo. Assinatura
+  de wallcheck; uso legítimo em stealth game é raro.
+
+### Testes
+
+- `tests/test_detection.py` +3: `test_aimbot_luau_executor_apis_high`,
+  `test_aimbot_luau_borderline_apis_medium`,
+  `test_aimbot_script_full_pattern_matches` (roda o script inteiro do
+  repo dev79kz/AimbotScript contra as flags e valida 4 matches).
+- **629 passed** (era 626).
+
+### Contagem
+
+- `SCRIPT_RED_FLAGS`: 104 → **110**.
+- SCANNER_COUNT: 90 (só flags novas, sem scanners).
+
+---
+
 ## [3.45.2] - 2026-07-11
 
 **IoCs de repos públicos: KeyAuth, offset feeds, 3 famílias novas, GLFW class.**

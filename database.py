@@ -1263,6 +1263,30 @@ SCRIPT_RED_FLAGS = {
     "spoof hwid":           "high",
     "byfron bypass":        "high",
 
+    # ===== APIs de executor pra aimbot/ESP Luau (v3.45.3) =====
+    # Extraído de github.com/dev79kz/AimbotScript e correlatos.
+    # mousemoverel: função exposta APENAS por executor pra mover mouse do OS
+    # a partir do script Lua (aim-assist "externo" saindo do Roblox). Roblox
+    # nativo nunca expõe. Zero uso legítimo — HIGH sem hesitação.
+    "mousemoverel":         "high",
+    # Drawing API: exclusiva de executor. Roblox client não expõe Drawing.new.
+    # "circle"/"square"/"line"/"text" são as primitivas usadas em ESP/FOV.
+    "drawing.new(":         "high",
+    # FOVCircle: nome de variável muito distintivo do combo aimbot+FOV
+    # visualizer. Se aparece em log/cache/history, é aimbot dropado.
+    "fovcircle":            "high",
+    # Aim-snap padrão: Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo).
+    # Match de substring case-insensitive — sobrevive a whitespace variation.
+    # Zero FP conhecido (jogo dev normal NÃO faz isso).
+    "camera.cframe = cframe.new(camera.cframe.position": "high",
+    # WorldToViewportPoint: API pública mas ~exclusivamente usada em ESP
+    # (projeção 3D → 2D pra desenhar box/tracer). MEDIUM porque tem uso raro
+    # legítimo em UI custom de jogo.
+    "worldtoviewportpoint": "medium",
+    # GetPartsObscuringTarget: API pública mas assinatura de wallcheck
+    # (checa raio entre câmera e alvo). MEDIUM pela mesma razão.
+    "getpartsobscuringtarget": "medium",
+
     # ===== Padrões comuns em scripts maliciosos =====
     "_g.aimbot":            "high",
     "_g.esp":               "high",
