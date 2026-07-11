@@ -353,6 +353,46 @@ _FAMILY_CATALOG: dict[str, dict] = {
         "basenames": [],
         "aliases": ["autopsy roblox", "autopsyloader"],
     },
+    "lecture_external": {
+        # github.com/LectureExternal/lectureExternal — README diz "bypasses
+        # byfron". Repo contém README + lectureExternal.exe direto (10 MB).
+        # Sem source (só binário) — pega por nome de processo/arquivo.
+        "label": "LectureExternal (external byfron bypass)",
+        "severity": "high",
+        "processes": [
+            "lectureexternal.exe", "lecture_external.exe",
+            "lecture-external.exe", "lecture.exe",
+        ],
+        "tokens": [
+            "lectureexternal", "lecture external", "lecture-external",
+            "lecture_external",
+        ],
+        "basenames": ["lectureexternal", "lecture external", "lecture-external"],
+        "aliases": ["lecture external", "lectureexternal", "lecture-external"],
+    },
+    "nocturnal": {
+        # github.com/matidebugging0/nocturnal — .NET C# (README menciona
+        # dnspy p/ análise), "fully external byfron bypassing cheat". Releases
+        # distribuídas como GUID.zip (obfuscação de nome de arquivo).
+        # ATENÇÃO A FP: "nocturnal" bare é palavra comum (poesia/música/nomes
+        # de streamer) — basenames vazio; só entra com contexto "nocturnal
+        # roblox"/"nocturnal external"/"nocturnal bypass" ou processo direto.
+        "label": "Nocturnal (external .NET, byfron bypass)",
+        "severity": "high",
+        "processes": [
+            "nocturnal.exe", "nocturnalroblox.exe", "nocturnal-roblox.exe",
+            "nocturnal_roblox.exe", "nocturnalloader.exe",
+        ],
+        "tokens": [
+            "nocturnal roblox", "nocturnal-roblox", "nocturnal_roblox",
+            "nocturnal external", "nocturnal-external",
+            "nocturnal bypass", "nocturnal byfron",
+        ],
+        "basenames": [],
+        "aliases": [
+            "nocturnal roblox", "nocturnal external", "nocturnal bypass",
+        ],
+    },
 }
 
 # Domínios públicos associados a products external (browser history / DNS)

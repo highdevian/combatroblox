@@ -758,6 +758,43 @@ def test_autopsy_lol_domain_in_suspicious():
     assert SUSPICIOUS_DOMAINS.get("autopsy.lol") == "high"
 
 
+# ---------- v3.45.5: LectureExternal + Nocturnal ----------
+
+def test_lecture_external_family_registered():
+    """github.com/LectureExternal/lectureExternal — byfron bypass, exe direto
+    no repo. Familia +processes/tokens/basenames."""
+    assert "lecture_external" in es.EXTERNAL_FAMILY_IDS
+    hit = es.classify_process_name("lectureexternal.exe")
+    assert hit and hit[0] == "high" and hit[1] == "lecture_external"
+
+
+def test_lecture_external_basename_matches():
+    """lectureexternal como basename e IOC (nao e palavra comum)."""
+    hit = es.classify_basename("lectureexternal")
+    assert hit and hit[1] == "lecture_external"
+
+
+def test_nocturnal_family_registered():
+    """github.com/matidebugging0/nocturnal — .NET byfron bypass."""
+    assert "nocturnal" in es.EXTERNAL_FAMILY_IDS
+    hit = es.classify_process_name("nocturnal.exe")
+    assert hit and hit[0] == "high" and hit[1] == "nocturnal"
+
+
+def test_nocturnal_bare_word_safe_anti_fp():
+    """'nocturnal' bare NAO e IOC (poesia/musica/streamer names). basenames
+    vazio de proposito. So bate com contexto 'nocturnal roblox' etc."""
+    assert es.classify_basename("nocturnal") is None
+
+
+def test_nocturnal_with_context_flags():
+    """nocturnal + roblox/external/bypass = IOC. Testa via path token."""
+    hit = es.classify_path_or_text(
+        r"C:\Users\x\Downloads\nocturnal roblox\loader.exe"
+    )
+    assert hit and hit[1] == "nocturnal"
+
+
 def test_keyauth_domains_in_suspicious():
     """KeyAuth SaaS de DRM usado por ~todo external pago (Layuh etc).
     Deteccao via DNS cache / network / browser history."""

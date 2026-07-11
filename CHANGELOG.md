@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.5] - 2026-07-11
+
+**+2 famílias externas: LectureExternal e Nocturnal.**
+
+### `_FAMILY_CATALOG` (+2)
+
+- **`lecture_external`** — `github.com/LectureExternal/lectureExternal`.
+  README diz "byfron bypass". Repo distribui `lectureExternal.exe` direto
+  na raiz (10 MB) — sem source, só binário. Processos: `lectureexternal.exe`,
+  `lecture_external.exe`, `lecture.exe`. Basename `lectureexternal` é IOC
+  (não é palavra comum).
+- **`nocturnal`** — `github.com/matidebugging0/nocturnal`. README menciona
+  ".NET" e "dnspy" (decompilador C#) — perfil **C# externo**, distinto dos
+  externals C++ das releases anteriores. Releases distribuídas como GUID.zip
+  (`ca7af92a-9491-4c23-a5f2-45c1fb009401.zip`) — nome ofuscado, `scan_random_name_executables`
+  já cobre. Processos: `nocturnal.exe`, `nocturnalroblox.exe`,
+  `nocturnalloader.exe`.
+
+### Anti-FP: `nocturnal` bare
+
+`nocturnal` (sem qualificador) NÃO é IOC — palavra comum em poesia/música/
+handles de streamers. `basenames: []` de propósito, mesma doutrina de
+`autopsy` bare (v3.45.2). Requer:
+- Processo direto (`nocturnal.exe`, `nocturnalroblox.exe`, …), OU
+- Token com contexto (`nocturnal roblox`, `nocturnal external`,
+  `nocturnal bypass`, `nocturnal byfron`).
+
+### Testes
+
+- `tests/test_external.py` +5: registro das duas famílias, basename match,
+  anti-FP de `nocturnal` bare, hit com contexto.
+- **637 passed** (era 632).
+
+### Contagem
+
+- Famílias em `_FAMILY_CATALOG`: 24 → **26**.
+- SCANNER_COUNT: 90 (só catálogo).
+
+---
+
 ## [3.45.4] - 2026-07-11
 
 **Window class names direto do fonte: `autopsy.lol` + masquerade "Task Manager".**
