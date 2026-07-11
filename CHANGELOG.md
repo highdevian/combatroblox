@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.7] - 2026-07-11
+
+**Bug fix: Amcache passa a ler mesmo com o hive travado pelo Windows.**
+
+### O que estava quebrado
+
+`scan_amcache` fazia `reg load HKLM\TempAmcache C:\Windows\appcompat\Programs\Amcache.hve`
+direto no arquivo original. Isso falhava com `"O arquivo já está sendo usado
+por outro processo"` em praticamente todas as máquinas com telemetria de
+compatibilidade ativa (default no Windows 10/11), porque o serviço
+Application Experience mantém handle aberto no hive.
+
+Consequência: mesmo em telão feito como Administrador, o Amcache aparecia como
+"cobertura reduzida" no relatório final — e Amcache é a fonte mais forte
+pra pegar cheat que rodou e foi apagado (hash SHA1 + LinkDate persistem
+por meses).
+
+### Fix
+
+Fallback via `esentutl.exe /y /vss` (Volume Shadow Copy). Fluxo novo:
+
+1. Tenta `reg load` direto (raro que funcione — mantido pra compat).
+2. Se falhar, copia o hive travado pra `%TEMP%\telador_amcache_<pid>.hve`
+   usando `esentutl /y /vss <src> /d <dst>` — a ferramenta padrão do
+   Windows pra ler arquivos em uso via snapshot VSS.
+3. `reg load` na cópia. Lê `InventoryApplicationFile` (Win10/11) e
+   `Root\File` (Win7 legacy) normalmente.
+4. `reg unload` + `os.remove` da cópia no `finally` (evita deixar hive
+   de 20MB+ em %TEMP%).
+
+Mensagem de erro agora distingue os 3 modos de falha:
+- `reg load falhou (...); esentutl /vss falhou (...) — precisa admin?`
+- `reg load na cópia VSS falhou: ...`
+- `Amcache.hve não encontrado`
+
+### Novos helpers em `forensics.py`
+
+- `_esentutl_copy_locked(src, dst)` — wrapper testável de `esentutl /y /vss`.
+- `_reg_load(alias, path)` — wrapper testável do `reg load`.
+- `_amcache_copy_path()` — path da cópia com PID pra evitar colisão.
+
+### Impacto
+
+- Amcache agora deve funcionar em **qualquer** Windows 10/11 rodado como
+  admin, não só nos raros onde o serviço estava parado.
+- 90 scanners ainda (nenhum novo scanner; só fix do existente).
+- 638 testes passando.
+
+---
+
 ## [3.45.6] - 2026-07-11
 
 **Auditoria de superfície de bypass: fix path check no masquerade overlay.**

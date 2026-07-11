@@ -44,12 +44,58 @@ AMCACHE_PATH = r"C:\Windows\appcompat\Programs\Amcache.hve"
 AMCACHE_TEMP_HIVE = r"HKLM\TempAmcache"
 
 
+def _amcache_copy_path() -> str:
+    # Cópia em %TEMP% com PID pra evitar colisão entre execuções paralelas.
+    tmp = os.environ.get("TEMP") or os.environ.get("TMP") or r"C:\Windows\Temp"
+    return os.path.join(tmp, f"telador_amcache_{os.getpid()}.hve")
+
+
+def _esentutl_copy_locked(src: str, dst: str) -> tuple[bool, str]:
+    """Copia arquivo travado via esentutl /y /vss (Volume Shadow Copy).
+    É a técnica padrão do Windows pra ler hives em uso (Amcache, SYSTEM etc).
+    Precisa admin, mas contorna o lock do serviço Application Experience."""
+    try:
+        # Remove destino velho — esentutl não sobrescreve.
+        if os.path.isfile(dst):
+            try:
+                os.remove(dst)
+            except OSError:
+                pass
+        result = subprocess.run(
+            [win_tools.tool("esentutl.exe"), "/y", "/vss", src, "/d", dst],
+            capture_output=True, text=True, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, str(e)
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout or "").strip()
+    if not os.path.isfile(dst):
+        return False, "esentutl retornou 0 mas destino não existe"
+    return True, ""
+
+
+def _reg_load(hive_alias: str, hive_path: str) -> tuple[bool, str]:
+    try:
+        r = subprocess.run(
+            [win_tools.tool("reg.exe"), "load", hive_alias, hive_path],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, str(e)
+    if r.returncode != 0:
+        return False, (r.stderr or r.stdout or "").strip()
+    return True, ""
+
+
 def scan_amcache():
     """
     Amcache.hve registra metadados de TODOS executáveis que rodaram
     (mesmo se foram deletados meses atrás). Cada entry tem hash SHA1.
 
     Para ler precisamos montar o hive offline via `reg load`. Requer admin.
+    Amcache.hve fica travado pelo serviço Application Experience — reg load
+    direto quase sempre falha com "arquivo em uso". Fallback: copiar via
+    esentutl /y /vss (Volume Shadow Copy) e montar a cópia.
     """
     if not HAS_WINREG:
         return _result("Amcache", "Hive forense de execução", [], error="winreg indisponível")
@@ -57,19 +103,24 @@ def scan_amcache():
     if not os.path.isfile(AMCACHE_PATH):
         return _result("Amcache", "Hive forense de execução", [], error="Amcache.hve não encontrado")
 
-    # Tenta montar
-    try:
-        load = subprocess.run(
-            [win_tools.tool("reg.exe"), "load", AMCACHE_TEMP_HIVE, AMCACHE_PATH],
-            capture_output=True, text=True, timeout=15,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:  # OSError cobre FileNotFound + winerror genérico
-        return _result("Amcache", "Hive forense de execução", [], error=str(e))
+    ok, err_direct = _reg_load(AMCACHE_TEMP_HIVE, AMCACHE_PATH)
+    copy_path = None
 
-    if load.returncode != 0:
-        msg = (load.stderr or load.stdout or "").strip()
-        return _result("Amcache", "Hive forense de execução", [],
-                       error=f"reg load falhou (precisa admin?): {msg}")
+    if not ok:
+        # Provavelmente lock do Windows. Tenta cópia VSS.
+        copy_path = _amcache_copy_path()
+        cp_ok, cp_err = _esentutl_copy_locked(AMCACHE_PATH, copy_path)
+        if not cp_ok:
+            return _result("Amcache", "Hive forense de execução", [],
+                           error=f"reg load falhou ({err_direct}); esentutl /vss falhou ({cp_err}) — precisa admin?")
+        ok, err_copy = _reg_load(AMCACHE_TEMP_HIVE, copy_path)
+        if not ok:
+            try:
+                os.remove(copy_path)
+            except OSError:
+                pass
+            return _result("Amcache", "Hive forense de execução", [],
+                           error=f"reg load na cópia VSS falhou: {err_copy}")
 
     items = []
     try:
@@ -99,6 +150,12 @@ def scan_amcache():
                            capture_output=True, timeout=15)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
+        # Se usamos cópia VSS, remover pra não deixar hive de 20MB+ em %TEMP%.
+        if copy_path:
+            try:
+                os.remove(copy_path)
+            except OSError:
+                pass
 
     return _result("Amcache (forense)",
                    "Hashes SHA1 e nomes de TODOS executáveis já rodados", items)
