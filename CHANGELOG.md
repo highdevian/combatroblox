@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.8] - 2026-07-11
+
+**Amcache fix parte 2: copia hive + transaction logs (LOG1/LOG2) juntos.**
+
+### O que ainda estava quebrado no v3.45.7
+
+O v3.45.7 introduziu fallback via `esentutl /y /vss` pra copiar hive
+travado. Copia funcionou, mas o `reg load` na cópia falhava com:
+
+```
+ERRO: O banco de dados do Registro de configuração está corrompido.
+```
+
+Motivo: Windows deixa transactions pendentes nos arquivos `.LOG1` e
+`.LOG2` do lado do hive por performance (flush é diferido). O VSS pega
+o estado on-disk atual = hive com `dirty` flag setado. Sem os logs
+originais, `reg load` não tem como fazer soft-recovery e rejeita.
+
+### Fix
+
+Copiar bundle completo: hive + `Amcache.hve.LOG1` + `Amcache.hve.LOG2`
+pro mesmo diretório com o mesmo nome-base. `reg load` faz recovery
+automática se acha `<hive>.LOG1` e `<hive>.LOG2` do lado.
+
+Nova função `_copy_amcache_bundle(dst_hive)` orquestra os 3 `esentutl`.
+Se um dos logs não existir (hive recém-flushed) segue mesmo assim —
+recovery é opcional quando o hive já está limpo.
+
+Cleanup no `finally` agora remove os 3 arquivos (~40MB total em %TEMP%
+sem o cleanup).
+
+### Bug herdado bumpado
+
+`version_info.txt` tinha `filevers=(3, 45, 6, 0)` e `prodvers=(3, 45, 6, 0)`
+não atualizados desde v3.45.5. O v3.45.7 ficou com metadata do binário
+dizendo "3.45.6.0" nos Details do Windows apesar do FileVersion string
+estar correto. Corrigido — v3.45.8 tem tupla numérica e string batendo.
+
+### Impacto
+
+- Amcache agora deve funcionar de verdade em Win10/11 rodado como admin.
+- 90 scanners, 638 testes passando.
+- Metadata do exe consistente em todos os campos.
+
+---
+
 ## [3.45.7] - 2026-07-11
 
 **Bug fix: Amcache passa a ler mesmo com o hive travado pelo Windows.**

@@ -41,6 +41,7 @@ def _filetime_to_str(filetime_int):
 # ============================ Amcache ============================
 
 AMCACHE_PATH = r"C:\Windows\appcompat\Programs\Amcache.hve"
+AMCACHE_LOG_EXTS = (".LOG1", ".LOG2")  # transaction logs — reg load precisa deles pra recovery
 AMCACHE_TEMP_HIVE = r"HKLM\TempAmcache"
 
 
@@ -74,6 +75,30 @@ def _esentutl_copy_locked(src: str, dst: str) -> tuple[bool, str]:
     return True, ""
 
 
+def _copy_amcache_bundle(dst_hive: str) -> tuple[bool, str, list[str]]:
+    """Copia Amcache.hve + Amcache.hve.LOG1 + Amcache.hve.LOG2. Sem os logs
+    o hive vem 'dirty' e reg load falha com 'Registro corrompido' — Windows
+    deixa transactions pendentes nos logs por performance. reg load faz
+    soft-recovery automática se os logs estão do lado do hive com mesmo nome
+    base (dst.hve → procura dst.hve.LOG1 e dst.hve.LOG2)."""
+    ok, err = _esentutl_copy_locked(AMCACHE_PATH, dst_hive)
+    if not ok:
+        return False, err, []
+    extras = [dst_hive]
+    src_dir = os.path.dirname(AMCACHE_PATH)
+    for ext in AMCACHE_LOG_EXTS:
+        src_log = os.path.join(src_dir, "Amcache.hve" + ext)
+        if not os.path.isfile(src_log):
+            continue  # log pode não existir se hive foi flushed recente
+        dst_log = dst_hive + ext
+        log_ok, log_err = _esentutl_copy_locked(src_log, dst_log)
+        if log_ok:
+            extras.append(dst_log)
+        else:
+            debug.dbg(f"Amcache: falha copiando {ext}", log_err)
+    return True, "", extras
+
+
 def _reg_load(hive_alias: str, hive_path: str) -> tuple[bool, str]:
     try:
         r = subprocess.run(
@@ -104,21 +129,22 @@ def scan_amcache():
         return _result("Amcache", "Hive forense de execução", [], error="Amcache.hve não encontrado")
 
     ok, err_direct = _reg_load(AMCACHE_TEMP_HIVE, AMCACHE_PATH)
-    copy_path = None
+    copy_paths: list[str] = []
 
     if not ok:
-        # Provavelmente lock do Windows. Tenta cópia VSS.
-        copy_path = _amcache_copy_path()
-        cp_ok, cp_err = _esentutl_copy_locked(AMCACHE_PATH, copy_path)
+        # Provavelmente lock do Windows. Tenta cópia VSS bundle (hive + logs).
+        copy_hive = _amcache_copy_path()
+        cp_ok, cp_err, copy_paths = _copy_amcache_bundle(copy_hive)
         if not cp_ok:
             return _result("Amcache", "Hive forense de execução", [],
                            error=f"reg load falhou ({err_direct}); esentutl /vss falhou ({cp_err}) — precisa admin?")
-        ok, err_copy = _reg_load(AMCACHE_TEMP_HIVE, copy_path)
+        ok, err_copy = _reg_load(AMCACHE_TEMP_HIVE, copy_hive)
         if not ok:
-            try:
-                os.remove(copy_path)
-            except OSError:
-                pass
+            for p in copy_paths:
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
             return _result("Amcache", "Hive forense de execução", [],
                            error=f"reg load na cópia VSS falhou: {err_copy}")
 
@@ -150,10 +176,11 @@ def scan_amcache():
                            capture_output=True, timeout=15)
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
-        # Se usamos cópia VSS, remover pra não deixar hive de 20MB+ em %TEMP%.
-        if copy_path:
+        # Se usamos cópia VSS, remover hive + LOG1 + LOG2 pra não deixar
+        # ~20MB em %TEMP%.
+        for p in copy_paths:
             try:
-                os.remove(copy_path)
+                os.remove(p)
             except OSError:
                 pass
 
