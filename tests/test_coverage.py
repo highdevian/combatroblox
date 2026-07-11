@@ -73,3 +73,56 @@ def test_compute_verdict_tracks_error_scanners():
     v = fp_filter.compute_verdict(findings)
     assert v["n_error_scanners"] >= 1
     assert "prefetch" in v["sources_with_errors"]
+
+
+def test_soft_errors_do_not_force_incomplete():
+    """G HUB / base hashes vazia NÃO promovem LIMPO → INCONCLUSIVO."""
+    findings = [
+        _finding("Logitech G HUB - Scripts Lua", "error",
+                 error="G HUB não está instalado"),
+        _finding("X-Mouse Profiles", "error",
+                 error="X-Mouse não está instalado"),
+        _finding("Hash de scripts conhecidos", "error",
+                 error="base de hashes vazia (popular KNOWN_SCRIPT_HASHES)"),
+        _finding("prefetch", "clean"),
+    ]
+    cov = coverage_mod.build_coverage(findings, is_admin=True)
+    assert cov["n_error"] == 0
+    assert cov["n_soft_skip"] == 3
+    assert cov["incomplete"] is False
+    assert cov["blind_strong"] is False
+    v = coverage_mod.apply_coverage_to_verdict(
+        {"verdict": "LIMPO", "score": 0, "color": "green"}, cov)
+    assert v["verdict"] == "LIMPO"
+    assert not v.get("inconclusive")
+
+
+def test_hard_error_still_incomplete():
+    findings = [
+        _finding("Amcache (forense)", "error",
+                 error="reg load falhou (hive locked)"),
+    ]
+    cov = coverage_mod.build_coverage(findings, is_admin=True)
+    assert cov["n_error"] == 1
+    assert cov["incomplete"] is True
+    assert cov["strong_errored"]
+
+
+def test_fp_filter_meta_only_leaves_clean_not_suspicious():
+    """Só meta_only restante → clean, não '2 items suspeitos'."""
+    findings = [{
+        "name": "DLL Injection (Roblox)",
+        "status": "suspicious",
+        "summary": "2",
+        "items": [
+            {"label": "Roblox rodando", "detail": "x", "severity": "low",
+             "matched": "roblox-running", "timestamp": "", "meta_only": True},
+            {"label": "Roblox rodando 2", "detail": "x", "severity": "low",
+             "matched": "roblox-running", "timestamp": "", "meta_only": True},
+        ],
+        "error": None,
+    }]
+    out, _ = fp_filter.post_process_findings(findings)
+    assert out[0]["status"] == "clean"
+    assert "contexto" in (out[0].get("summary") or "").lower()
+    assert len(out[0]["items"]) == 2  # meta ainda listados no corpo

@@ -277,13 +277,18 @@ def _render_section(finding: dict) -> str:
         </div>
         """
     else:
-        msg = finding.get("error") or "Nenhum vestígio encontrado nesta categoria."
+        # Distingue: erro real vs limpo vs limpou o FP filter
+        if finding.get("error"):
+            msg = finding.get("error")
+        elif (finding.get("summary") or "").lower().startswith("nenhum hit após filtro"):
+            msg = finding.get("summary")
+        else:
+            msg = "Nenhum vestígio encontrado nesta categoria."
         table = f'<p class="empty">{_escape(msg)}</p>'
 
     slug = finding["name"].lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
-    n_items = len(finding.get("items", []))
-    # Sections sem hits começam fechadas; com hits, abertas
-    open_attr = " open" if n_items > 0 else ""
+    # Abre section só se tem HIT real (não meta_only de contexto)
+    open_attr = " open" if n_real > 0 else ""
     return f"""
     <section class="card status-{status}" id="scan-{slug}">
         <details{open_attr}>
@@ -584,6 +589,11 @@ def _render_pe_section(findings: list) -> str:
     """
 
 
+def _real_items(items: list) -> list:
+    """Hits reais — ignora meta_only (contexto informativo, não detecção)."""
+    return [i for i in (items or []) if not i.get("meta_only")]
+
+
 def _render_sidebar(findings: list, verdict: dict = None) -> str:
     """Sidebar sticky com TOC e contador por section."""
     links = [
@@ -604,12 +614,15 @@ def _render_sidebar(findings: list, verdict: dict = None) -> str:
 
     scanner_links = []
     for f in findings:
-        n_items = len(f.get("items", []))
+        # Badge/dot só com hits reais — meta_only (roblox-running, allowlist)
+        # NÃO conta, senão sidebar grita "DLL Injection 2" em scan limpo.
+        items = _real_items(f.get("items", []))
+        n_items = len(items)
         slug = f["name"].lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
-        # Mini-mapa: dot mostra pior severidade da section
-        items = f.get("items", [])
         worst = "none"
-        if any(i.get("severity") == "high" for i in items):
+        if any(i.get("severity") == "critical" for i in items):
+            worst = "high"
+        elif any(i.get("severity") == "high" for i in items):
             worst = "high"
         elif any(i.get("severity") == "medium" for i in items):
             worst = "medium"
@@ -1169,6 +1182,7 @@ def _render_coverage_panel(coverage: dict | None, verdict: dict | None) -> str:
         return ""
     reasons = coverage.get("reasons") or []
     errored = coverage.get("errored") or []
+    soft = coverage.get("soft_errored") or []
     incomplete = coverage.get("incomplete")
     badge = "limitado" if incomplete else "completo"
     badge_cls = "cov-bad" if incomplete else "cov-ok"
@@ -1182,8 +1196,20 @@ def _render_coverage_panel(coverage: dict | None, verdict: dict | None) -> str:
         )
     if len(errored) > 12:
         rows += f"<li>… +{len(errored) - 12} checagens com erro</li>"
+    soft_rows = ""
+    for e in soft[:8]:
+        soft_rows += (
+            f"<li><code>{_escape(e.get('name', '?'))}</code> — "
+            f"{_escape((e.get('error') or 'skip')[:120])} "
+            f"<em>(opcional, não cega forensics)</em></li>"
+        )
     reason_lis = "".join(f"<li>{_escape(r)}</li>" for r in reasons)
     err_block = f"<ul class='cov-errors'>{rows}</ul>" if rows else ""
+    soft_block = (
+        f"<p class='cov-hint'>Skips opcionais ({len(soft)}):</p>"
+        f"<ul class='cov-errors'>{soft_rows}</ul>"
+        if soft_rows else ""
+    )
     reason_block = f"<ul class='cov-reasons'>{reason_lis}</ul>" if reason_lis else ""
     return f"""
     <section class="coverage-panel {badge_cls}" id="coverage" aria-label="Cobertura do scan">
@@ -1194,16 +1220,17 @@ def _render_coverage_panel(coverage: dict | None, verdict: dict | None) -> str:
       <div class="cov-stats">
         <span><strong>{coverage.get('n_ok', 0)}</strong> ok</span>
         <span><strong>{coverage.get('n_error', 0)}</strong> erro</span>
+        <span><strong>{coverage.get('n_soft_skip', 0)}</strong> skip opcional</span>
         <span><strong>{coverage.get('total_scanners', 0)}</strong> total</span>
         <span>admin: <strong>{admin_txt}</strong></span>
         <span>assinaturas: <code>{_escape(str(sig))}</code></span>
       </div>
       {reason_block}
       {err_block}
+      {soft_block}
       <p class="cov-hint">
-        Scanner com status <strong>error</strong> não contribui com a fonte dele.
-        Veredito LIMPO com cobertura incompleta é tratado como
-        <strong>INCONCLUSIVO</strong>.
+        Só erros reais em fontes forenses forçam <strong>INCONCLUSIVO</strong>.
+        Software de mouse ausente / base de hashes vazia é skip opcional.
       </p>
     </section>
     """
@@ -1310,8 +1337,8 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     sidebar_html = _render_sidebar(findings, verdict)
     sections = "\n".join(_render_section(f) for f in findings)
 
-    # Empty state quando ZERO hits totais
-    total_hits = sum(len(f.get("items", [])) for f in findings)
+    # Empty state quando ZERO hits reais (meta_only não conta)
+    total_hits = sum(len(_real_items(f.get("items", []))) for f in findings)
     empty_html = _render_empty_state() if total_hits == 0 else ""
 
     # Rodapé com hash do exe

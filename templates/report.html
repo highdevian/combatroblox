@@ -1622,7 +1622,12 @@
 
     {% for section in findings %}
     {% set slug = section.name.lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-") %}
-    {% set n_items = section.get('items', [])|length %}
+    {# open só com hits reais (meta_only não abre o card) #}
+    {% set ns2 = namespace(count=0) %}
+    {% for i in section.get('items', []) %}
+      {% if not i.get('meta_only') %}{% set ns2.count = ns2.count + 1 %}{% endif %}
+    {% endfor %}
+    {% set n_items = ns2.count %}
     <section class="card status-{{ section.status }}" id="scan-{{ slug }}">
         <details{% if n_items > 0 %} open{% endif %}>
             <summary class="card-head">

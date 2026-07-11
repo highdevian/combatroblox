@@ -510,18 +510,25 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
             new_items.append(item)
 
         finding["items"] = new_items
-        # Re-status: se ficou sem items, é "clean"
+        # Re-status: conta só hits reais (meta_only = contexto, não suspeito).
         # Não reescrever status="error": checagem que crashou/cegou NÃO é "clean".
+        real_left = [i for i in new_items if not i.get("meta_only")]
         if finding.get("status") == "error":
             finding["items"] = new_items
             if not finding.get("summary"):
                 finding["summary"] = f"Erro: {finding.get('error') or 'checagem falhou'}"
-        elif not new_items:
+        elif not real_left:
             finding["status"] = "clean"
-            finding["summary"] = "Nenhum hit após filtro de FP"
+            if new_items:
+                # Só meta_only sobrou (ex: roblox-running, allowlist)
+                finding["summary"] = (
+                    f"{len(new_items)} item(s) de contexto (informativo, sem hit real)"
+                )
+            else:
+                finding["summary"] = "Nenhum hit após filtro de FP"
         else:
             finding["status"] = "suspicious"
-            finding["summary"] = f"{len(new_items)} item(s) suspeito(s)"
+            finding["summary"] = f"{len(real_left)} item(s) suspeito(s)"
 
     stats["total_items_out"] = sum(
         len([i for i in f["items"] if not i.get("meta_only")]) for f in findings
@@ -569,9 +576,12 @@ def compute_verdict(findings: list) -> dict:
                 most_recent_hit = ts
 
     # Veredict baseado no score
-    # Conta quantas FONTES diferentes deram hit — 1 fonte só raramente é
-    # evidência de cheat. Cross-correlation > pontuação isolada.
-    sources_with_hits = sum(1 for f in findings if f.get("items"))
+    # Conta quantas FONTES diferentes deram hit real (ignora meta_only).
+    # 1 fonte só raramente é evidência de cheat.
+    sources_with_hits = sum(
+        1 for f in findings
+        if any(not i.get("meta_only") for i in f.get("items") or [])
+    )
 
     # Critical hits são prova forense forte (hash conhecido, BYOVD ativo, etc).
     # 1 crítico já confirma. 2+ críticos cravam mesmo sem outras fontes.

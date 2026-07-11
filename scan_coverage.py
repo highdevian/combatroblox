@@ -16,6 +16,25 @@ STRONG_SOURCES_HINTS = (
     "usn", "winevent", "event", "service",
 )
 
+# Erros "soft": software opcional ausente / base vazia — NÃO cegam forensics
+# e NÃO devem promover LIMPO → INCONCLUSIVO.
+_SOFT_ERROR_HINTS = (
+    "não está instalado",
+    "nao esta instalado",
+    "não detectado",
+    "nao detectado",
+    "base de hashes vazia",
+    "não encontrado",
+    "nao encontrado",
+    "psutil não instalado",
+    "psutil nao instalado",
+)
+
+
+def _is_soft_error(error: str) -> bool:
+    e = (error or "").lower()
+    return any(h in e for h in _SOFT_ERROR_HINTS)
+
 
 def build_coverage(
     findings: list[dict],
@@ -29,21 +48,26 @@ def build_coverage(
 ) -> dict[str, Any]:
     """Agrega cobertura a partir dos findings e flags de execução."""
     skipped_groups = list(skipped_groups or [])
-    errored = []
+    errored = []          # erros duros (cegam fonte real)
+    soft_errored = []     # opcional ausente (G HUB etc.) — não força INCONCLUSIVO
     clean = []
     suspicious = []
 
     for f in findings:
         status = f.get("status", "clean")
         name = f.get("name", "?")
+        err = f.get("error") or ""
         entry = {
             "name": name,
             "status": status,
-            "error": f.get("error") or "",
+            "error": err,
             "n_items": len([i for i in f.get("items", []) if not i.get("meta_only")]),
         }
         if status == "error":
-            errored.append(entry)
+            if _is_soft_error(err):
+                soft_errored.append(entry)
+            else:
+                errored.append(entry)
         elif status == "suspicious" or entry["n_items"] > 0:
             suspicious.append(entry)
         else:
@@ -71,9 +95,11 @@ def build_coverage(
         )
     for g in skipped_groups:
         incomplete_reasons.append(f"Grupo desligado: {g}.")
+    # Só erros DUROS reduzem cobertura / forçam INCONCLUSIVO.
+    # Soft (mouse software não instalado, base de hashes vazia) é skip.
     if errored:
         incomplete_reasons.append(
-            f"{len(errored)} checagem(ns) retornaram erro "
+            f"{len(errored)} checagem(ns) com erro real "
             f"(cobertura reduzida)."
         )
     if strong_errored and is_admin:
@@ -94,11 +120,14 @@ def build_coverage(
         "only": only or [],
         "skipped_groups": skipped_groups,
         "total_scanners": len(findings),
-        "n_ok": len(clean) + len(suspicious),
+        # soft_errored conta como "ok" pro n_ok (skip de opcional)
+        "n_ok": len(clean) + len(suspicious) + len(soft_errored),
         "n_suspicious": len(suspicious),
         "n_clean": len(clean),
         "n_error": len(errored),
+        "n_soft_skip": len(soft_errored),
         "errored": errored,
+        "soft_errored": soft_errored,
         "strong_errored": strong_errored,
         "incomplete": incomplete,
         "blind_strong": blind_strong,

@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.10] - 2026-07-11
+
+**Fix real do relatório HTML + INCONCLUSIVO falso (soft errors).**
+
+### O que ainda quebrava no v3.45.9
+
+1. **Sidebar com badge falso** (`DLL Injection 2`, Allowlist 1): o fix
+   do 3.45.9 mexeu no `templates/report.html`, mas o exe usa
+   `report.py::_render_sidebar` (string builder) — template Jinja nem
+   entra no path. Badges contavam `meta_only`.
+2. **fp_filter** rebaixava status pra `suspicious` se sobrasse qualquer
+   item — inclusive só `meta_only` → "2 item(s) suspeito(s)" mentindo.
+3. **INCONCLUSIVO** com LIMPO: G HUB / X-Mouse / Razer "não instalado"
+   e "base de hashes vazia" contavam como erro de cobertura e forçavam
+   INCONCLUSIVO mesmo com Amcache/Prefetch/BAM ok.
+
+### Fix
+
+- `report.py` sidebar/sections/empty-state: contam só hits reais.
+- `fp_filter.post_process`: status/summary usam `real_left` (non-meta).
+- `scan_coverage`: soft errors (opcional ausente) → `soft_errored`,
+  **não** `incomplete` / INCONCLUSIVO.
+- Painel de cobertura mostra "skip opcional" separado de erro real.
+
+### Nota sobre "hits sumiram" (TinyTask/PH/Amcache)
+
+No PC de **dev**, dual-use é whitelistado de propósito (25 → 0).
+Amcache **funcionou** (leu o hive); os 6 hits eram Process Hacker e
+foram filtrados. Em cheater sem IDE, Amcache continua mostrando.
+
 ## [3.45.9] - 2026-07-11
 
 **Fix HTML report: badges/contadores agora ignoram items informativos (meta_only).**
