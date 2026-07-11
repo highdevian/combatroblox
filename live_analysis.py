@@ -454,13 +454,16 @@ OVERLAY_WHITELIST = {
     # Captura / streaming
     "obs64.exe", "obs32.exe", "obs.exe", "streamlabs obs.exe",
     "xsplit.core.exe", "action.exe",
+    "medal.exe", "medalencoder.exe", "medal-helper.exe",
+    "overwolf.exe", "overwolfbrowser.exe", "overwolfhelper.exe",
     # Steam / launchers
     "steam.exe", "gameoverlayui.exe", "steamwebhelper.exe",
     "epicgameslauncher.exe", "galaxyclient.exe",
-    # Monitoramento / RGB
+    # Monitoramento / RGB / periferia
     "rtss.exe", "msiafterburner.exe", "rivatunerstatisticsserver.exe",
     "nahimicsvc.exe", "nahimic3.exe", "lghub.exe", "lghub_agent.exe",
     "razer synapse.exe", "icue.exe", "wallpaper32.exe", "wallpaper64.exe",
+    "steelseriesgg.exe", "steelseriesengine.exe",
     # Windows / shell (overlays nativos: Game Bar, IME, notificações, snip)
     "explorer.exe", "textinputhost.exe", "applicationframehost.exe",
     "shellexperiencehost.exe", "startmenuexperiencehost.exe",
@@ -690,19 +693,29 @@ def scan_executor_structure() -> dict:
 
 # ============================ Integridade do launcher do Roblox ============================
 
-# Binários oficiais do Roblox — SEMPRE assinados pela Roblox Corporation.
-# Um destes com assinatura QUEBRADA = adulterado (patcheado pra injetar).
+# Binários oficiais do Roblox rodados na execução do jogo — SEMPRE assinados
+# pela Roblox Corporation. Um destes com assinatura QUEBRADA = adulterado
+# (patcheado pra injetar).
+#
+# Installers (RobloxPlayerInstaller.exe / RobloxStudioInstaller.exe) NÃO estão
+# aqui: eles vêm DISTRIBUÍDOS SEM ASSINATURA (verificado com Get-AuthenticodeSignature
+# → NotSigned) porque servem como dropper leve — só rodam durante setup, não
+# fazem parte do fluxo de execução. Testar assinatura deles gerava FP em toda
+# máquina com Roblox instalado (v3.43.7 e anteriores).
 _ROBLOX_OFFICIAL_BINARIES = {
     "robloxplayerbeta.exe",
     "robloxplayerlauncher.exe",
-    "robloxplayerinstaller.exe",
     "robloxstudiobeta.exe",
     "robloxstudiolauncherbeta.exe",
+}
+
+_ROBLOX_INSTALLERS = {
+    "robloxplayerinstaller.exe",
     "robloxstudioinstaller.exe",
 }
 
 # Nomes que um dropper usaria pra se passar por launcher do Roblox.
-_ROBLOX_MASQUERADE_NAMES = _ROBLOX_OFFICIAL_BINARIES | {
+_ROBLOX_MASQUERADE_NAMES = _ROBLOX_OFFICIAL_BINARIES | _ROBLOX_INSTALLERS | {
     "roblox.exe", "robloxplayer.exe", "robloxlauncher.exe",
     "roblox launcher.exe", "roblox player.exe",
 }

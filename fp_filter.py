@@ -28,25 +28,39 @@ DEV_INDICATORS = [
     r"%PROGRAMFILES%\JetBrains",
     r"%PROGRAMFILES(X86)%\JetBrains",
     r"%LOCALAPPDATA%\Programs\Microsoft VS Code",
+    r"%LOCALAPPDATA%\Programs\Cursor",
     r"%LOCALAPPDATA%\JetBrains",
     r"%USERPROFILE%\.vscode",
     r"%USERPROFILE%\.cursor",
     r"%USERPROFILE%\.idea",
+    r"%LOCALAPPDATA%\Programs\Windsurf",
+    r"%APPDATA%\Code",
 
     # Runtimes / SDKs
     r"%PROGRAMFILES%\Python311",
     r"%PROGRAMFILES%\Python312",
     r"%PROGRAMFILES%\Python313",
+    r"%PROGRAMFILES%\Python314",
+    r"%LOCALAPPDATA%\Programs\Python",
     r"%PROGRAMFILES%\nodejs",
     r"%PROGRAMFILES%\dotnet",
     r"%PROGRAMFILES%\Git",
     r"%PROGRAMFILES(X86)%\Git",
     r"%PROGRAMFILES%\Docker",
+    r"%PROGRAMFILES%\CMake",
+    r"%PROGRAMFILES%\LLVM",
+    r"%PROGRAMFILES%\Go",
+    r"%USERPROFILE%\.rustup",
+    r"%USERPROFILE%\.cargo",
 
-    # Source folders (Microsoft convention)
+    # Source folders (Microsoft convention + comuns)
     r"%USERPROFILE%\source\repos",
     r"%USERPROFILE%\Documents\Visual Studio 2019",
     r"%USERPROFILE%\Documents\Visual Studio 2022",
+    r"%USERPROFILE%\dev",
+    r"%USERPROFILE%\Developer",
+    r"%USERPROFILE%\Projects",
+    r"%USERPROFILE%\github",
 ]
 
 
@@ -457,11 +471,22 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
 
         finding["items"] = new_items
         # Re-status: se ficou sem items, é "clean"
-        if not new_items:
+        # Não reescrever status="error": checagem que crashou/cegou NÃO é "clean".
+        if finding.get("status") == "error":
+            finding["items"] = new_items
+            if not finding.get("summary"):
+                finding["summary"] = f"Erro: {finding.get('error') or 'checagem falhou'}"
+        elif not new_items:
             finding["status"] = "clean"
             finding["summary"] = "Nenhum hit após filtro de FP"
+        else:
+            finding["status"] = "suspicious"
+            finding["summary"] = f"{len(new_items)} item(s) suspeito(s)"
 
-    stats["total_items_out"] = sum(len(f["items"]) for f in findings)
+    stats["total_items_out"] = sum(
+        len([i for i in f["items"] if not i.get("meta_only")]) for f in findings
+    )
+    stats["n_error_scanners"] = sum(1 for f in findings if f.get("status") == "error")
     return findings, stats
 
 
@@ -527,6 +552,13 @@ def compute_verdict(findings: list) -> dict:
     else:
         verdict, color = "LIMPO", "oklch(0.72 0.14 160)"
 
+    # Contagem de scanners com erro (fontes cegas) — o caller pode promover
+    # LIMPO → INCONCLUSIVO via coverage.apply_coverage_to_verdict.
+    n_error_scanners = sum(1 for f in findings if f.get("status") == "error")
+    sources_with_errors = [
+        f.get("name", "?") for f in findings if f.get("status") == "error"
+    ]
+
     return {
         "verdict": verdict,
         "color": color,
@@ -537,4 +569,8 @@ def compute_verdict(findings: list) -> dict:
         "low": low_count,
         "highest_confidence": highest_confidence,
         "most_recent_hit": most_recent_hit.strftime("%Y-%m-%d %H:%M:%S") if most_recent_hit else None,
+        "sources_with_hits": sources_with_hits,
+        "n_error_scanners": n_error_scanners,
+        "sources_with_errors": sources_with_errors,
+        "inconclusive": False,
     }

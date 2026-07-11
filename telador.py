@@ -52,6 +52,8 @@ import ads_scanner
 import timestomp_scanner
 import yara_scan
 import dma_scanner
+import external_scanner
+import anti_forensic_deep
 import winevent_scanner
 import service_state_scanner
 import seam_scanner
@@ -65,6 +67,8 @@ import report
 import report_md
 import evidence as ev_engine
 import debug
+import scan_coverage as coverage_mod
+import version
 
 
 # --------------------------- ANSI / UTF-8 setup ---------------------------
@@ -109,7 +113,8 @@ BANNER = r"""
 def print_banner():
     print(f"{AMBER}{BANNER}{RESET}")
     print(f"{GREEN}  >_ {RESET}{GREY}screenshare forense · veredito por correlação de evidências{RESET}")
-    print(f"{GREY}  v3.43.3  ·  Confidence Engine  ·  100% local{RESET}\n")
+    print(f"{GREY}  {version.VERSION_DISPLAY}  ·  Confidence Engine  ·  "
+          f"{version.SCANNER_COUNT} scanners  ·  100% local{RESET}\n")
     self_hash = report_signing.get_self_hash()
     if self_hash:
         print(f"{GREY}  SHA256 deste exe: {self_hash[:16]}...{self_hash[-16:]}{RESET}")
@@ -215,7 +220,12 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     chain.extend(ads_scanner.ALL_ADS_SCANNERS)
     chain.extend(timestomp_scanner.ALL_TIMESTOMP_SCANNERS)
     chain.extend(dma_scanner.ALL_DMA_SCANNERS)
+    chain.extend(external_scanner.ALL_EXTERNAL_SCANNERS)
     chain.extend(service_state_scanner.ALL_SERVICE_STATE_SCANNERS)
+    # Anti-forensic deep — pega resíduo pós-mortem (Defender history, DXCache,
+    # WER, RAC). Tratado como forense pesado, respeita --no-forensics.
+    if not skip_forensics:
+        chain.extend(anti_forensic_deep.ALL_ANTI_FORENSIC_DEEP_SCANNERS)
     return chain
 
 
@@ -599,10 +609,29 @@ def main():
     sys_info["admin"] = running_as_admin  # relatório avisa se foi scan limitado
 
     # --quick: só scanners base, skip todos os extras
+    skipped_groups = []
     if args.quick:
         chain = list(scanners.ALL_SCANNERS)
+        skipped_groups = [
+            "forensics", "live", "persistence", "history", "peripherals",
+            "antievasion", "yara", "winevent", "extras",
+        ]
         print(f"{CYAN}[QUICK]{RESET} {GREY}Modo rápido — só {len(chain)} scanners base{RESET}")
+        print(f"{YELLOW}[QUICK]{RESET} {GREY}Cobertura reduzida: veredito LIMPO aqui "
+              f"é INCONCLUSIVO até rodar o full scan.{RESET}")
     else:
+        if args.no_forensics:
+            skipped_groups.append("forensics")
+        if args.no_live:
+            skipped_groups.append("live")
+        if args.no_persistence:
+            skipped_groups.append("persistence")
+        if args.no_history:
+            skipped_groups.append("history")
+        if args.no_peripherals:
+            skipped_groups.append("peripherals")
+        if args.no_antievasion:
+            skipped_groups.append("antievasion")
         chain = assemble_scanners(
             skip_forensics=args.no_forensics,
             skip_antievasion=args.no_antievasion,
@@ -676,7 +705,12 @@ def main():
                   f"Cheat Engine/IDA/etc serão LOW.{RESET}")
 
     # Redação de credenciais/tokens/emails antes de gerar relatório
-    if not args.no_redact:
+    # Default = SEMPRE redigir. --no-redact exige aviso explícito (relatório
+    # vai pro Discord — vazar webhook/token é pior que FP).
+    if args.no_redact:
+        print(f"{RED}{BOLD}[RD]{RESET} {YELLOW}Redação DESLIGADA (--no-redact). "
+              f"Credenciais/tokens podem aparecer no HTML/MD compartilhado.{RESET}")
+    else:
         findings, redacted_count = redaction.redact_findings(findings)
         if redacted_count:
             print(f"{CYAN}[RD]{RESET} Redação aplicada: "
@@ -725,14 +759,30 @@ def main():
 
     print_overview(findings)
 
-    # Aviso CRÍTICO: scan sem admin que não achou nada é INCONCLUSIVO, não
-    # "limpo". É o erro que mais confunde supervisor (cara parece inocente
-    # mas o scan só não conseguiu ler as fontes boas).
+    # Cobertura + veredito (LIMPO com fontes cegas → INCONCLUSIVO)
+    only_list_cov = None
+    if args.only:
+        only_list_cov = [s.strip().lower() for s in args.only.split(",")]
+    cov = coverage_mod.build_coverage(
+        findings,
+        is_admin=running_as_admin,
+        quick=bool(args.quick),
+        skipped_groups=skipped_groups,
+        only=only_list_cov,
+        sig_version=getattr(database, "LOADED_SIG_VERSION", None),
+    )
     verdict_obj = fp_filter.compute_verdict(findings)
-    if not running_as_admin and verdict_obj["verdict"] == "LIMPO":
+    verdict_obj = coverage_mod.apply_coverage_to_verdict(verdict_obj, cov)
+
+    if verdict_obj.get("inconclusive"):
         print(f"{RED}{BOLD}>>> ATENÇÃO: resultado INCONCLUSIVO, não 'limpo'.{RESET}")
-        print(f"{YELLOW}    O scan rodou SEM admin — Prefetch/Amcache/BAM não foram lidos.{RESET}")
-        print(f"{YELLOW}    'Nada encontrado' aqui NÃO inocenta. Rode de novo como admin.{RESET}\n")
+        for reason in cov.get("reasons") or []:
+            print(f"{YELLOW}    · {reason}{RESET}")
+        print(f"{YELLOW}    'Nada encontrado' com cobertura incompleta NÃO inocenta.{RESET}\n")
+    elif not running_as_admin and verdict_obj["verdict"] == "LIMPO":
+        # fallback legado
+        print(f"{RED}{BOLD}>>> ATENÇÃO: resultado INCONCLUSIVO, não 'limpo'.{RESET}")
+        print(f"{YELLOW}    O scan rodou SEM admin — Prefetch/Amcache/BAM não foram lidos.{RESET}\n")
 
     # 3. HTML report
 
@@ -750,7 +800,8 @@ def main():
                                              high_confidence=high_confidence,
                                              verdict=verdict_obj,
                                              fp_stats=fp_stats,
-                                             clusters=clusters)
+                                             clusters=clusters,
+                                             coverage=cov)
     print(f"{GREEN}✓ Relatório HTML:{RESET} {html_path}")
 
     json_path = None
@@ -758,10 +809,14 @@ def main():
         json_path = save_json(findings, sys_info)
         print(f"{GREEN}✓ Relatório JSON:{RESET} {json_path}")
 
-    # Markdown export
-    if args.md:
+    # Markdown export (sempre útil na SS; --md mantém, e auto se --codigo)
+    if args.md or args.codigo:
         md_path = report_md.generate_markdown_report(
-            findings, sys_info, verdict=verdict_obj, high_confidence=high_confidence
+            findings, sys_info,
+            verdict=verdict_obj,
+            high_confidence=high_confidence,
+            clusters=clusters,
+            coverage=cov,
         )
         print(f"{GREEN}✓ Relatório Markdown:{RESET} {md_path}  {GREY}(colável no Discord){RESET}")
 
@@ -791,11 +846,13 @@ def main():
         except Exception as e:
             print(f"{YELLOW}Não consegui abrir no browser: {e}{RESET}")
 
-    print(f"\n{GREY}Pressione ENTER para fechar...{RESET}")
-    try:
-        input()
-    except (EOFError, KeyboardInterrupt):
-        pass
+    # Em CI / pipe / --no-open não trava esperando ENTER.
+    if sys.stdin.isatty() and not args.no_open:
+        print(f"\n{GREY}Pressione ENTER para fechar...{RESET}")
+        try:
+            input()
+        except (EOFError, KeyboardInterrupt):
+            pass
 
 
 if __name__ == "__main__":

@@ -323,7 +323,7 @@ def test_disclosure_diagnoses_broken_config(tmp_path, monkeypatch):
     """Se trusted_domains.json existe mas TRUSTED_DOMAINS está vazio (JSON
     malformado etc), o disclosure scanner tem que GRITAR — não ficar 'ok'
     silencioso. Senão o dono dropa o arquivo, não vê efeito e fica adivinhando."""
-    import command_history as ch, database, os as _os
+    import command_history as ch, database
     saved = set(database.TRUSTED_DOMAINS)
     database.TRUSTED_DOMAINS.clear()
     # Cria um arquivo malformado no LOCALAPPDATA simulado

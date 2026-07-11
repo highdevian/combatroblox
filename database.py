@@ -259,6 +259,75 @@ EXECUTOR_KEYWORDS = {
     "intelmapper":      "high",
     "msrexec":          "high",
 
+    # ===== External cheats (aimbot/ESP fora do cliente — não são executor Luau) =====
+    # Prefetch/Amcache/BAM. Catálogo expandido em external_scanner (pesquisa
+    # pública: Matcha, Severe, DX9WARE, Matrix, Celex, Bauix, …).
+    # Bare words comuns (severe/matrix/photon) só em compostos.
+    "matcha.exe":           "high",
+    "matcha external":      "high",
+    "matcha-external":      "high",
+    "matcha_external":      "high",
+    "matcha beta":          "high",
+    "matchabeta":           "high",
+    "matchaloader":         "high",
+    "matcha latte":         "high",
+    "vasile.exe":           "high",
+    "vasile external":      "high",
+    "bauix.exe":            "high",
+    "bauix external":       "high",
+    "sheldon external":     "high",
+    "sheldonexternal":      "high",
+    "timeoutwtf":           "medium",
+    "timeout external":     "medium",
+    "roblox external":      "high",
+    "robloxexternal":       "high",
+    "external aimbot":      "medium",
+    "external esp":         "medium",
+    "external cheat":       "medium",
+    "omega-launcher":       "medium",
+    # Severe / DX9 / Matrix / Celex / Mooze / Ronin-ext / Oxygen-ext / …
+    "severe external":      "high",
+    "severe-external":      "high",
+    "severe.exe":           "high",
+    "severe2":              "high",
+    "severe 2.0":           "high",
+    "dx9ware":              "high",
+    "dx9 ware":             "high",
+    "dx9 external":         "high",
+    "dx9external":          "high",
+    "matrix external":      "high",
+    "matrixhub":            "high",
+    "mtxhub":               "high",
+    "matrixexternal":       "high",
+    "celex":                "high",
+    "celex external":       "high",
+    "celex v3":             "high",
+    "celexv3":              "high",
+    "celex.exe":            "high",
+    "mooze":                "high",
+    "mooze external":       "high",
+    "mooze.exe":            "high",
+    "ronin external":       "high",
+    "roninexternal":        "high",
+    "oxygen external":      "high",
+    "oxygenexternal":       "high",
+    "santoware":            "high",
+    "santo ware":           "high",
+    "photon external":      "high",
+    "photonexternal":       "high",
+    "clarity external":     "high",
+    "clarityexternal":      "high",
+    "serotonin":            "high",
+    "serotonin external":   "high",
+    "serotonin.exe":        "high",
+    "spxrkz":               "high",
+    "spxrkz external":      "high",
+    "spxrkz.exe":           "high",
+    "yerba external":       "medium",
+    "yerbaexternal":        "medium",
+    "polter.sys":           "high",
+    "polter.exe":           "high",
+
     # ===== Anti-cheat bypass =====
     "byfron tools":     "high",
     "hyperion tools":   "high",
@@ -457,6 +526,47 @@ EXECUTOR_PROCESS_NAMES = {
     "intelmapper.exe":        "high",
     "manualmapper.exe":       "high",
 
+    # ===== External cheats (process names) =====
+    "matcha.exe":             "high",
+    "matchaexternal.exe":     "high",
+    "matcha_external.exe":    "high",
+    "matcha-external.exe":    "high",
+    "matchaloader.exe":       "high",
+    "matchabeta.exe":         "high",
+    "vasile.exe":             "high",
+    "vasileexternal.exe":     "high",
+    "bauix.exe":              "high",
+    "bauixexternal.exe":      "high",
+    "sheldonexternal.exe":    "high",
+    "sheldon_external.exe":   "high",
+    "timeoutwtf.exe":         "medium",
+    "robloxexternal.exe":     "high",
+    "rbxexternal.exe":        "high",
+    "stomega.exe":            "medium",
+    "severe.exe":             "high",
+    "severeexternal.exe":     "high",
+    "severe2.exe":            "high",
+    "severeloader.exe":      "high",
+    "dx9ware.exe":            "high",
+    "dx9wareloader.exe":      "high",
+    "dx9external.exe":        "high",
+    "matrixhub.exe":          "high",
+    "matrixexternal.exe":     "high",
+    "mtxhub.exe":             "high",
+    "celex.exe":              "high",
+    "celexexternal.exe":      "high",
+    "celexv3.exe":            "high",
+    "mooze.exe":              "high",
+    "moozeexternal.exe":      "high",
+    "roninexternal.exe":      "high",
+    "oxygenexternal.exe":     "high",
+    "santoware.exe":          "high",
+    "photonexternal.exe":     "high",
+    "clarityexternal.exe":    "high",
+    "serotonin.exe":          "high",
+    "spxrkz.exe":             "high",
+    "polter.exe":             "high",
+
     # ===== Anti-cheat bypass =====
     "byfrontools.exe":        "high",
     "hyperiontools.exe":      "high",
@@ -541,6 +651,9 @@ SUSPICIOUS_DOMAINS = {
     "deltaexploits.gg":     "high",
     "scriptware.com":       "high",
     "evonexecutor.com":     "high",
+    # External products (browser/DNS)
+    "moon.sex":             "high",   # Bauix
+    "celex.gg":             "high",
     "v3rmillion.net":       "low",
     "rscripts.net":         "low",
     "scriptblox.com":       "low",
@@ -802,6 +915,34 @@ SUSPICIOUS_FOLDER_NAMES = {
     "sense":                "medium",
     "sense exec":           "high",
     "karambit x":           "high",
+
+    # ===== External cheats (folder names exact) =====
+    "matcha":               "high",
+    "matcha external":      "high",
+    "matcha beta":          "high",
+    "matchabeta":           "high",
+    "vasile":               "high",
+    "bauix":                "high",
+    "sheldon external":     "high",
+    "omega-launcher":       "medium",
+    "robloxexternal":       "high",
+    "severe external":      "high",
+    "severe2":              "high",
+    "severe 2.0":           "high",
+    "dx9ware":              "high",
+    "matrixhub":            "high",
+    "matrix external":      "high",
+    "celex":                "high",
+    "celex v3":             "high",
+    "celexv3":              "high",
+    "mooze":                "high",
+    "ronin external":       "high",
+    "oxygen external":      "high",
+    "santoware":            "high",
+    "serotonin":            "high",
+    "spxrkz":               "high",
+    "polter":               "high",
+    "timeoutwtf":           "medium",
     "drumix":               "high",
     "omega x":              "high",
     "omegax":               "high",
@@ -1501,8 +1642,15 @@ def load_external_signatures(path: str = None) -> tuple[int, str | None]:
           "executor_process_names": {"novoexec.exe": "high"},
           "suspicious_domains":     {"novoexec.gg": "high"},
           "suspicious_folder_names":{"novoexec": "high"},
-          "script_red_flags":       {"novafuncao": "high"}
+          "script_red_flags":       {"novafuncao": "high"},
+          "external_process_names": {"novocheat.exe": "high"},
+          "external_path_tokens":   {"novocheat external": "high"},
+          "external_basenames":     {"novocheat": "high"}
         }
+
+    Seções external_* alimentam external_scanner (family_id default "custom").
+    Valor pode ser "high"|"medium"|"low" ou
+    {"severity": "high", "family": "nome"}.
 
     Degrada graciosamente: arquivo ausente, JSON inválido, seção ou entrada
     malformada nunca quebram — apenas são ignorados. Retorna (n_mescladas,
@@ -1543,7 +1691,62 @@ def load_external_signatures(path: str = None) -> tuple[int, str | None]:
                 continue
             target[k] = sev
             added += 1
+
+    added += _merge_external_scanner_sigs(data)
     return added, None
+
+
+def _parse_ext_sev_family(raw_v) -> tuple[str, str] | None:
+    """Parse valor de seção external_* → (severity, family) ou None."""
+    if isinstance(raw_v, str):
+        sev = raw_v.lower().strip()
+        if sev in _VALID_SEVERITIES:
+            return sev, "custom"
+        return None
+    if isinstance(raw_v, dict):
+        sev = str(raw_v.get("severity", "")).lower().strip()
+        fam = str(raw_v.get("family", "custom")).lower().strip() or "custom"
+        if sev in _VALID_SEVERITIES:
+            return sev, fam
+    return None
+
+
+def _merge_external_scanner_sigs(data: dict) -> int:
+    """Mescla IOCs de external no módulo external_scanner (se importável)."""
+    try:
+        import external_scanner as ext
+    except ImportError:
+        return 0
+
+    mapping = {
+        "external_process_names": ext.EXTERNAL_PROCESS_NAMES,
+        "external_path_tokens":   ext.EXTERNAL_PATH_TOKENS,
+        "external_basenames":     ext.EXTERNAL_BASENAME_EXACT,
+    }
+    added = 0
+    for section_key, target in mapping.items():
+        section = data.get(section_key)
+        if not isinstance(section, dict):
+            continue
+        for raw_k, raw_v in section.items():
+            if not isinstance(raw_k, str):
+                continue
+            k = raw_k.lower().strip()
+            parsed = _parse_ext_sev_family(raw_v)
+            if not k or not parsed:
+                continue
+            sev, fam = parsed
+            target[k] = (sev, fam)
+            # Mantém cluster engine alinhado (alias + label)
+            ext.EXTERNAL_ALIAS_MAP[k] = fam
+            ext.EXTERNAL_ALIAS_MAP.setdefault(fam, fam)
+            if fam not in ext.EXTERNAL_FAMILY_LABELS:
+                ext.EXTERNAL_FAMILY_LABELS[fam] = f"{fam} (external)"
+            stem = k[:-4] if k.endswith(".exe") else k
+            if stem != k:
+                ext.EXTERNAL_ALIAS_MAP[stem] = fam
+            added += 1
+    return added
 
 
 def signatures_path() -> str:

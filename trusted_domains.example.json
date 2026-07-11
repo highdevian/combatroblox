@@ -1,4 +1,12 @@
-[
-  "exemplo-ferramenta-benigna.com",
-  "outro-dominio-do-dono.local"
+﻿[
+  "x.ai",
+  "opencode.ai",
+  "get.scoop.sh",
+  "chocolatey.org",
+  "python.org",
+  "nodejs.org",
+  "rustup.rs",
+  "raw.githubusercontent.com",
+  "cdn.jsdelivr.net",
+  "github.com"
 ]

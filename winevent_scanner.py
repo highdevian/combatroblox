@@ -484,10 +484,10 @@ def scan_log_clearance() -> dict:
             when = _fmt_when(ev.get("_time", ""))
             items.append(_item(
                 label="USN journal apagado (Application / EID 3079)",
-                detail=f"EventID 3079 · canal Application · Provider Ntfs\n"
-                       f"O journal de mudanças do NTFS (USN) foi truncado/apagado. "
-                       f"Mata a linha do tempo de filesystem usada pelo scan_usn. "
-                       f"Pode ocorrer em desfrag pesada/chkdsk — confira janela.",
+                detail="EventID 3079 · canal Application · Provider Ntfs\n"
+                       "O journal de mudanças do NTFS (USN) foi truncado/apagado. "
+                       "Mata a linha do tempo de filesystem usada pelo scan_usn. "
+                       "Pode ocorrer em desfrag pesada/chkdsk — confira janela.",
                 severity=sev, matched=matched, timestamp=when,
             ))
 
@@ -508,7 +508,7 @@ def scan_log_clearance() -> dict:
         sev, matched, _ = _classify_usn_cleared("System")
         when = _fmt_when(ev501.get("_time", ""))
         items.append(_item(
-            label=f"USN journal apagado (NTFS / EID 501)",
+            label="USN journal apagado (NTFS / EID 501)",
             detail=f"EventID 501 · canal {used_channel} · Provider Ntfs\n"
                    f"O journal de mudanças do NTFS (USN) foi truncado/apagado. "
                    f"Mesmo papo do 3079 — pode ocorrer em desfrag pesada/chkdsk.",

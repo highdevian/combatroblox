@@ -2,6 +2,254 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.44.0] - 2026-07-11
+
+**Caça a external PRIVATE (Winter-class): 11 detecções + forense pós-mortem
+que sobrevive a cleaner.**
+
+O catálogo de famílias (Matcha/Severe/DX9/Serotonin/…) das v3.43.5-3.43.7
+pega external público — o cheater que compra o produto e roda sem trocar
+nomes. Externals private (Winter Bypass, forks obfuscados, produtos pagos
+que rotacionam o build) escapam do match por nome. **Esta release traz o
+que private não consegue esconder**: handle no Roblox, working set, thread
+remota, egress de sistema, overlay D3D, correlação de sinais. Mais 4
+scanners que pegam **resíduo pós-mortem** — quando o cheater fechou o
+cheat + rodou cleaner + só deixou você entrar por AnyDesk depois.
+
+### External hunting técnico (`external_scanner`)
+
+O módulo `external_scanner.py` mantém `_FAMILY_CATALOG` + `scan_external_processes`
++ `scan_external_artifacts` (3.43.7) e **adiciona 9 detecções que não dependem
+do nome do cheat**:
+
+- **`scan_external_process_handles`** (HIGH/CRITICAL) — enumera todos os handles
+  do Windows via `NtQuerySystemInformation(SystemExtendedHandleInformation)` e
+  filtra os com `PROCESS_VM_READ`/`VM_WRITE`/`VM_OPERATION` no
+  `RobloxPlayerBeta`. É EXATAMENTE o que external precisa. Handle64.exe é
+  usermode e cheat driver-based esconde; NT layer pega mais. **VM_WRITE = CRITICAL**
+  (patchar memória do Roblox é único uso: cheat).
+- **`scan_external_memory_footprint`** (MEDIUM) — processos com working set
+  > 50 MB, exe não-assinado, user path, Roblox ativo. External buferiza
+  leituras de memória — RAM inflada é tell involuntário. Whitelist cobre
+  Discord/Chrome/Spotify/VS Code.
+- **`scan_remote_threads_in_roblox`** (HIGH) — usa
+  `NtQueryInformationThread(ThreadQuerySetWin32StartAddress)` pra ler
+  `StartAddress` de cada thread do Roblox. Threads cujo start cai fora de
+  qualquer módulo carregado = `CreateRemoteThread` (injetor externo).
+  Complementa `scan_roblox_manual_map`: shellcode fino não deixa PE header
+  mas deixa StartAddress órfão.
+- **`scan_kernel_only_egress`** (HIGH, crava sozinho) — conhost/dwm/csrss/
+  wininit/fontdrvhost/sihost/spoolsv/audiodg com TCP externa `ESTABLISHED`.
+  Esses processos nunca fazem rede em Windows normal — se fazem, é
+  masquerading + phone-home. **FP zero** conhecido.
+- **`scan_popup_overlays`** (MEDIUM) — janelas `WS_POPUP+TOPMOST` sem
+  transparency (D3D/DComp overlay). Complementa `scan_overlay_windows`
+  clássico que pegava `LAYERED+TRANSPARENT+TOPMOST`. External private
+  moderno prefere D3D em popup.
+- **`scan_post_roblox_processes`** (MEDIUM) — não-assinado, user path,
+  iniciado APÓS o Roblox. External só existe pra atacar o jogo; roda depois
+  pra ter alvo. Sozinho é sinal comportamental; no correlation eleva.
+- **`scan_suspicious_named_pipes`** (MEDIUM) — pipes hex/GUID. IPC clássica
+  entre reader (memory) e renderer (overlay). Regex apertada não pega
+  pipes com palavras (WiFiNetworkManagerTask etc).
+- **`scan_random_name_executables`** (MEDIUM) — `.exe` com nome
+  hex/base32/GUID em user path. Builds randomizados escapam de blacklist.
+- **`scan_external_correlation`** (HIGH/CRITICAL, crava sozinho) — agrega
+  os 8 sinais por PID. 2 sinais no mesmo PID = HIGH. 3+ = CRITICAL. Também
+  cruza com `scan_external_processes` (catálogo) e `scan_overlay_windows`
+  do `live_analysis`. **É esse scanner que pega Winter Bypass**: mesmo sem
+  nome no catálogo, handle + overlay + footprint no mesmo PID = quase
+  impossível ser app legítimo.
+
+### Forense pós-mortem (`anti_forensic_deep`, novo módulo)
+
+Pega resíduo que sobrevive a "fechei o cheat e rodei cleaner":
+
+- **`scan_defender_detection_history`** (HIGH) — parse binário dos arquivos
+  `MpBinaryFormat` em `C:\ProgramData\Microsoft\Windows Defender\Scans\
+  History\Service\DetectionHistory`. Extração de path (ASCII + UTF-16 LE),
+  threat name (HackTool/Trojan/…), hash SHA. Se o Defender viu o cheat
+  algum dia, aparece — **mesmo após clicar "Allowed" ou rodar cleaner**.
+- **`scan_dxshader_cache`** (LOW) — burst de shader D3D em `%LOCALAPPDATA%\
+  NVIDIA\DXCache`/`AMD\DxCache`/`D3DSCache`. External com ESP renderizado
+  via D3D obriga o driver a compilar shader. Sliding window de 15min:
+  5+ shaders = burst. Ponteiro pra revisar sessão específica.
+- **`scan_wer_reports`** (HIGH) — enumera `Report.wer` em
+  `%ProgramData%\Microsoft\Windows\WER\ReportArchive` e `ReportQueue`.
+  Parse INI UTF-16 pra extrair `AppPath` e `AppName`. Todo exe que
+  crashou (mesmo silenciosamente) fica gravado com **full path** —
+  cleaner popular não mexe aí.
+- **`scan_reliability_monitor`** (LOW) — RAC (`C:\ProgramData\Microsoft\
+  RAC\StateData`) e SUM (`C:\Windows\System32\LogFiles\Sum`). Logs de
+  execução/instalação/crash. Ponteiro pra abrir `perfmon /rel` manual.
+
+### Correção de FPs
+
+- **`scan_roblox_launcher_integrity`**: `RobloxPlayerInstaller.exe` e
+  `RobloxStudioInstaller.exe` removidos de `_ROBLOX_OFFICIAL_BINARIES`.
+  Verificado empiricamente com `Get-AuthenticodeSignature`: o installer
+  vem **`NotSigned`** (é um dropper leve — Roblox só assina Beta/Launcher/
+  Studio, que são os que rodam no fluxo de jogo). Antes, esse scanner
+  cravava HIGH em toda máquina com Roblox — quebrando `test_launcher::
+  test_real_clean_machine_zero_hits`. Installers permanecem em
+  `_ROBLOX_MASQUERADE_NAMES` (cenário 2 do scanner) via novo set
+  `_ROBLOX_INSTALLERS`.
+- **`trusted_domains.example.json`**: exemplos mais realistas com domínios
+  de dev/pkg-manager comum (x.ai, opencode.ai, get.scoop.sh, python.org,
+  rustup.rs, raw.githubusercontent.com).
+
+### Bugs internos (novos módulos)
+
+- **`_find_process_type_index`**: cacheia índice — não muda em runtime, era
+  re-scan de 100k+ handles a cada chamada (perf 10×).
+- **`_query_object_type_name`**: usa `NtQueryObject` no handle da nossa
+  própria tabela pra descobrir o slot "Process".
+- **UTF-16 pattern matching**: regex em bytes crus falha em metacaracteres
+  (parser via bytes de `(` vira `(\x00` e quebra). Fix: decodifica como
+  UTF-16 LE e roda regex string. Isso já cai pra `defender_history`.
+- **Severity lógico**: handle com VM_WRITE/VM_OPERATION agora corretamente
+  CRITICAL (era `high if X else high` — literal identity, bug).
+- **`_module_ranges_via_virtualquery`**: setup de `argtypes` movido pro top
+  (não mutava em cada call).
+
+### Fontes/pesos (Confidence Engine)
+
+10 novos slugs em `SOURCE_WEIGHTS`:
+- Técnicos: `external_reader=0.92`, `external_footprint=0.72`,
+  `remote_thread=0.90`, `kernel_only_egress=0.95`,
+  `external_correlation=0.98`, `popup_overlay=0.75`,
+  `post_roblox_proc=0.70`, `suspicious_pipe=0.60`, `random_name_exe=0.75`
+- Pós-mortem: `defender_history=0.92`, `dxshader_burst=0.55`,
+  `wer_crash=0.88`, `reliability_monitor=0.60`
+
+### Testes
+
+- `tests/test_external.py`: catálogo de famílias + detecções técnicas +
+  correlation com stubs (11 scanners).
+- `tests/test_anti_forensic_deep.py`: extração ASCII/UTF-16, burst de
+  shader, WER INI, anti-FP de path benigno/installer.
+- **609 testes verdes** na v3.44.0. O
+  `test_launcher::test_real_clean_machine_zero_hits` (quebrado pelo
+  installer não-assinado) passa de novo.
+
+### Contagem de scanners
+
+- **SCANNER_COUNT**: 75 → **88** (11 external: 2 catálogo + 9 técnicos;
+  4 anti-forensic deep; resto do stack 3.43.7).
+
+---
+
+## [3.43.7] - 2026-07-09
+
+**Pesquisa web de externals Roblox → catálogo de famílias + IOCs aplicados.**
+
+### Catálogo public (2024–2026)
+
+Fontes: Reddit r/robloxhackers, UnknownCheats, showcases YouTube (nomes de
+produto — **sem** hashes instáveis de crack).
+
+| Família | Notas |
+|---|---|
+| Matcha | paid, driver/kernel frequente |
+| Severe | paid de longa data (ESP/aimbot/script ext.) |
+| DX9WARE / DX9 | external kernel-class |
+| Matrix / MatrixHub | external (≠ bare "matrix") |
+| Celex | Da Hood external (cracks = malware risk) |
+| Bauix | moon.sex |
+| Sheldon, Vasile, Ronin-ext, Mooze, Oxygen-ext | free/paid showcases |
+| timeoutwtf, Santoware, Photon-ext, Clarity-ext | compostos only |
+| Serotonin, Spxrkz, Yerba-ext, Polter (.sys) | cena UC/tags |
+| genérico | robloxexternal / external aimbot\|esp\|cheat |
+
+### Código
+
+- **`external_scanner._FAMILY_CATALOG`**: fonte única → process/path/basename/alias.
+- **`evidence`**: importa `EXTERNAL_ALIAS_MAP` do scanner (cluster unificado).
+- **`database`**: keywords + process + folders + domains `moon.sex`, `celex.gg`.
+- **Anti-FP**: sem bare `matrix`/`photon`/`dx9`/`sheldon.exe`/`loader.exe`.
+
+## [3.43.6] - 2026-07-09
+
+**Cluster unificado de external + corroboração forense.**
+
+### Confidence Engine
+
+- **`TargetId(scheme="external", family)`**: Matcha/Vasile/… deixam de fragmentar
+  em `executor:matcha` vs `raw:external-proc:…` vs path solto.
+- **`EXTERNAL_ALIAS_OVERRIDES`**: `matcha.exe`, `matcha external`, `matcha beta`,
+  `matchaloader`, etc. → family `matcha` (idem outras famílias).
+- **Merge path→external**: pasta `…\Matcha Beta\loader.exe` entra no mesmo cluster.
+- **Corroboração**: se cluster external já tem Prefetch/Amcache/BAM/driver + live,
+  adiciona fonte `external_corroboration` (low) — sobe diversity sem inventar hit.
+- **Anti-FP**: `loader.exe` / `map.exe` sozinhos **não** são IOC (setup Matcha
+  só conta via pasta/família).
+
+### Testes
+
+- `test_matcha_variants_unify_to_one_cluster` e aliases de família.
+
+## [3.43.5] - 2026-07-09
+
+**Detecção de external cheat Roblox** (aimbot/ESP fora do cliente — distinto de
+executor Luau tipo Xeno/Solara).
+
+### External cheat
+
+- **`external_scanner.py`**: 2 scanners novos
+  - processo vivo com nomes de famílias (Matcha, Vasile, Bauix, Sheldon, …)
+  - artefatos em disco (Downloads/AppData/Desktop/Temp) via basename + path tokens
+- **Confidence Engine**: source `external_cheat` (peso 0.85), kind `external_cheat`,
+  label no relatório HTML/MD.
+- **Anti-FP**: blocklist de overlays legítimos (Discord, NVIDIA, Medal, Overwolf,
+  OBS, SteelSeries, Game Bar, …). Overlay click-through em `live_analysis` ganhou
+  Medal/Overwolf/SteelSeries.
+- **IOCs embutidos** em `database.py` (keywords + process names + folders) para
+  Prefetch/Amcache/BAM também casarem as famílias.
+- **`signatures.json`**: seções `external_process_names`, `external_path_tokens`,
+  `external_basenames` (severity + family opcional).
+- **75 scanners** no registry (`version.SCANNER_COUNT`).
+- Testes: `tests/test_external.py`.
+
+> Slot de signatures de propósito: rebuilds diários mudam o .exe — popule com
+> Prefetch/path reais do teu SS (Matcha etc.) via `signatures.json`.
+
+## [3.43.4] - 2026-07-09
+
+**Qualidade de produto para SS real**: cobertura, veredito inconclusivo, redação
+mais larga, anti-FP de PC de dev, registry de scanners, Markdown Discord-ready.
+
+### Veredito e cobertura
+
+- **`scan_coverage.py`**: agrega scanners ok/erro, flags `--quick`/`--only`/sem admin
+  e promove **LIMPO → INCONCLUSIVO** quando a cobertura é incompleta.
+- **Relatório HTML**: painel "Cobertura do scan" + "Resumo do operador (30 s)";
+  hero trata INCONCLUSIVO de forma explícita.
+- **`fp_filter`**: não reescreve mais `status=error` para `clean` após o FP
+  filter (cegueira de fonte deixa de parecer "limpo").
+- **`--quick`**: aviso no console de que LIMPO é inconclusivo até full scan.
+- **Markdown** (`--md` ou com `--codigo`): inclui cobertura, clusters e erros.
+
+### Privacidade / segurança
+
+- **`--no-redact`**: banner vermelho obrigatório; default continua redigindo.
+- **Redação**: JWT, Telegram bot token, PEM private key.
+- **Screenshot**: lista maior de password managers (Proton, Keeper, VeraCrypt…).
+- **SECURITY.md**: escopo in/out e defaults de privacidade.
+
+### Anti-FP
+
+- **DEV_INDICATORS**: Cursor, Windsurf, Python 314, rustup/cargo, pastas
+  `dev`/`Projects`/`github`.
+- Testes de regressão: `tests/test_coverage.py`, `test_redaction_extra.py`,
+  `test_dev_env_fp.py`.
+
+### DX / estrutura
+
+- **`version.py`**: versão canônica `3.43.4` (banner + `version_info.txt`).
+- **`scanner_registry.py`**: inventário de **73** scanners (grupos, admin, quick).
+- **Watch dashboard**: progresso com contagem de erros, SEM ADMIN e veredito.
+- **Ruff**: 6× F541 f-strings sem placeholder corrigidos.
+
 ## [3.43.3] - 2026-07-08
 
 **Correções de uma revisão de QA/segurança** do relatório redesenhado (v3.43.2).

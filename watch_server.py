@@ -46,6 +46,8 @@ _state = {
     "clusters": [],           # [{label, kind, verdict, confidence, score, n_sources, sources}]
     "verdict": None,          # dict do fp_filter.compute_verdict (final)
     "live_preview": True,     # True enquanto clusters são prévia (pré-FP-filter)
+    "n_error": 0,             # scanners com status=error (cobertura)
+    "admin": None,            # True/False/None se conhecido
 }
 # Acumula findings crus pra rebuildar clusters ao vivo.
 _findings_accum = []
@@ -208,6 +210,8 @@ def push_scanner(result: dict, done: int, total: int) -> None:
         _state["scanners"].append(entry)
         _state["done"] = done
         _state["total"] = total
+        if entry["status"] == "error":
+            _state["n_error"] = int(_state.get("n_error") or 0) + 1
         if items:
             _findings_accum.append(result)
             _rebuild_clusters_locked()
@@ -219,6 +223,12 @@ def finalize(clusters, verdict: dict) -> None:
         _state["status"] = "done"
         _state["verdict"] = verdict
         _state["live_preview"] = False
+        if verdict and isinstance(verdict, dict):
+            cov = verdict.get("coverage") or {}
+            if "admin" in cov:
+                _state["admin"] = cov.get("is_admin")
+            if cov.get("n_error") is not None:
+                _state["n_error"] = cov.get("n_error")
         if clusters is not None:
             _state["clusters"] = _clusters_to_dicts(clusters)
 
@@ -368,7 +378,12 @@ function render(st){
   // progresso
   const pct = st.total ? Math.round(st.done/st.total*100) : 0;
   document.getElementById('bar').style.width = pct + '%';
-  document.getElementById('ptxt').textContent = `${st.done} / ${st.total} scanners` + (st.status==='done'?' · concluído':'');
+  let ptxt = `${st.done} / ${st.total} scanners`;
+  if (st.n_error) ptxt += ` · ${st.n_error} erro(s)`;
+  if (st.admin === false) ptxt += ' · SEM ADMIN';
+  if (st.status==='done') ptxt += ' · concluído';
+  if (st.verdict && st.verdict.verdict) ptxt += ` · ${st.verdict.verdict}`;
+  document.getElementById('ptxt').textContent = ptxt;
 
   // stream incremental
   const stream = document.getElementById('stream');
@@ -401,11 +416,13 @@ function render(st){
     card.style.borderColor = vs.c+'55';
     card.style.boxShadow = best.verdict==='CONFIRMED' ? '0 0 50px -22px '+vs.c : 'none';
   } else if (st.status==='done'){
-    const vs = VS.CLEAN;
+    const inc = st.verdict && (st.verdict.inconclusive || st.verdict.verdict==='INCONCLUSIVO');
+    const vs = inc ? {t:'INCONCLUSIVO', c:'#e8b339', svg:VS.SUSPECT.svg} : VS.CLEAN;
     title.textContent = vs.t; title.style.color = vs.c;
     svg.setAttribute('stroke', vs.c); svg.innerHTML = vs.svg;
     icon.style.background = vs.c+'18'; icon.style.border='1px solid '+vs.c+'55';
-    conf.textContent='✓'; conf.style.color=vs.c; sub.textContent='nenhum target acima do limite';
+    conf.textContent=inc?'!':'✓'; conf.style.color=vs.c;
+    sub.textContent=inc?'cobertura incompleta — não inocenta':'nenhum target acima do limite';
     card.style.borderColor = vs.c+'44';
   }
   if (st.status==='done'){ dot.style.background='#888'; dot.style.animation='none'; }

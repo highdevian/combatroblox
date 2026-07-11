@@ -47,6 +47,8 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "live_processes":       0.95,
     "live_dll_injection":   0.90,
     "dma_hardware":         0.80,   # ID de placa FPGA/USB de DMA no registro (heurístico — pode spoofar)
+    "external_cheat":       0.85,   # processo/artefato de external aimbot/ESP (fora do cliente Roblox)
+    "external_corroboration": 0.55, # bônus sintético external+forense (não inventa cluster)
     "yara_signature":       0.85,   # match de conteúdo binário (símbolos de exploit/injeção)
     "event_log_exec":       0.88,   # 7045/4104 — execução/instalação logada pelo kernel
     "defender_detection":   0.90,   # 1116/1117 — o próprio AV detectou o hacktool/executor
@@ -94,6 +96,23 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "operator_seam":        0.90,   # costura de operador: degrau de skill + troca de IP na mesma conta
     "hidden_files":         0.65,
     "filesystem":           0.70,
+
+    # v3.44.0 — external cheat detection técnica
+    "external_reader":      0.92,   # handle PROCESS_VM_READ apontando pro Roblox
+    "external_footprint":   0.72,   # working set inflado + user path + não-assinado
+    "remote_thread":        0.90,   # thread no Roblox com StartAddress fora de módulos
+    "kernel_only_egress":   0.95,   # conhost/dwm/csrss com TCP externa — FP zero
+    "external_correlation": 0.98,   # 2+ sinais no mesmo PID — nenhum app legítimo cai em 2
+    "popup_overlay":        0.75,   # POPUP+TOPMOST (D3D/DComp) — external private moderno
+    "post_roblox_proc":     0.70,   # não-assinado iniciado após Roblox
+    "suspicious_pipe":      0.60,   # named pipe random — IPC reader/renderer
+    "random_name_exe":      0.75,   # nome hex/base32/GUID em user path
+
+    # v3.44.0 — forense pós-mortem (sobrevive a cleaner)
+    "defender_history":     0.92,   # Defender viu o exe — sobrevive a "Clear History"
+    "dxshader_burst":       0.55,   # burst de shader D3D — comportamental
+    "wer_crash":            0.88,   # exe crashou de user path — persistente
+    "reliability_monitor":  0.60,   # RAC/SUM — ponteiro pra perfmon /rel
 }
 
 DEFAULT_SOURCE_WEIGHT = 0.65
@@ -116,6 +135,15 @@ _CANONICAL_SUFFIXES = [
     " launcher",
     "launcher",
     " hub",
+    " external",
+    "-external",
+    "_external",
+    " beta",
+    "-beta",
+    "_beta",
+    " loader",
+    "-loader",
+    "_loader",
     ".exe",
     ".dll",
     ".cx",
@@ -134,7 +162,24 @@ _DO_NOT_CANONICALIZE = {
     "oxygen u",
     "trigon evo",
     "delta executor", "delta exploit",  # delta sozinho é comum demais
+    # external genérico — não colapsar pra "external"/"roblox"
+    "external aimbot", "external esp", "external cheat",
+    "roblox external", "robloxexternal",
 }
+
+# Famílias de EXTERNAL cheat — catálogo canônico em external_scanner
+# (pesquisa pública 2024-2026). Import por referência: signatures.json merge
+# muta o mesmo dict.
+try:
+    from external_scanner import (
+        EXTERNAL_ALIAS_MAP as EXTERNAL_ALIAS_OVERRIDES,
+        EXTERNAL_FAMILY_LABELS as _EXTERNAL_FAMILY_LABELS,
+        EXTERNAL_FAMILY_IDS as EXTERNAL_FAMILY_CANONICALS,
+    )
+except ImportError:  # pragma: no cover
+    EXTERNAL_FAMILY_CANONICALS = frozenset()
+    EXTERNAL_ALIAS_OVERRIDES = {}
+    _EXTERNAL_FAMILY_LABELS = {}
 
 
 def _canonicalize_executor_name(name: str) -> str:
@@ -165,11 +210,46 @@ def _canonicalize_executor_name(name: str) -> str:
     return s
 
 
+def resolve_external_family(matched: str) -> Optional[str]:
+    """Se o matched aponta pra família external conhecida, retorna o ID canônico."""
+    if not matched:
+        return None
+    key = matched.strip().lower()
+    # Prefixo dos scanners external_scanner
+    for prefix in ("external-proc:", "external-path:"):
+        if key.startswith(prefix):
+            rest = key[len(prefix):]
+            family = rest.split(":", 1)[0].strip()
+            if family in EXTERNAL_FAMILY_CANONICALS:
+                return family
+            if family and family != "custom":
+                return family
+            if ":" in rest:
+                token = rest.split(":", 1)[1]
+                return resolve_external_family(token)
+            return None
+    if key in EXTERNAL_ALIAS_OVERRIDES:
+        return EXTERNAL_ALIAS_OVERRIDES[key]
+    base = os.path.basename(key.replace("/", "\\"))
+    if base in EXTERNAL_ALIAS_OVERRIDES:
+        return EXTERNAL_ALIAS_OVERRIDES[base]
+    canon = _canonicalize_executor_name(key)
+    if canon in EXTERNAL_ALIAS_OVERRIDES:
+        return EXTERNAL_ALIAS_OVERRIDES[canon]
+    if canon in EXTERNAL_FAMILY_CANONICALS:
+        return canon
+    return None
+
+
+def external_family_label(family: str) -> str:
+    return _EXTERNAL_FAMILY_LABELS.get(family, f"{family} (external)")
+
+
 _aliases_cache: Optional[dict[str, str]] = None
 
 
 def _build_aliases() -> dict[str, str]:
-    """Constrói o mapa alias → canonical a partir de EXECUTOR_KEYWORDS."""
+    """Constrói o mapa alias → canonical a partir de EXECUTOR_KEYWORDS + external."""
     global _aliases_cache
     if _aliases_cache is not None:
         return _aliases_cache
@@ -183,11 +263,20 @@ def _build_aliases() -> dict[str, str]:
     for kw in EXECUTOR_KEYWORDS:
         if not kw:
             continue
+        ext = resolve_external_family(kw)
+        if ext:
+            mapping[kw.lower()] = ext
+            mapping.setdefault(ext, ext)
+            continue
         canon = _canonicalize_executor_name(kw)
         if canon:
             mapping[kw.lower()] = canon
-            # também mapeia o canon pra si mesmo (idempotência)
             mapping.setdefault(canon, canon)
+
+    for alias, family in EXTERNAL_ALIAS_OVERRIDES.items():
+        mapping[alias] = family
+        mapping.setdefault(family, family)
+
     _aliases_cache = mapping
     return mapping
 
@@ -199,15 +288,16 @@ def invalidate_aliases() -> None:
 
 
 def resolve_alias(matched: str) -> Optional[str]:
-    """Retorna o ID canônico do executor, ou None se não bater."""
+    """Retorna o ID canônico do executor/external, ou None se não bater."""
     if not matched:
         return None
+    ext = resolve_external_family(matched)
+    if ext:
+        return ext
     aliases = _build_aliases()
     key = matched.strip().lower()
-    # match direto
     if key in aliases:
         return aliases[key]
-    # tenta canonizar e bater de novo (cobre variantes não cadastradas)
     canon = _canonicalize_executor_name(key)
     if canon in aliases:
         return aliases[canon]
@@ -256,6 +346,8 @@ def _infer_kind(label: str, matched: str) -> str:
     m = (matched or "").lower()
     if m.startswith("seam-"):
         return "operator_swap"
+    if m.startswith("external-") or m.startswith("external:"):
+        return "external_cheat"
     if m.startswith(_MATCHED_PREFIXES_BYOVD):
         return "byovd"
     if m.startswith(_MATCHED_PREFIXES_ANTI):
@@ -287,9 +379,11 @@ def compute_target_id(item: dict) -> tuple[TargetId, str, str]:
     Retorna (target_id, label_amigavel, kind).
 
     Cascata (mais forte primeiro):
+      0) seam / external-proc|path prefix
       1) sha256 do pe_info — agrupa cópias com nome diferente
       2) path normalizado — agrupa por arquivo no disco
-      3) executor canônico via aliases — agrupa variantes textuais
+         (se o path for família external conhecida, vira external:family)
+      3) external/executor canônico via aliases — agrupa variantes textuais
       4) raw label — fallback, não agrupa nada com mais nada
     """
     # 0) costura de operador — evento próprio (não é executor/arquivo). Agrupa
@@ -297,6 +391,18 @@ def compute_target_id(item: dict) -> tuple[TargetId, str, str]:
     matched0 = (item.get("matched") or "").lower()
     if matched0.startswith("seam-"):
         return TargetId("operator_swap", "costura"), "Troca de operador", "operator_swap"
+
+    # 0b) external scanners — matched="external-proc:matcha:matcha.exe"
+    ext_family = resolve_external_family(matched0)
+    if ext_family and (
+        matched0.startswith("external-proc:")
+        or matched0.startswith("external-path:")
+    ):
+        return (
+            TargetId("external", ext_family),
+            external_family_label(ext_family),
+            "external_cheat",
+        )
 
     # 1) hash
     pe = item.get("pe_info") or {}
@@ -312,13 +418,36 @@ def compute_target_id(item: dict) -> tuple[TargetId, str, str]:
     if path:
         norm = _normalize_path(path)
         if norm:
+            # Path que já revela família external (…\Matcha\loader.exe)
+            path_ext = _path_to_external_family(norm)
+            if path_ext:
+                return (
+                    TargetId("external", path_ext),
+                    external_family_label(path_ext),
+                    "external_cheat",
+                )
             name = os.path.basename(norm) or norm
             kind = _infer_kind(item.get("label", ""), item.get("matched", ""))
             return TargetId("path", norm), name, kind
 
-    # 3) executor canônico
+    # 3) external canônico (keyword Prefetch "matcha.exe" etc.)
+    if ext_family:
+        return (
+            TargetId("external", ext_family),
+            external_family_label(ext_family),
+            "external_cheat",
+        )
+
+    # 3b) executor canônico
     canon = resolve_alias(item.get("matched", ""))
     if canon:
+        # resolve_alias pode devolver family external se override bateu
+        if canon in EXTERNAL_FAMILY_CANONICALS or canon in _EXTERNAL_FAMILY_LABELS:
+            return (
+                TargetId("external", canon),
+                external_family_label(canon),
+                "external_cheat",
+            )
         return TargetId("executor", canon), canon.title(), "executor"
 
     # 4) raw — fallback
@@ -486,9 +615,30 @@ def _source_slug_from_name(scanner_name: str) -> str:
     # ordem importa — substrings mais específicas primeiro
     rules = [
         ("costura de operador",   "operator_seam"),
+        # v3.44.0 — external technical (mais específicos que "external cheat" genérico)
+        ("correlacao de sinais de external", "external_correlation"),
+        ("correlação de sinais de external", "external_correlation"),
+        ("handles pro roblox",    "external_reader"),
+        ("working set de external", "external_footprint"),
+        ("thread remota no roblox", "remote_thread"),
+        ("rede: processo do sistema", "kernel_only_egress"),
+        ("overlay d3d",           "popup_overlay"),
+        ("overlay dcomp",         "popup_overlay"),
+        ("popup+topmost",         "popup_overlay"),
+        ("processo iniciado após o roblox", "post_roblox_proc"),
+        ("named pipes suspeitos", "suspicious_pipe"),
+        ("executável com nome aleatório", "random_name_exe"),
+        # v3.44.0 — forense pós-mortem
+        ("defender: histórico de detecções", "defender_history"),
+        ("directx shader cache",  "dxshader_burst"),
+        ("windows error reporting", "wer_crash"),
+        ("reliability monitor",   "reliability_monitor"),
+        # existentes
         ("defender: detecção",    "defender_detection"),
         ("event log de execução", "event_log_exec"),
         ("dma",                   "dma_hardware"),
+        ("external cheat",        "external_cheat"),
+        ("external",              "external_cheat"),
         ("yara",                  "yara_signature"),
         ("assinatura binária",    "yara_signature"),
         ("kernel driver",         "kernel_drivers"),
@@ -614,8 +764,45 @@ def findings_to_evidences(findings: list[dict]) -> list[Evidence]:
 _PREFETCH_RE = re.compile(r"^(?P<exe>[^\\/]+)-[0-9A-Za-z]+\.pf$")
 
 
+def _path_to_external_family(path_value: str) -> Optional[str]:
+    """Se o path aponta pra família external conhecida, retorna o family id."""
+    if not path_value:
+        return None
+    # basename / prefetch / segmentos — só aceita se for external family
+    candidates: list[str] = []
+    base = os.path.basename(path_value)
+    candidates.append(base)
+    stem = base.rsplit(".", 1)[0] if "." in base else base
+    candidates.append(stem)
+    m = _PREFETCH_RE.match(base)
+    if m:
+        exe = m.group("exe")
+        candidates.append(exe)
+        candidates.append(exe.rsplit(".", 1)[0] if "." in exe else exe)
+    for seg in path_value.replace("/", "\\").split("\\"):
+        seg = seg.strip()
+        if seg:
+            candidates.append(seg)
+            candidates.append(seg.rsplit(".", 1)[0] if "." in seg else seg)
+    for c in candidates:
+        fam = resolve_external_family(c)
+        if fam:
+            return fam
+    # path inteiro (tokens compostos tipo "matcha beta")
+    fam = resolve_external_family(path_value)
+    if fam:
+        return fam
+    # token "matcha beta" no path
+    low = path_value.lower().replace("/", "\\")
+    for alias, family in EXTERNAL_ALIAS_OVERRIDES.items():
+        if " " in alias or "-" in alias:
+            if alias in low:
+                return family
+    return None
+
+
 def _path_to_canonical_executor(path_value: str) -> Optional[str]:
-    """Se um path:* aponta pra executor conhecido, retorna o ID canônico.
+    """Se um path:* aponta pra executor/external conhecido, retorna o ID canônico.
 
     Tenta nesta ordem:
       1) basename completo  ('solara.exe')
@@ -625,6 +812,11 @@ def _path_to_canonical_executor(path_value: str) -> Optional[str]:
     """
     if not path_value:
         return None
+    # External first (evita "matcha" cair só como executor genérico)
+    ext = _path_to_external_family(path_value)
+    if ext:
+        return ext
+
     base = os.path.basename(path_value)
 
     canon = resolve_alias(base)
@@ -660,35 +852,84 @@ def _path_to_canonical_executor(path_value: str) -> Optional[str]:
 def _merge_path_into_executor(by_target: dict[TargetId, "Cluster"]) -> dict[TargetId, "Cluster"]:
     """
     Pós-processamento: quando um cluster `path:...` aponta pra executor
-    conhecido E existe um cluster `executor:<canon>` correspondente,
-    funde as evidências no executor cluster.
+    ou external conhecido E existe cluster canônico correspondente,
+    funde as evidências.
 
-    Isso resolve o caso comum: o mesmo Solara aparece como
-      - executor:solara  (do matched='solara' no Amcache)
-      - path:c:\\users\\bob\\...\\solara.exe  (do Prefetch que tem o path)
-    e deveria ser 1 cluster só com 2+ fontes (= confidence sobe).
+    Também funde `executor:matcha` residual em `external:matcha` se ambos
+    existirem (legado de keyword vs external scanner).
     """
-    # Mapa: executor canon → cluster executor:* existente
     exec_clusters: dict[str, Cluster] = {
         tid.value: c for tid, c in by_target.items() if tid.scheme == "executor"
     }
-    # Também mapa de hash → cluster sha256:* (pra mesma lógica)
-    # Mas hash não tem alias, então skip por enquanto.
+    ext_clusters: dict[str, Cluster] = {
+        tid.value: c for tid, c in by_target.items() if tid.scheme == "external"
+    }
 
     survivors: dict[TargetId, Cluster] = {}
     for tid, c in by_target.items():
         if tid.scheme == "path":
             canon = _path_to_canonical_executor(tid.value)
-            if canon and canon in exec_clusters:
-                # funde evidências dentro do cluster executor
-                target = exec_clusters[canon]
+            if canon and canon in ext_clusters:
+                target = ext_clusters[canon]
                 target.evidences.extend(c.evidences)
-                # promove o label se o do path for mais informativo
                 if c.label and len(c.label) > len(target.label or ""):
                     target.label = c.label
                 continue
+            if canon and canon in exec_clusters:
+                target = exec_clusters[canon]
+                target.evidences.extend(c.evidences)
+                if c.label and len(c.label) > len(target.label or ""):
+                    target.label = c.label
+                continue
+            # path de external sem cluster ainda — promove pra external:family
+            if canon and (
+                canon in EXTERNAL_FAMILY_CANONICALS
+                or canon in _EXTERNAL_FAMILY_LABELS
+            ):
+                new_tid = TargetId("external", canon)
+                if new_tid in survivors:
+                    survivors[new_tid].evidences.extend(c.evidences)
+                elif new_tid in by_target:
+                    by_target[new_tid].evidences.extend(c.evidences)
+                    survivors[new_tid] = by_target[new_tid]
+                    ext_clusters[canon] = survivors[new_tid]
+                else:
+                    c2 = Cluster(
+                        target_id=new_tid,
+                        label=external_family_label(canon),
+                        kind="external_cheat",
+                        evidences=list(c.evidences),
+                    )
+                    survivors[new_tid] = c2
+                    ext_clusters[canon] = c2
+                continue
         survivors[tid] = c
-    return survivors
+
+    # Funde executor:<family> residual → external:<family>
+    final: dict[TargetId, Cluster] = {}
+    for tid, c in survivors.items():
+        if tid.scheme == "executor" and (
+            tid.value in EXTERNAL_FAMILY_CANONICALS
+            or tid.value in _EXTERNAL_FAMILY_LABELS
+        ):
+            ext_tid = TargetId("external", tid.value)
+            if ext_tid in survivors:
+                survivors[ext_tid].evidences.extend(c.evidences)
+                continue
+            if ext_tid in final:
+                final[ext_tid].evidences.extend(c.evidences)
+                continue
+            c.kind = "external_cheat"
+            c.label = external_family_label(tid.value)
+            final[ext_tid] = Cluster(
+                target_id=ext_tid,
+                label=c.label,
+                kind="external_cheat",
+                evidences=list(c.evidences),
+            )
+            continue
+        final[tid] = c
+    return final
 
 
 def build_clusters(evidences: Iterable[Evidence]) -> list[Cluster]:
@@ -715,18 +956,77 @@ def build_clusters(evidences: Iterable[Evidence]) -> list[Cluster]:
             c.label = e.target_label
 
     by_target = _merge_path_into_executor(by_target)
+    by_target = _corroborate_external_clusters(by_target)
 
     # Para clusters executor:*, força o label a ser o nome canônico Titlecased
     # (em vez de um basename qualquer absorvido durante merge).
     for tid, c in by_target.items():
         if tid.scheme == "executor":
             c.label = tid.value.title()
+        elif tid.scheme == "external":
+            c.label = external_family_label(tid.value)
+            c.kind = "external_cheat"
 
     clusters = list(by_target.values())
     clusters.sort(
         key=lambda c: (-VERDICT_RANK[c.verdict], -c.score),
     )
     return clusters
+
+
+# Fontes que reforçam um external (driver/forense forte) — bônus no score
+_EXTERNAL_CORROBORATION_SOURCES = frozenset({
+    "kernel_drivers", "event_log_exec", "prefetch", "amcache", "bam",
+    "usn_journal", "defender_detection", "yara_signature",
+})
+
+
+def _corroborate_external_clusters(
+    by_target: dict[TargetId, "Cluster"],
+) -> dict[TargetId, "Cluster"]:
+    """
+    Bônus de score via evidência sintética fraca quando um cluster external
+    já tem 1+ fonte forte de forense/driver — reforça DETECTED sem fabricar
+    CONFIRMED sozinho (a evidência sintética é low e mesma lógica de diversity).
+
+    Não inventa cluster novo; só reforça os que já existem.
+    """
+    for tid, c in by_target.items():
+        if tid.scheme != "external" and c.kind != "external_cheat":
+            continue
+        sources = c.sources
+        strong = sources & _EXTERNAL_CORROBORATION_SOURCES
+        has_live = "external_cheat" in sources or "live_processes" in sources
+        if not strong:
+            continue
+        if not (has_live or len(strong) >= 2):
+            continue
+        # já bem corroborado — não poluir
+        if c.n_sources >= 4:
+            continue
+        # evidência sintética low em fonte própria (sobe diversity sem inventar cluster)
+        c.evidences.append(Evidence(
+            source="external_corroboration",
+            source_weight=SOURCE_WEIGHTS.get("external_corroboration", 0.55),
+            severity="low",
+            target_id=tid,
+            target_label=c.label,
+            target_kind="external_cheat",
+            confidence=40,
+            timestamp=None,
+            raw={
+                "label": "Corroboração external+forense",
+                "detail": (
+                    f"Cluster external com fonte(s) forte(s): "
+                    f"{', '.join(sorted(strong))}. "
+                    f"Padrão típico de external com loader/driver/prefetch."
+                ),
+                "matched": f"external-corroboration:{tid.value}",
+                "severity": "low",
+                "meta_only": False,
+            },
+        ))
+    return by_target
 
 
 def summarize_clusters(clusters: list[Cluster]) -> dict:

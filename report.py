@@ -66,6 +66,21 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         sub_msg = f"{len(suspect)} alvo(s) com evidência parcial — sem confirmação cruzada"
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=False)
         state_class = "hv-state-warn"
+    elif verdict.get("inconclusive") or verdict.get("verdict") == "INCONCLUSIVO":
+        # LIMPO com cobertura cega: NÃO inocenta
+        icon_key, headline, color = (
+            "alert-triangle",
+            "INCONCLUSIVO — COBERTURA INCOMPLETA",
+            "oklch(0.78 0.12 85)",
+        )
+        global_conf = None
+        reason = verdict.get("inconclusive_reason") or (
+            "Fontes forenses fortes não puderam ser lidas. "
+            "Ausência de hits NÃO inocenta."
+        )
+        sub_msg = _escape(reason[:220])
+        hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=True)
+        state_class = "hv-state-warn"
     else:
         # Sem cluster acionável — limpo. SVG shield-check em verde,
         # sem pulse (não há urgência), com glow sutil.
@@ -1134,12 +1149,105 @@ CONTROLS_JS = """
 """
 
 
+def _render_coverage_panel(coverage: dict | None, verdict: dict | None) -> str:
+    """Painel de cobertura: fontes ok / erro / modos limitados."""
+    if not coverage:
+        return ""
+    reasons = coverage.get("reasons") or []
+    errored = coverage.get("errored") or []
+    incomplete = coverage.get("incomplete")
+    badge = "limitado" if incomplete else "completo"
+    badge_cls = "cov-bad" if incomplete else "cov-ok"
+    admin_txt = "sim" if coverage.get("is_admin") else "NÃO"
+    sig = coverage.get("sig_version") or "embutida"
+    rows = ""
+    for e in errored[:12]:
+        rows += (
+            f"<li><code>{_escape(e.get('name', '?'))}</code> — "
+            f"{_escape((e.get('error') or 'erro')[:120])}</li>"
+        )
+    if len(errored) > 12:
+        rows += f"<li>… +{len(errored) - 12} checagens com erro</li>"
+    reason_lis = "".join(f"<li>{_escape(r)}</li>" for r in reasons)
+    err_block = f"<ul class='cov-errors'>{rows}</ul>" if rows else ""
+    reason_block = f"<ul class='cov-reasons'>{reason_lis}</ul>" if reason_lis else ""
+    return f"""
+    <section class="coverage-panel {badge_cls}" id="coverage" aria-label="Cobertura do scan">
+      <header class="cov-head">
+        <h2>Cobertura do scan</h2>
+        <span class="cov-badge">{badge}</span>
+      </header>
+      <div class="cov-stats">
+        <span><strong>{coverage.get('n_ok', 0)}</strong> ok</span>
+        <span><strong>{coverage.get('n_error', 0)}</strong> erro</span>
+        <span><strong>{coverage.get('total_scanners', 0)}</strong> total</span>
+        <span>admin: <strong>{admin_txt}</strong></span>
+        <span>assinaturas: <code>{_escape(str(sig))}</code></span>
+      </div>
+      {reason_block}
+      {err_block}
+      <p class="cov-hint">
+        Scanner com status <strong>error</strong> não contribui com a fonte dele.
+        Veredito LIMPO com cobertura incompleta é tratado como
+        <strong>INCONCLUSIVO</strong>.
+      </p>
+    </section>
+    """
+
+
+def _render_operator_tldr(clusters: list, verdict: dict | None, coverage: dict | None) -> str:
+    """Uma página de ação pro supervisor (Discord / live SS)."""
+    v = (verdict or {}).get("verdict", "?")
+    score = (verdict or {}).get("score", 0)
+    conf = (verdict or {}).get("highest_confidence", 0)
+    lines = []
+    if verdict and verdict.get("inconclusive"):
+        lines.append("1. Não inocente: cobertura incompleta — rode de novo como admin.")
+        lines.append("2. Peça UAC e repita o scan antes de fechar a SS.")
+    elif v.startswith("CHEATER") or v.startswith("ALTAMENTE"):
+        lines.append("1. Peça pro suspeito NÃO reiniciar / formatar.")
+        lines.append("2. Revise os targets do Confidence Engine abaixo (fontes ✓).")
+        lines.append("3. Cole o resumo no Discord (botão Copiar no hero).")
+    elif "SUSPEITO" in v or "PISTAS" in v:
+        lines.append("1. Abra as seções HIGH/MEDIUM e confira paths reais.")
+        lines.append("2. Cruze com SS visual (task manager, pastas suspeitas).")
+    else:
+        lines.append("1. Ainda faça SS visual — ferramenta é heurística.")
+        lines.append("2. Confira o painel de cobertura (admin / erros).")
+
+    confirmed = [c for c in (clusters or []) if getattr(c, "verdict", "") == "CONFIRMED"]
+    detected = [c for c in (clusters or []) if getattr(c, "verdict", "") == "DETECTED"]
+    tops = (confirmed + detected)[:5]
+    top_html = ""
+    if tops:
+        items = "".join(
+            f"<li><strong>{_escape(c.label)}</strong> "
+            f"[{_escape(c.verdict)} {c.confidence_pct}%]</li>"
+            for c in tops
+        )
+        top_html = f"<ul class='tldr-targets'>{items}</ul>"
+
+    steps_html = "".join(
+        f"<li>{_escape(s.split('. ', 1)[-1] if '. ' in s else s)}</li>" for s in lines
+    )
+    return f"""
+    <section class="operator-tldr" id="tldr" aria-label="Resumo do operador">
+      <h2>Resumo do operador (30 s)</h2>
+      <p class="tldr-verdict">Veredito: <strong>{_escape(str(v))}</strong>
+         · score {score} · conf. máx. {conf}%</p>
+      <ol class="tldr-steps">{steps_html}</ol>
+      {top_html}
+    </section>
+    """
+
+
 def generate_html_report(findings: list[dict], sys_info: dict,
                           screenshots: dict = None,
                           high_confidence: dict = None,
                           verdict: dict = None,
                           fp_stats: dict = None,
                           clusters: list = None,
+                          coverage: dict = None,
                           output_path: str = None) -> str:
     """Gera HTML e retorna o caminho do arquivo salvo.
 
@@ -1160,17 +1268,19 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         self_hash = report_signing.get_self_hash() or ""
 
     hero_html = _render_hero_verdict(clusters or [], verdict or {})
+    tldr_html = _render_operator_tldr(clusters or [], verdict or {}, coverage)
+    coverage_html = _render_coverage_panel(coverage, verdict or {})
 
     # Aviso de scan limitado (sem admin) — banner no topo do relatório.
     admin_warn_html = ""
-    if sys_info.get("admin") is False:
+    if sys_info.get("admin") is False or (coverage and coverage.get("blind_strong")):
         admin_warn_html = (
-            '<div class="admin-warn">'
-            '<strong>⚠ SCAN LIMITADO — não rodou como administrador.</strong> '
+            '<div class="admin-warn" role="alert">'
+            '<strong>⚠ SCAN LIMITADO — cobertura incompleta.</strong> '
             'As fontes forenses mais fortes (Prefetch, Amcache, BAM, Defender) '
-            'não puderam ser lidas. Um resultado sem detecções aqui é '
+            'podem não ter sido lidas. Um resultado sem detecções aqui é '
             '<strong>inconclusivo</strong>, não inocenta — rode de novo como '
-            'administrador pra ter um veredito confiável.'
+            'administrador e sem --quick pra ter um veredito confiável.'
             '</div>'
         )
     summary_html = _render_summary(findings, verdict)
@@ -2763,6 +2873,36 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         border: 1px solid var(--site-border);
     }
     .admin-warn { border-radius: 2px; }
+    .operator-tldr, .coverage-panel {
+        margin: 16px 0 20px; padding: 16px 18px;
+        border: 1px solid color-mix(in oklch, var(--line, #333) 80%, transparent);
+        background: color-mix(in oklch, var(--panel, #121214) 92%, black);
+        border-radius: 2px;
+    }
+    .operator-tldr h2, .coverage-panel h2 {
+        margin: 0 0 10px; font-size: 1.05rem; letter-spacing: 0.02em;
+    }
+    .tldr-verdict { margin: 0 0 10px; color: var(--muted, #aaa); }
+    .tldr-steps { margin: 0 0 8px; padding-left: 1.2rem; }
+    .tldr-steps li { margin: 0.25rem 0; }
+    .tldr-targets { margin: 8px 0 0; padding-left: 1.1rem; color: #e8e0d2; }
+    .coverage-panel.cov-bad { border-left: 3px solid oklch(0.78 0.12 85); }
+    .coverage-panel.cov-ok { border-left: 3px solid oklch(0.72 0.14 160); }
+    .cov-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .cov-badge {
+        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.08em; padding: 3px 8px; border-radius: 2px;
+        background: #2a2a2e; color: #e8e8e8;
+    }
+    .cov-bad .cov-badge { background: oklch(0.78 0.12 85); color: #111; }
+    .cov-ok .cov-badge { background: oklch(0.72 0.14 160); color: #111; }
+    .cov-stats { display: flex; flex-wrap: wrap; gap: 12px 18px; margin: 10px 0; font-size: 13px; color: #bbb; }
+    .cov-reasons, .cov-errors { margin: 8px 0; padding-left: 1.15rem; color: #ccc; font-size: 13px; }
+    .cov-hint { margin: 10px 0 0; font-size: 12px; color: #888; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+    .skip-link:focus { position: static; width: auto; height: auto; clip: auto; }
 
     /* Tabelas de detalhe (6 colunas) rolam na horizontal em telas estreitas.
        Só no mobile: no desktop o wrapper fica overflow:visible pra não quebrar
@@ -2803,6 +2943,8 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     </header>
     {admin_warn_html}
     <span id="verdict"></span>{hero_html}
+    {tldr_html}
+    {coverage_html}
     <span id="summary"></span>{summary_html}
     {session_html}
     {empty_html}

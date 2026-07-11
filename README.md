@@ -12,8 +12,8 @@ e entrega um **veredito de cheat com % de confiança**.
 
 [![release](https://img.shields.io/github/v/tag/highdevian/combatroblox?sort=semver&label=release&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?branch=main&label=CI)](https://github.com/highdevian/combatroblox/actions)
-![scanners](https://img.shields.io/badge/scanners-70-8b5cf6)
-![tests](https://img.shields.io/badge/tests-435%20passing-3fbf7f)
+![scanners](https://img.shields.io/badge/scanners-88-8b5cf6)
+![tests](https://img.shields.io/badge/tests-611%20passing-3fbf7f)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 
@@ -32,7 +32,7 @@ e entrega um **veredito de cheat com % de confiança**.
         ✓ prefetch   ✓ amcache   ✓ bam   ✓ live_processes
 ```
 
-> **65 scanners forenses** cruzam evidência de dezenas de fontes do Windows. Uma fonte
+> **88 scanners forenses** cruzam evidência de dezenas de fontes do Windows. Uma fonte
 > sozinha **nunca** confirma — o **Confidence Engine** agrupa os hits do mesmo alvo num
 > veredito único (CONFIRMED / DETECTED / SUSPECT) com % de confiança, em vez de cuspir
 > 50 hits soltos pra você interpretar.
