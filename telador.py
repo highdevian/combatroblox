@@ -55,6 +55,7 @@ import dma_scanner
 import external_scanner
 import anti_forensic_deep
 import system_hardening
+import behavioral_tier_a
 import winevent_scanner
 import service_state_scanner
 import seam_scanner
@@ -232,6 +233,10 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     # respeita --no-forensics porque toca em bcdedit, Roblox process e SQLite.
     if not skip_forensics:
         chain.extend(system_hardening.ALL_SYSTEM_HARDENING_SCANNERS)
+    # Behavioral Tier A — dropper/AMSI/APC. Toca em processos vivos e
+    # subprocess do PowerShell — respeita --no-live.
+    if not skip_live:
+        chain.extend(behavioral_tier_a.ALL_BEHAVIORAL_TIER_A_SCANNERS)
     return chain
 
 

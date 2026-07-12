@@ -72,6 +72,10 @@ SOURCE_LABELS = {
     "vbs_disabled":       "VBS / HVCI desativado",
     "roblox_rwx_page":    "Roblox .text RWX (patch)",
     "activities_cache":   "ActivitiesCache Timeline",
+    # v3.47.0 — Tier A behavioral
+    "dropper_task":       "Task dropper (persistência)",
+    "amsi_bypass":        "AMSI Bypass (PowerShell)",
+    "apc_injection":      "APC Injection (Roblox)",
     "event_log_exec":     "Event Log (execução)",
     "defender_detection": "Defender (detecção)",
     "roblox_logs":        "Roblox Logs",

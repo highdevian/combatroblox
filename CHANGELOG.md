@@ -2,6 +2,96 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.47.1] - 2026-07-12
+
+**Auditoria pós-v3.47.0: 4 bugs corrigidos (1 FP crítico, 3 corretude).**
+
+### FP crítico eliminado
+
+- **`scan_roblox_page_protection` (Tier S)**: em máquina limpa com Roblox
+  aberto, o scanner disparava HIGH `1 página(s) RWX em RobloxPlayerBeta`
+  → veredito virava "POSSÍVEIS PISTAS" (score 10). Causa: **Hyperion**
+  (anti-cheat da Roblox) faz hot-patching legítimo e cria 1-2 regiões RWX.
+  Fix: threshold — 1-2 páginas RWX = `low` + `meta_only=True` (contexto,
+  não conta veredito), 3+ páginas = `high` (padrão de múltiplos hooks de
+  internal cheat). Máquina limpa agora volta pra LIMPO score 0.
+
+### FP alto risk mitigado
+
+- **`scan_apc_injection` (Tier A)**: whitelist antiga só cobria
+  `c:\windows`, `c:\program files*` e `c:\programdata\microsoft`.
+  DLLs de overlay legit (NVIDIA/AMD/Discord/OBS/Razer) viravam
+  "APC injection" HIGH. Fix: (a) whitelist expandida (NVIDIA/AMD/Intel/
+  OBS/Razer/Packages em `c:\programdata\...`, Discord/Overwolf overlay);
+  (b) nova whitelist de path *suspeito* — só flagga se cai em
+  `c:\users\`, `c:\windows\temp\` ou `c:\temp\`. Overlays exóticos
+  fora dessa lista ficam silentes em vez de gritar FP.
+
+### Corretude
+
+- **`scan_amsi_bypass` (Tier A)**: `ctypes.cast(amsi_local.AmsiScanBuffer,
+  c_void_p)` era frágil entre builds do CPython. Fix: usa
+  `GetProcAddress` explicitamente via ctypes, `restype=c_void_p`.
+  Comportamento idêntico em Python 3.10-3.14.
+
+- **`behavioral_tier_a.py`**: `_DROPPER_USER_PREFIXES` era constante morta
+  (declarava 4 prefixes mas o filtro hardcoded inline só 2). Renomeada
+  pra `_DROPPER_SUSPICIOUS_PREFIXES`, cortada pros 2 que importam
+  (`%localappdata%`/`%appdata%` são sub-paths de `c:\users\`, redundantes).
+
+### Números
+
+- 677 testes passando (+1 novo pra overlay legit em APC).
+- 97 scanners (sem mudança).
+- Máquina limpa → veredito LIMPO score 0 (era POSSÍVEIS PISTAS score 10).
+
+---
+
+## [3.47.0] - 2026-07-12
+
+**Tier A behavioral — +3 scanners, 94 → 97.**
+
+Executa 3 do backlog Tier A do ROADMAP. Detecções comportamentais que
+forçam o cheater a mudar arquitetura, não só renomear binário.
+
+### Novos scanners (`behavioral_tier_a.py`)
+
+- **`scan_scheduled_task_dropper`** — task criada nas últimas 24h com
+  trigger `AtLogon`/`AtBoot` + action rodando exe em `C:\Users\` /
+  `C:\ProgramData\`. Padrão de dropper de loader (cheat sobrevive reboot
+  sem depender de startup folder). Fonte: `Get-ScheduledTask` +
+  `Get-ScheduledTaskInfo` via PowerShell. MEDIUM. Weight 0.80.
+  Ortogonal ao `scan_scheduled_tasks` existente que só faz keyword match.
+
+- **`scan_amsi_bypass`** — inspeciona `AmsiScanBuffer` em `amsi.dll` do
+  processo `powershell.exe`/`pwsh.exe`. Primeiros bytes deveriam ser
+  prologue de save-regs; se viraram `ret`, `xor eax,eax; ret` ou
+  `mov eax, S_FALSE; ret`, o cheater silenciou o Defender AV. HIGH.
+  Weight 0.92. `OpenProcess` + `ReadProcessMemory` via ctypes.
+
+- **`scan_apc_injection`** — DLLs carregadas no Roblox que não vêm de
+  paths oficiais. APC injection queue código pra thread existente (não
+  cria thread nova, escapa do `scan_remote_threads_in_roblox`). Roblox
+  fechado → error; DLL em path oficial (Windows/Roblox/Discord) → skip;
+  outras DLL → HIGH. Weight 0.85.
+
+### Escopo colateral
+
+- `evidence.py`: 3 slugs em `SOURCE_WEIGHTS` + 3 regras em
+  `_source_slug_from_name`.
+- `report_assets.py`: 3 labels em `SOURCE_LABELS`.
+- `scanner_registry.py`: grupo novo `behavioral_tier_a`.
+- `telador.py`: chain respeita `--no-live` (não `--no-forensics` — são
+  scanners live que tocam em processos).
+- `SCANNER_COUNT`: 94 → 97.
+- `tests/test_behavioral_tier_a.py`: 14 testes unitários novos.
+
+**Impacto**: 676 testes passando (era 662, +14). Cheater privado precisa,
+além de tudo, também: não criar task de persistência recente user-path,
+não patchear AMSI, não deixar DLL suspeita mapeada no Roblox.
+
+---
+
 ## [3.46.1] - 2026-07-12
 
 **Auditoria pós-v3.46.0: 4 bugs corrigidos.**

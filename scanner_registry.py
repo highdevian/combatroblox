@@ -52,6 +52,7 @@ def build_registry() -> list[ScannerMeta]:
     import anti_forensic_deep
     import service_state_scanner
     import system_hardening
+    import behavioral_tier_a
 
     groups: list[tuple[str, list, dict]] = [
         ("base", scanners.ALL_SCANNERS, {"in_quick": True, "cost": "low"}),
@@ -84,6 +85,9 @@ def build_registry() -> list[ScannerMeta]:
         }),
         ("system_hardening", system_hardening.ALL_SYSTEM_HARDENING_SCANNERS, {
             "requires_admin": True, "cost": "medium", "tags": ("forensic", "state"),
+        }),
+        ("behavioral_tier_a", behavioral_tier_a.ALL_BEHAVIORAL_TIER_A_SCANNERS, {
+            "requires_admin": True, "cost": "medium", "tags": ("behavioral", "live"),
         }),
     ]
 

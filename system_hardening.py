@@ -455,17 +455,40 @@ def scan_roblox_page_protection() -> dict:
                 f"0x{a:x} ({sz} bytes, P=0x{p:x})"
                 for a, sz, p in rwx_pages[:3]
             )
+            # FP alert: Hyperion (anti-cheat da Roblox) faz hot-patching e
+            # cria 1-2 regiões RWX legitimamente. Cheat internal com múltiplos
+            # hooks tipicamente deixa 3+ regiões RWX espalhadas.
+            #   - 1-2 páginas RWX → contexto (Hyperion hot-patch legit)
+            #   - 3+ páginas RWX → cheat provável (múltiplos inline hooks)
+            n = len(rwx_pages)
+            if n <= 2:
+                sev = "low"
+                meta = True
+                explain = (
+                    "1-2 páginas RWX é padrão típico de Hyperion (anti-cheat "
+                    "da Roblox) em runtime — hot-patching legítimo. Fica "
+                    "listado como contexto, sem contar no veredito. Se aparecer "
+                    "corroboração de outro scanner, o Confidence Engine escala."
+                )
+            else:
+                sev = "high"
+                meta = False
+                explain = (
+                    "Código carregado do disco vem R+X apenas. 3+ regiões R+W+X "
+                    "dentro do módulo indicam múltiplos hooks (internal cheat "
+                    "com detour em várias funções). Hyperion normalmente deixa "
+                    "no máximo 1-2 hot-patches."
+                )
             items.append(_item(
-                label=f"{len(rwx_pages)} página(s) RWX em RobloxPlayerBeta",
+                label=f"{n} página(s) RWX em RobloxPlayerBeta",
                 detail=(
-                    f"Módulo {main_path} tem {len(rwx_pages)} região(ões) marcadas "
+                    f"Módulo {main_path} tem {n} região(ões) marcadas "
                     f"PAGE_EXECUTE_READWRITE/WRITECOPY, total {total_bytes} bytes. "
-                    f"Exemplo: {examples}. Código carregado do disco vem R+X apenas. "
-                    "Região R+W+X dentro do módulo = alguém patcheou em runtime "
-                    "(detour/inline hook de internal cheat)."
+                    f"Exemplo: {examples}. {explain}"
                 ),
-                severity="high",
+                severity=sev,
                 matched="roblox-rwx-page",
+                meta_only=meta,
             ))
     finally:
         try:

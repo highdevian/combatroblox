@@ -121,6 +121,11 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "vbs_disabled":         0.95,   # VBS/HVCI desativados — cheater precisa disso
     "roblox_rwx_page":      0.90,   # página RWX dentro de RobloxPlayerBeta.exe (patching)
     "activities_cache":     0.85,   # Timeline SQLite — cleaner popular não limpa
+
+    # v3.47.0 — Tier A behavioral (forçar cheater a mudar arquitetura)
+    "dropper_task":         0.80,   # task recente + AtLogon + exe user-path
+    "amsi_bypass":          0.92,   # AmsiScanBuffer patcheada no PowerShell
+    "apc_injection":        0.85,   # DLL fora de path legítimo no Roblox
 }
 
 DEFAULT_SOURCE_WEIGHT = 0.65
@@ -628,6 +633,10 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("vbs / hvci",             "vbs_disabled"),
         ("roblox .text page",      "roblox_rwx_page"),
         ("activitiescache",        "activities_cache"),
+        # v3.47.0 — Tier A behavioral
+        ("scheduled task dropper", "dropper_task"),
+        ("amsi bypass",            "amsi_bypass"),
+        ("apc injection",          "apc_injection"),
         # v3.44.0 — external technical (mais específicos que "external cheat" genérico)
         ("correlacao de sinais de external", "external_correlation"),
         ("correlação de sinais de external", "external_correlation"),
