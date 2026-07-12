@@ -631,24 +631,32 @@ def _render_sidebar(findings: list, verdict: dict = None) -> str:
 
     scanner_links = []
     for f in findings:
-        # Badge/dot só com hits reais — meta_only (roblox-running, allowlist)
-        # NÃO conta, senão sidebar grita "DLL Injection 2" em scan limpo.
-        items = _real_items(f.get("items", []))
-        n_items = len(items)
+        # 3 categorias de item:
+        #   - real hit          : não meta_only              → conta badge, cor pela severity
+        #   - fp_suppressed     : meta_only + fp_suppressed  → conta badge (dual-use), cor cinza
+        #   - pure meta         : meta_only sem fp_suppressed → NÃO conta (info tipo "roblox-running")
+        # Sidebar precisa sinalizar hits reais E dual-use — só ignora pura info.
+        all_items = f.get("items", [])
+        real_items = _real_items(all_items)          # não meta_only
+        suppressed = [i for i in all_items if i.get("fp_suppressed")]
+        n_real = len(real_items)
+        n_signal = n_real + len(suppressed)          # badge = real + dual-use
         slug = f["name"].lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
         worst = "none"
-        if any(i.get("severity") == "critical" for i in items):
+        if any(i.get("severity") == "critical" for i in real_items):
             worst = "high"
-        elif any(i.get("severity") == "high" for i in items):
+        elif any(i.get("severity") == "high" for i in real_items):
             worst = "high"
-        elif any(i.get("severity") == "medium" for i in items):
+        elif any(i.get("severity") == "medium" for i in real_items):
             worst = "medium"
-        elif any(i.get("severity") == "low" for i in items):
+        elif any(i.get("severity") == "low" for i in real_items):
             worst = "low"
         mini_dot = f'<span class="mini-sev mini-{worst}" aria-hidden="true"></span>'
-        if n_items > 0:
-            badge = f'<span class="nav-badge">{n_items}</span>'
-            scanner_links.append(f'<a href="#scan-{slug}" class="nav-link nav-hit">{mini_dot}<span class="nav-link-label">{_escape(f["name"])}</span>{badge}</a>')
+        if n_signal > 0:
+            # nav-hit se tem hit real; nav-context se só dual-use
+            hit_class = "nav-hit" if n_real > 0 else "nav-context"
+            badge = f'<span class="nav-badge">{n_signal}</span>'
+            scanner_links.append(f'<a href="#scan-{slug}" class="nav-link {hit_class}">{mini_dot}<span class="nav-link-label">{_escape(f["name"])}</span>{badge}</a>')
         else:
             scanner_links.append(f'<a href="#scan-{slug}" class="nav-link nav-clean">{mini_dot}<span class="nav-link-label">{_escape(f["name"])}</span></a>')
 
@@ -1497,10 +1505,15 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     }
     .nav-link:hover { background: #131316; color: #fff; border-left-color: #ff4d4f; }
     .nav-link.nav-hit { color: #e8e8e8; font-weight: 600; }
+    .nav-link.nav-context { color: #c8c8c8; font-weight: 500; }
     .nav-link.nav-clean { color: #555; }
     .nav-badge {
         background: #ff4d4f; color: #000; padding: 2px 8px;
         border-radius: 10px; font-size: 11px; font-weight: 700;
+    }
+    /* Sidebar de contexto (só dual-use/info) — badge cinza em vez de vermelho */
+    .nav-link.nav-context .nav-badge {
+        background: #6b6b6b; color: #eee;
     }
     .main-content {
         flex: 1; padding: 24px; max-width: calc(100% - 260px);

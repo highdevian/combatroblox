@@ -32,6 +32,27 @@ def test_sidebar_badge_ignores_meta_only():
     assert 'nav-badge">1</span>' in html
 
 
+def test_sidebar_signals_dual_use_context():
+    """Dual-use dev (fp_suppressed) DEVE aparecer no sidebar como nav-context
+    com badge cinza — supervisor precisa ver que há items pra clicar."""
+    findings = [{
+        "name": "Adulteração do Windows Defender",
+        "status": "clean",
+        "items": [
+            {"label": "Exclusão portfolio", "severity": "low",
+             "matched": "exclusao-pasta-usuario", "meta_only": True,
+             "fp_suppressed": True, "detail": "", "timestamp": ""},
+            {"label": "Exclusão JetBrains", "severity": "low",
+             "matched": "exclusao-dev", "meta_only": True,
+             "fp_suppressed": True, "detail": "", "timestamp": ""},
+        ],
+    }]
+    html = report._render_sidebar(findings, {"score": 0, "color": "#0f0"})
+    assert "Adulteração do Windows Defender" in html
+    assert "nav-context" in html
+    assert 'nav-badge">2</span>' in html
+
+
 def test_section_shows_context_items_with_contexto_badge():
     finding = {
         "name": "Allowlist de domínios confiáveis",

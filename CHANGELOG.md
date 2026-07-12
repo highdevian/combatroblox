@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.12] - 2026-07-12
+
+**Sidebar volta a sinalizar dual-use como contexto (badge cinza).**
+
+### O que quebrou no v3.45.11
+
+Ao converter dual-use pra `meta_only=True + fp_suppressed=True`, o
+`_render_sidebar` filtrava tudo que fosse `meta_only` — então
+scanners que só tinham dual-use apareciam como "limpos" na sidebar
+(sem badge nenhum). Supervisor não sabia que tinha coisa pra clicar.
+
+### Fix
+
+Sidebar agora tem 3 categorias:
+- **hit real** (não meta_only) → badge vermelho, cor da severity
+- **fp_suppressed** (dual-use dev) → badge cinza (`nav-context`), bolinha cinza
+- **meta_only puro** (roblox-running, allowlist config) → sem badge
+
+Adicionado CSS `.nav-link.nav-context` e badge cinza pra distinguir
+visualmente do vermelho de hit real.
+
+644 testes passando (+1).
+
+---
+
 ## [3.45.11] - 2026-07-12
 
 **Dual-use (TinyTask, ProcessHacker, etc) agora APARECE no relatório como contexto.**
