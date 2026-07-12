@@ -204,6 +204,25 @@ def test_activities_empty_keyword_list_returns_error(tmp_path, monkeypatch):
     assert "executor_keywords" in (r.get("error") or "").lower()
 
 
+def test_activities_severity_from_dict(tmp_path, monkeypatch):
+    """EXECUTOR_KEYWORDS é dict {kw: sev} — severity deve vir do dict."""
+    cdp = tmp_path / "ConnectedDevicesPlatform" / "L.x"
+    cdp.mkdir(parents=True)
+    db = cdp / "ActivitiesCache.db"
+    _make_activities_db(str(db), [
+        ("solara-executor.exe", 1720000000, 1720000000, None),
+        ("process hacker binary", 1720000000, 1720000000, None),
+    ])
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(sh, "EXECUTOR_KEYWORDS", {
+        "solara": "high", "process hacker": "low",
+    })
+    r = sh.scan_activities_cache_timeline()
+    by_kw = {i["matched"]: i["severity"] for i in r["items"]}
+    assert by_kw.get("activities-cache:solara") == "high"
+    assert by_kw.get("activities-cache:process hacker") == "low"
+
+
 def test_activities_clean_no_match(tmp_path, monkeypatch):
     cdp = tmp_path / "ConnectedDevicesPlatform" / "L.x"
     cdp.mkdir(parents=True)

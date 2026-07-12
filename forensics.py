@@ -126,7 +126,23 @@ def scan_amcache():
         return _result("Amcache", "Hive forense de execução", [], error="winreg indisponível")
 
     if not os.path.isfile(AMCACHE_PATH):
-        return _result("Amcache", "Hive forense de execução", [], error="Amcache.hve não encontrado")
+        # isfile pode retornar False por ACL bloqueando listagem do dir pai
+        # (sem admin, C:\Windows\appcompat\Programs\ tipicamente é AD).
+        # Diferenciar Access Denied de "arquivo realmente ausente" pra não
+        # dar mensagem enganosa. os.stat lança PermissionError em ACL bloqueada.
+        try:
+            os.stat(AMCACHE_PATH)
+            return _result("Amcache", "Hive forense de execução", [],
+                           error="Amcache.hve não encontrado")
+        except PermissionError:
+            return _result("Amcache", "Hive forense de execução", [],
+                           error="Amcache.hve inacessível — rode como administrador")
+        except FileNotFoundError:
+            return _result("Amcache", "Hive forense de execução", [],
+                           error="Amcache.hve não encontrado")
+        except OSError as e:
+            return _result("Amcache", "Hive forense de execução", [],
+                           error=f"Amcache.hve inacessível: {e}")
 
     ok, err_direct = _reg_load(AMCACHE_TEMP_HIVE, AMCACHE_PATH)
     copy_paths: list[str] = []

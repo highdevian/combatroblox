@@ -94,7 +94,8 @@ def scan_dse_state() -> dict:
     try:
         r = subprocess.run(
             [_tool("bcdedit.exe"), "/enum"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, encoding="mbcs", errors="replace",
+            timeout=15,
         )
         if r.returncode == 0:
             for line in (r.stdout or "").splitlines():
@@ -201,7 +202,8 @@ def scan_vbs_hvci_disabled() -> dict:
                 _tool("WindowsPowerShell\\v1.0\\powershell.exe"),
                 "-NoProfile", "-NonInteractive", "-Command", ps_cmd,
             ],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="mbcs", errors="replace",
+            timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as e:
         return _result(name, desc, items, error=f"powershell: {e}")
@@ -584,10 +586,16 @@ def scan_activities_cache_timeline() -> dict:
                 if not m:
                     continue
                 kw = m.group(1).lower()
-                # Severity: keywords muito específicas (solara, xeno) = HIGH;
-                # ambíguas curtas (< 6 chars não-alnum) = MEDIUM. Simplificação:
-                # todo hit é MEDIUM aqui — cross-correlation com Prefetch/Amcache
-                # crava CRITICAL via Confidence Engine.
+                # Severity vem do EXECUTOR_KEYWORDS (dict {kw: severity}).
+                # Fallback = MEDIUM (dual-use ambíguo). Timeline sozinho não
+                # vira HIGH sem corroboração — o dict já pontua isso ("process
+                # hacker": low, "solara": high). Ambientes de cheat-focado
+                # ficam com HIGH; ferramentas de dev viram LOW.
+                sev = "medium"
+                if isinstance(EXECUTOR_KEYWORDS, dict):
+                    sev = EXECUTOR_KEYWORDS.get(kw, sev)
+                    if sev not in ("critical", "high", "medium", "low"):
+                        sev = "medium"
                 ts = _fmt_ts(last_mod) if last_mod else _fmt_ts(start_time)
                 items.append(_item(
                     label=f"Timeline: {kw}",
@@ -598,7 +606,7 @@ def scan_activities_cache_timeline() -> dict:
                         "Cleaner popular não limpa esse SQLite; se apagou o Prefetch "
                         "mas deixou aqui, é o registro forense sobrevivente."
                     ),
-                    severity="medium",
+                    severity=sev,
                     matched=f"activities-cache:{kw}",
                     timestamp=ts,
                 ))

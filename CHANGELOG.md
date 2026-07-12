@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.46.1] - 2026-07-12
+
+**Auditoria pós-v3.46.0: 4 bugs corrigidos.**
+
+### Fixes
+
+1. **`scan_activities_cache_timeline`**: severity vem do dict
+   `EXECUTOR_KEYWORDS` (era hardcoded MEDIUM). Agora `solara` → HIGH,
+   `process hacker` → LOW, refletindo o peso semântico. Cross-correlation
+   com Prefetch/Amcache respeita a severity real.
+
+2. **`scan_amcache`**: mensagem diferencia "arquivo ausente" de "Access
+   Denied". Sem admin, `os.path.isfile` retornava False (por ACL) e o
+   scanner dizia "Amcache.hve não encontrado" — enganoso. Agora usa
+   `os.stat` pra distinguir: `PermissionError` → "inacessível — rode
+   como administrador", `FileNotFoundError` → "não encontrado".
+
+3. **`report.py::_render_sidebar`**: severity `critical` vinha mapeada
+   pra `mini-high` (mesma bolinha vermelha). Adicionada classe CSS
+   `.mini-critical` com box-shadow avermelhado pra distinguir
+   visualmente CRITICAL (crava sozinho) de HIGH (precisa corroborar).
+
+4. **`system_hardening.py`**: subprocess `bcdedit` / `powershell` agora
+   com `encoding="mbcs", errors="replace"` — mensagens de erro em
+   pt-BR não vinham double-decoded no relatório final.
+
+### Numeros
+
+- 662 testes passando (+1 novo pra severity do dict).
+- 94 scanners (sem mudança).
+
+---
+
 ## [3.46.0] - 2026-07-12
 
 **Tier S state-based detection — 4 novos scanners, 90 → 94.**

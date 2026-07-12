@@ -644,7 +644,7 @@ def _render_sidebar(findings: list, verdict: dict = None) -> str:
         slug = f["name"].lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
         worst = "none"
         if any(i.get("severity") == "critical" for i in real_items):
-            worst = "high"
+            worst = "critical"
         elif any(i.get("severity") == "high" for i in real_items):
             worst = "high"
         elif any(i.get("severity") == "medium" for i in real_items):
@@ -2211,6 +2211,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         width: 6px; height: 6px;
         border-radius: 50%; flex-shrink: 0;
     }
+    .mini-critical { background: var(--c-red); box-shadow: 0 0 6px var(--c-red); }
     .mini-high   { background: var(--c-red);    }
     .mini-medium { background: var(--c-orange); }
     .mini-low    { background: var(--c-yellow); }
