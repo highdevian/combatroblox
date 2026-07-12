@@ -67,6 +67,11 @@ SOURCE_LABELS = {
     "dxshader_burst":     "DirectX Shader Cache",
     "wer_crash":          "WER crash (persistente)",
     "reliability_monitor": "Reliability Monitor",
+    # v3.46.0 — Tier S state-based
+    "dse_state":          "DSE / Test Mode",
+    "vbs_disabled":       "VBS / HVCI desativado",
+    "roblox_rwx_page":    "Roblox .text RWX (patch)",
+    "activities_cache":   "ActivitiesCache Timeline",
     "event_log_exec":     "Event Log (execução)",
     "defender_detection": "Defender (detecção)",
     "roblox_logs":        "Roblox Logs",

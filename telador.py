@@ -54,6 +54,7 @@ import yara_scan
 import dma_scanner
 import external_scanner
 import anti_forensic_deep
+import system_hardening
 import winevent_scanner
 import service_state_scanner
 import seam_scanner
@@ -226,6 +227,11 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     # WER, RAC). Tratado como forense pesado, respeita --no-forensics.
     if not skip_forensics:
         chain.extend(anti_forensic_deep.ALL_ANTI_FORENSIC_DEEP_SCANNERS)
+    # System hardening (Tier S) — estado do Windows que cheater precisa
+    # relaxar pra rodar driver kernel. Requer admin em maioria dos cases;
+    # respeita --no-forensics porque toca em bcdedit, Roblox process e SQLite.
+    if not skip_forensics:
+        chain.extend(system_hardening.ALL_SYSTEM_HARDENING_SCANNERS)
     return chain
 
 

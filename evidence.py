@@ -115,6 +115,12 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "dxshader_burst":       0.55,   # burst de shader D3D — comportamental
     "wer_crash":            0.88,   # exe crashou de user path — persistente
     "reliability_monitor":  0.60,   # RAC/SUM — ponteiro pra perfmon /rel
+
+    # v3.46.0 — Tier S state-based (evadir custa desligar Windows security)
+    "dse_state":            0.95,   # BCD testsigning/nointegritychecks ligados
+    "vbs_disabled":         0.95,   # VBS/HVCI desativados — cheater precisa disso
+    "roblox_rwx_page":      0.90,   # página RWX dentro de RobloxPlayerBeta.exe (patching)
+    "activities_cache":     0.85,   # Timeline SQLite — cleaner popular não limpa
 }
 
 DEFAULT_SOURCE_WEIGHT = 0.65
@@ -617,6 +623,11 @@ def _source_slug_from_name(scanner_name: str) -> str:
     # ordem importa — substrings mais específicas primeiro
     rules = [
         ("costura de operador",   "operator_seam"),
+        # v3.46.0 — Tier S state-based (roda antes do resto — nomes específicos)
+        ("dse / test mode",        "dse_state"),
+        ("vbs / hvci",             "vbs_disabled"),
+        ("roblox .text page",      "roblox_rwx_page"),
+        ("activitiescache",        "activities_cache"),
         # v3.44.0 — external technical (mais específicos que "external cheat" genérico)
         ("correlacao de sinais de external", "external_correlation"),
         ("correlação de sinais de external", "external_correlation"),

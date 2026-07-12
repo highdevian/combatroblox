@@ -1,7 +1,7 @@
 """Versão canônica do Telador — importar daqui, não hardcodar."""
 
-VERSION = "3.45.12"
+VERSION = "3.46.0"
 VERSION_DISPLAY = f"v{VERSION}"
-SCANNER_COUNT = 90  # atualizar quando assemble_scanners mudar
+SCANNER_COUNT = 94  # v3.46.0: +4 Tier S (DSE, VBS, Roblox RWX, ActivitiesCache)
 PRODUCT_NAME = "Telador"
 PRODUCT_TAGLINE = "SS forense pra Roblox"

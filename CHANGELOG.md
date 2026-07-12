@@ -2,6 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.46.0] - 2026-07-12
+
+**Tier S state-based detection — 4 novos scanners, 90 → 94.**
+
+Executando o Tier S do ROADMAP: detecções que dependem do **estado do
+Windows / do processo Roblox / do timeline persistente do SO**. Cheater
+lendo o repo não escapa sem custo real — precisa desligar VBS/HVCI/DSE,
+não patchear a `.text` do Roblox, ou impedir o SO de registrar execução.
+
+### Novos scanners (`system_hardening.py`)
+
+- **`scan_dse_state`** — Driver Signature Enforcement OFF ou Test Mode
+  ligado. Fontes:
+  - `bcdedit /enum` (`testsigning Yes`, `nointegritychecks Yes`) → HIGH
+  - Registry `Control\CI\State` bit 0 setado → HIGH; valor não-padrão → LOW
+  - Zero FP em máquina normal — Windows vem com DSE ON. `SOURCE_WEIGHT=0.95`.
+
+- **`scan_vbs_hvci_disabled`** — Virtualization-Based Security / HVCI
+  desativados. Fonte: `Get-CimInstance Win32_DeviceGuard`.
+  - `VirtualizationBasedSecurityStatus=0` → CRITICAL
+  - `VirtualizationBasedSecurityStatus=1` (configurado, não rodando) → HIGH
+  - HVCI configurado mas não running (tampering em runtime) → CRITICAL
+  - Nenhum jogador comum desliga VBS/HVCI. Pré-requisito pra rodar driver
+    kernel arbitrário em Win10+ moderno. `SOURCE_WEIGHT=0.95`.
+
+- **`scan_roblox_page_protection`** — enumera memória do `RobloxPlayerBeta`
+  via `VirtualQueryEx` e flagga páginas dentro do módulo principal marcadas
+  `PAGE_EXECUTE_READWRITE` ou `PAGE_EXECUTE_WRITECOPY`. Código carregado
+  do disco vem R+X apenas — R+W+X dentro do módulo = alguém patcheou em
+  runtime (internal cheat com detour/inline hook). Sem depender de nome
+  de família. HIGH. `SOURCE_WEIGHT=0.90`.
+  - Precisa admin em maioria dos casos (Roblox roda com Hyperion).
+  - `EnumProcessModulesEx` + `VirtualQueryEx` via ctypes.
+
+- **`scan_activities_cache_timeline`** — parse do `ActivitiesCache.db`
+  SQLite em `%LOCALAPPDATA%\ConnectedDevicesPlatform\<sid>\`. Tem TODA
+  app rodada nos últimos ~30 dias com timestamp preciso. Cleaner popular
+  NÃO sabe limpar esse SQLite. Match contra `EXECUTOR_KEYWORDS`. MEDIUM.
+  `SOURCE_WEIGHT=0.85`.
+  - Schema dinâmico via `PRAGMA table_info` (varia entre versões do Win).
+  - Cópia pra `%TEMP%` (SQLite fica travado pelo processo do Windows).
+
+### Escopo colateral
+
+- `evidence.py`: 4 slugs em `SOURCE_WEIGHTS` + 4 regras em
+  `_source_slug_from_name` (matching por substring do finding name).
+- `report_assets.py`: 4 labels em `SOURCE_LABELS`.
+- `scanner_registry.py`: grupo novo `system_hardening`, `requires_admin=True`,
+  `cost=medium`, `tags=("forensic", "state")`.
+- `telador.py`: chain respeita `--no-forensics` (os 4 pulam junto).
+- `version.py`: `SCANNER_COUNT: 90 → 94`.
+- `tests/test_system_hardening.py`: 17 testes unitários novos com mocks
+  de subprocess/sqlite (não dependem de admin ou Roblox rodando).
+
+**Impacto**: 661 testes passando (era 644, +17). O cheater privado agora
+também precisa manter DSE + VBS ligados (sem driver custom), manter `.text`
+do Roblox R-X (sem patch in-memory) e não deixar rastro em ActivitiesCache
+(sem executar de disk raw). Cada Tier S fecha uma classe inteira de bypass.
+
+---
+
 ## [3.45.12] - 2026-07-12
 
 **Sidebar volta a sinalizar dual-use como contexto (badge cinza).**
