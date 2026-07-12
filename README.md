@@ -12,8 +12,8 @@ e entrega um **veredito de cheat com % de confiança**.
 
 [![release](https://img.shields.io/github/v/tag/highdevian/combatroblox?sort=semver&label=release&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?branch=main&label=CI)](https://github.com/highdevian/combatroblox/actions)
-![scanners](https://img.shields.io/badge/scanners-90-8b5cf6)
-![tests](https://img.shields.io/badge/tests-611%20passing-3fbf7f)
+![scanners](https://img.shields.io/badge/scanners-97-8b5cf6)
+![tests](https://img.shields.io/badge/tests-677%20passing-3fbf7f)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 
@@ -32,7 +32,7 @@ e entrega um **veredito de cheat com % de confiança**.
         ✓ prefetch   ✓ amcache   ✓ bam   ✓ live_processes
 ```
 
-> **88 scanners forenses** cruzam evidência de dezenas de fontes do Windows. Uma fonte
+> **97 scanners forenses** cruzam evidência de dezenas de fontes do Windows. Uma fonte
 > sozinha **nunca** confirma — o **Confidence Engine** agrupa os hits do mesmo alvo num
 > veredito único (CONFIRMED / DETECTED / SUSPECT) com % de confiança, em vez de cuspir
 > 50 hits soltos pra você interpretar.
@@ -64,6 +64,8 @@ dois cliques. Pra distribuir, zipa o `.exe` com os `.bat` e manda no Discord.
 | **Defender detectou o cheat** | Eventos **1116/1117** do Defender: o próprio antivírus do Windows pegou um hacktool/executor e o suspeito manteve/excluiu. Casa nome de executor (funde no cluster) ou hacktool. Gated pra não flaggar PUA/trojan genérico. |
 | **Injeção em runtime** | DLL não-assinada no `RobloxPlayerBeta`, **manual-map / reflective DLL** (imagem PE em memória privada+executável), **process hollowing / RunPE** (image base trocado por memória privada — disco limpo, miolo trocado) e **debugger atrelado** (Cheat Engine, x64dbg). |
 | **Anti-forense** | Prefetch/SysMain off, VSS wipe, log de Segurança limpo, PowerShell apagado, USN journal (pega exec que foi deletado). |
+| **Windows security enfraquecida (Tier S)** | **DSE / Test Mode** (`bcdedit testsigning`/`nointegritychecks` — pré-requisito pra rodar driver custom kernel), **VBS / HVCI desativados** (nenhum jogador comum desliga), **página RWX dentro do RobloxPlayerBeta** (patch in-memory de internal cheat), **ActivitiesCache Timeline** (SQLite do Windows que registra toda app dos últimos ~30 dias — cleaner popular não limpa). |
+| **Comportamental (Tier A)** | **AMSI bypass** (primeira instrução de `AmsiScanBuffer` no PowerShell patcheada pra silenciar Defender), **APC injection** (DLL no Roblox vinda de path suspeito — pega o que `CreateRemoteThread` não pega), **dropper task recente** (scheduled task criada nas últimas 24h com `AtLogon` + exe em `C:\Users\` — persistência clássica de loader). |
 
 ### Anti-bypass — os truques que os cursos de telagem ensinam
 
