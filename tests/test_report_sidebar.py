@@ -32,7 +32,7 @@ def test_sidebar_badge_ignores_meta_only():
     assert 'nav-badge">1</span>' in html
 
 
-def test_section_opens_only_for_real_hits():
+def test_section_shows_context_items_with_contexto_badge():
     finding = {
         "name": "Allowlist de domínios confiáveis",
         "description": "x",
@@ -45,6 +45,7 @@ def test_section_opens_only_for_real_hits():
         "error": None,
     }
     html = report._render_section(finding)
-    # details sem open (só meta)
-    assert "<details open" not in html
-    assert "status-clean" in html
+    # contexto aparece na tabela
+    assert "15 dominios" in html
+    assert "CONTEXTO" in html or "status-clean" in html
+    assert "info" in html

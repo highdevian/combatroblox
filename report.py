@@ -224,17 +224,28 @@ def _render_section(finding: dict) -> str:
     summary = _escape(summary_text)
 
     rows = []
-    sev_rank = {"high": 3, "medium": 2, "low": 1}
+    sev_rank = {"critical": 4, "high": 3, "medium": 2, "low": 1}
     for item in finding.get("items", []):
         sev = item.get("severity", "low")
         conf = item.get("confidence")
         fp_reason = item.get("fp_reason")
         orig_sev = item.get("original_severity")
+        is_ctx = bool(item.get("meta_only") or item.get("fp_suppressed"))
 
         downgrade_badge = ""
-        if orig_sev and orig_sev != sev:
+        if item.get("fp_suppressed"):
+            downgrade_badge = (
+                f'<span class="fp-badge" title="{_escape(fp_reason or "dual-use")}">'
+                f'contexto dev</span>'
+            )
+        elif orig_sev and orig_sev != sev:
             downgrade_badge = (f'<span class="fp-badge" title="{_escape(fp_reason or "")}">'
                                 f'↓ era {_escape(orig_sev.upper())}</span>')
+        elif item.get("meta_only"):
+            downgrade_badge = (
+                '<span class="fp-badge" title="Informativo — não conta no veredito">'
+                'info</span>'
+            )
 
         conf_html = ""
         if conf is not None:
@@ -248,8 +259,9 @@ def _render_section(finding: dict) -> str:
             detail_text = f"{detail_text}\n[FP-filter: {fp_reason}]"
 
         ts_val = item.get('timestamp', '') or ''
+        row_cls = f"row-{sev}" + (" row-context" if is_ctx else "")
         rows.append(f"""
-        <tr class="row-{sev}" data-sev="{sev_rank.get(sev, 0)}" data-conf="{conf or 0}" data-ts="{_escape(ts_val)}">
+        <tr class="{row_cls}" data-sev="{sev_rank.get(sev, 0)}" data-conf="{conf or 0}" data-ts="{_escape(ts_val)}" data-context="{'1' if is_ctx else '0'}">
             <td class="sev"><span class="pill pill-{sev}">{_escape(sev.upper())}</span>{downgrade_badge}</td>
             <td class="label">{_escape(item.get('label', ''))}</td>
             <td class="detail"><code class="clamp" title="clique pra expandir">{_escape(detail_text)}</code></td>
@@ -287,8 +299,13 @@ def _render_section(finding: dict) -> str:
         table = f'<p class="empty">{_escape(msg)}</p>'
 
     slug = finding["name"].lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
-    # Abre section só se tem HIT real (não meta_only de contexto)
-    open_attr = " open" if n_real > 0 else ""
+    # Abre se tem hit real OU contexto dual-use listado (pra supervisor ver)
+    n_any = len(all_items)
+    open_attr = " open" if (n_real > 0 or n_any > 0) else ""
+    # Badge: SUSPEITO só com hit real; se só contexto, LIMPO/CONTEXTO
+    if n_real == 0 and n_any > 0:
+        badge_text, badge_color = "CONTEXTO", INK_MUTE
+        status = "clean"
     return f"""
     <section class="card status-{status}" id="scan-{slug}">
         <details{open_attr}>

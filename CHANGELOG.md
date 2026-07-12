@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.45.11] - 2026-07-12
+
+**Dual-use (TinyTask, ProcessHacker, etc) agora APARECE no relatório como contexto.**
+
+### O que estava quebrado
+
+Em PC de dev, o fp_filter removia completamente items dual-use
+(TinyTask, Process Hacker, autoclicker, exclusões Defender etc).
+O CLI mostrava "[MEDIUM] tinytask-1.77-installer.exe" durante o scan,
+mas o relatório HTML não tinha nada — confundia o supervisor.
+
+### Causa raiz
+
+Ordem dos filtros no `post_process_findings`:
+1. Whitelist por path (remove silenciosamente)
+2. DEV_SUPPRESS (remove silenciosamente)
+
+Items como JetBrains e portfolio caíam no whitelist por path antes
+de chegar no DEV_SUPPRESS, e os DEV_SUPPRESS restantes (TinyTask etc)
+eram `continue`-ados sem entrar em `new_items`.
+
+### Fix
+
+1. **DEV_SUPPRESS agora roda PRIMEIRO** — antes do whitelist por path.
+   Items dual-use são convertidos a `meta_only=True` + `fp_suppressed=True`
+   em vez de removidos. Ficam no relatório como contexto (badge "contexto
+   dev"), com `severity=low` e `confidence=10`, sem contar no veredito.
+
+2. **`report.py`**: items `fp_suppressed` mostram badge "contexto dev";
+   items `meta_only` mostram badge "info". Sections só com contexto
+   mostram badge "CONTEXTO" em vez de "SUSPEITO".
+
+3. **`scan_coverage.py`**: soft errors (G HUB não instalado, base de
+   hashes vazia, Razer ausente) NÃO forçam INCONCLUSIVO — são skip
+   opcionais, não falha de fonte forense real.
+
+### Impacto
+
+- Supervisor vê TinyTask/ProcessHacker/exclusões no relatório com
+  label explicando que são dual-use em dev (não ocultos).
+- Veredito/score não muda (meta_only não conta).
+- 643 testes passando (+5 novos).
+
+---
+
 ## [3.45.10] - 2026-07-11
 
 **Fix real do relatório HTML + INCONCLUSIVO falso (soft errors).**

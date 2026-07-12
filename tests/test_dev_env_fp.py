@@ -26,9 +26,9 @@ def test_dev_env_downgrades_cheat_engine(monkeypatch):
         assert remaining[0].get("fp_reason")
 
 
-def test_dev_env_suppresses_dualuse_fps(monkeypatch):
-    """REGRESSÃO FP: dual-use do supervisor some no PC de dev.
-    TinyTask, Process Hacker, AutoClicker, exclusão portfolio/JetBrains."""
+def test_dev_env_keeps_dualuse_visible_as_context(monkeypatch):
+    """Dual-use no PC de dev FICA no report (meta_only), fora do veredito.
+    Solara real continua hit de verdade."""
     monkeypatch.setattr(
         fp_filter,
         "detect_dev_environment",
@@ -47,21 +47,27 @@ def test_dev_env_suppresses_dualuse_fps(monkeypatch):
          "severity": "medium", "matched": "exclusao-pasta-usuario", "timestamp": ""},
         {"label": "Exclusão JetBrains", "detail": r"C:\Users\x\JetBrains",
          "severity": "low", "matched": "exclusao-dev", "timestamp": ""},
-        # executor real NÃO some
         {"label": "solara.exe", "detail": "x", "severity": "high",
          "matched": "solara", "timestamp": ""},
     ]
     findings = [{"name": "mix", "status": "suspicious", "summary": "n", "items": items}]
     out, stats = fp_filter.post_process_findings(findings)
-    remaining = {(it.get("matched") or "").lower() for it in out[0]["items"]}
-    assert "tinytask" not in remaining
-    assert "process hacker" not in remaining
-    assert "system informer" not in remaining
-    assert "autoclicker" not in remaining
-    assert "exclusao-pasta-usuario" not in remaining
-    assert "exclusao-dev" not in remaining
-    assert "solara" in remaining
+    by_m = {(it.get("matched") or "").lower(): it for it in out[0]["items"]}
+    # Dual-use VISÍVEL como contexto
+    assert "tinytask" in by_m
+    assert by_m["tinytask"].get("meta_only") is True
+    assert by_m["tinytask"].get("fp_suppressed") is True
+    assert "process hacker" in by_m
+    assert by_m["process hacker"].get("meta_only") is True
+    # Solara REAL (não meta)
+    assert "solara" in by_m
+    assert not by_m["solara"].get("meta_only")
+    assert by_m["solara"]["severity"] == "high"
     assert stats["items_whitelisted"] >= 6
+    # Veredito não conta dual-use
+    v = fp_filter.compute_verdict(out)
+    assert v["high"] >= 1  # solara
+    assert v["medium"] == 0  # tinytask/autoclicker viraram meta
 
 
 def test_non_dev_still_flags_tinytask(monkeypatch):

@@ -455,23 +455,36 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
             original_sev = item.get("severity", "low")
             reasons = []
 
-            # 1. Whitelist por path — checa label (o caminho real) e detail
+            # 1. Em PC de dev: dual-use NÃO some do relatório (supervisor
+            # precisa VER em Amcache/Prefetch/ShimCache/etc). Só sai do
+            # VEREDITO/score: vira contexto (meta_only) + severity low.
+            # Em cheater sem ambiente de dev, o hit continua normal.
+            # Roda ANTES do whitelist por path — senão JetBrains/portfolio
+            # somem silenciosamente pelo path e o supervisor não vê.
+            if dev["is_dev"] and _matched_is_suppressed(
+                    item.get("matched") or "", DEV_SUPPRESS_KEYWORDS):
+                stats["items_whitelisted"] += 1
+                item["original_severity"] = original_sev
+                item["fp_reason"] = (
+                    "PC de dev — dual-use listado como contexto "
+                    "(não conta no veredito)"
+                )
+                item["severity"] = "low"
+                item["meta_only"] = True
+                item["fp_suppressed"] = True
+                item["confidence"] = 10
+                new_items.append(item)
+                continue
+
+            # 2. Whitelist por path — checa label (o caminho real) e detail
             for candidate in _path_candidates_for_item(item):
                 wl, wl_reason = is_whitelisted_path(candidate)
                 if wl:
                     stats["items_whitelisted"] += 1
-                    # Skip totalmente — não adiciona ao output
                     break
             else:
                 wl = False
             if wl:
-                continue
-
-            # 1b. Em PC de dev: some dual-use do dono (TinyTask etc.) — não
-            # polui report. Em suspeito sem ambiente de dev, continua.
-            if dev["is_dev"] and _matched_is_suppressed(
-                    item.get("matched") or "", DEV_SUPPRESS_KEYWORDS):
-                stats["items_whitelisted"] += 1
                 continue
 
             # 2. Browser smart context
@@ -519,8 +532,19 @@ def post_process_findings(findings: list) -> tuple[list, dict]:
                 finding["summary"] = f"Erro: {finding.get('error') or 'checagem falhou'}"
         elif not real_left:
             finding["status"] = "clean"
-            if new_items:
-                # Só meta_only sobrou (ex: roblox-running, allowlist)
+            n_suppressed = sum(1 for i in new_items if i.get("fp_suppressed"))
+            n_meta = len(new_items) - n_suppressed
+            if n_suppressed and n_meta:
+                finding["summary"] = (
+                    f"{n_suppressed} dual-use (contexto dev) + "
+                    f"{n_meta} informativo — sem hit no veredito"
+                )
+            elif n_suppressed:
+                finding["summary"] = (
+                    f"{n_suppressed} item(s) dual-use em PC de dev "
+                    f"(listados, fora do veredito)"
+                )
+            elif new_items:
                 finding["summary"] = (
                     f"{len(new_items)} item(s) de contexto (informativo, sem hit real)"
                 )
