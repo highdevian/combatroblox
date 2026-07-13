@@ -715,9 +715,12 @@ _ROBLOX_INSTALLERS = {
 }
 
 # Nomes que um dropper usaria pra se passar por launcher do Roblox.
+# robloxcrashhandler.exe adicionado v3.49.0: Winter Bypass usa como disfarce
+# (extraído do zip como `RobloxCrashHandler.exe` no Downloads).
 _ROBLOX_MASQUERADE_NAMES = _ROBLOX_OFFICIAL_BINARIES | _ROBLOX_INSTALLERS | {
     "roblox.exe", "robloxplayer.exe", "robloxlauncher.exe",
     "roblox launcher.exe", "roblox player.exe",
+    "robloxcrashhandler.exe",
 }
 
 # Raiz oficial de instalação. Tudo com nome de launcher FORA daqui é suspeito.

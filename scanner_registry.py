@@ -55,6 +55,11 @@ def build_registry() -> list[ScannerMeta]:
     import behavioral_tier_a
     import shellbag_scanner
     import firewall_scanner
+    import bits_scanner
+    import hijack_scanner
+    import pca_scanner
+    import defender_mplog_scanner
+    import streamproof_scanner
 
     groups: list[tuple[str, list, dict]] = [
         ("base", scanners.ALL_SCANNERS, {"in_quick": True, "cost": "low"}),
@@ -96,6 +101,21 @@ def build_registry() -> list[ScannerMeta]:
         }),
         ("firewall", firewall_scanner.ALL_FIREWALL_SCANNERS, {
             "requires_admin": True, "cost": "low", "tags": ("network",),
+        }),
+        ("bits", bits_scanner.ALL_BITS_SCANNERS, {
+            "cost": "medium", "tags": ("network", "forensic"),
+        }),
+        ("hijack", hijack_scanner.ALL_HIJACK_SCANNERS, {
+            "requires_admin": True, "cost": "medium", "tags": ("forensic", "hijack"),
+        }),
+        ("pca", pca_scanner.ALL_PCA_SCANNERS, {
+            "requires_admin": True, "cost": "medium", "tags": ("forensic", "admin"),
+        }),
+        ("defender_mplog", defender_mplog_scanner.ALL_DEFENDER_MPLOG_SCANNERS, {
+            "requires_admin": True, "cost": "medium", "tags": ("forensic",),
+        }),
+        ("streamproof", streamproof_scanner.ALL_STREAMPROOF_SCANNERS, {
+            "cost": "low", "tags": ("live", "anti-ss"),
         }),
     ]
 

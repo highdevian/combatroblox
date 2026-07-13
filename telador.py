@@ -58,6 +58,11 @@ import system_hardening
 import behavioral_tier_a
 import shellbag_scanner
 import firewall_scanner
+import bits_scanner
+import hijack_scanner
+import pca_scanner
+import defender_mplog_scanner
+import streamproof_scanner
 import winevent_scanner
 import service_state_scanner
 import seam_scanner
@@ -243,6 +248,14 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     chain.extend(shellbag_scanner.ALL_SHELLBAG_SCANNERS)
     # Firewall rules — requer admin pra HKLM.
     chain.extend(firewall_scanner.ALL_FIREWALL_SCANNERS)
+    # BITS jobs (download silencioso), streamproof (live) — sempre.
+    chain.extend(bits_scanner.ALL_BITS_SCANNERS)
+    chain.extend(streamproof_scanner.ALL_STREAMPROOF_SCANNERS)
+    # Hijack (IFEO + COM HKCU), PCA event log, MPLog — forense pesada.
+    if not skip_forensics:
+        chain.extend(hijack_scanner.ALL_HIJACK_SCANNERS)
+        chain.extend(pca_scanner.ALL_PCA_SCANNERS)
+        chain.extend(defender_mplog_scanner.ALL_DEFENDER_MPLOG_SCANNERS)
     return chain
 
 

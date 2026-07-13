@@ -84,6 +84,13 @@ SOURCE_LABELS = {
     "wmi_persistence":    "WMI Persistence",
     "etw_tamper":         "ETW Autologger desativado",
     "firewall_rules":     "Regras de Firewall",
+    # v3.49.0 — bypass avançado + Winter-class anti-SS
+    "bits_job":           "BITS Job (downloader silencioso)",
+    "ifeo_hijack":        "IFEO Hijack (Debugger)",
+    "com_user_hijack":    "COM Hijack (HKCU)",
+    "pca_appcompat":      "PCA AppCompat Events",
+    "defender_mplog":     "Defender MPLog",
+    "streamproof":        "Streamproof (janela oculta)",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
     "bloxstrap":          "Bloxstrap",

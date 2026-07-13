@@ -133,6 +133,14 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "wmi_persistence":      0.88,   # assinatura WMI root\subscription — raro em máquina limpa
     "etw_tamper":           0.92,   # ETW autologger desativado = silencia kernel telemetry
     "firewall_rules":       0.72,   # regra Allow user-path ou Block Roblox
+
+    # v3.49.0 — bypass e anti-SS avançados
+    "bits_job":             0.82,   # download BITS silencioso — bypass de browser history
+    "ifeo_hijack":          0.95,   # IFEO Debugger = hijack de execução (crítico se target=Roblox)
+    "com_user_hijack":      0.85,   # HKCU CLSID InprocServer32 = DLL user sem UAC
+    "pca_appcompat":        0.75,   # PCA event log — sobrevive a limpeza do Amcache
+    "defender_mplog":       0.94,   # texto plano do Defender — sobrevive a Clear History
+    "streamproof":          0.95,   # SetWindowDisplayAffinity = janela invisível a SS
 }
 
 DEFAULT_SOURCE_WEIGHT = 0.65
@@ -738,6 +746,19 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("etw tamper",            "etw_tamper"),
         ("regras do firewall",    "firewall_rules"),
         ("firewall",              "firewall_rules"),
+        # v3.49.0
+        ("streamproof",           "streamproof"),
+        ("janelas ocultas",       "streamproof"),
+        ("bits jobs",             "bits_job"),
+        ("bits job",              "bits_job"),
+        ("ifeo hijack",           "ifeo_hijack"),
+        ("ifeo",                  "ifeo_hijack"),
+        ("com hijack",            "com_user_hijack"),
+        ("hkcu clsid",            "com_user_hijack"),
+        ("pca appcompat",         "pca_appcompat"),
+        ("pca ",                  "pca_appcompat"),
+        ("defender mplog",        "defender_mplog"),
+        ("mplog",                 "defender_mplog"),
         # existentes
         ("startup",               "persistence"),
         ("scheduled task",        "persistence"),
