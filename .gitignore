@@ -12,6 +12,7 @@ env/
 build/
 dist/
 *.spec
+!telador.spec
 
 # Logs and reports
 *.log
