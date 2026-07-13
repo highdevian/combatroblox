@@ -18,7 +18,6 @@ Requer admin pra ler canal Microsoft-Windows-TaskScheduler/Operational.
 
 from models import _result, _item
 import subprocess
-import re
 
 try:
     import win_tools

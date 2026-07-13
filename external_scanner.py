@@ -1186,7 +1186,7 @@ _HANDLE_WHITELIST = {
     "runtimebroker.exe", "backgroundtaskhost.exe",
     # Shell / gerenciadores comuns que abrem handles limitados
     "explorer.exe", "taskmgr.exe", "sihost.exe", "dwm.exe",
-    "searchindexer.exe", "csrss.exe",
+    "searchindexer.exe",
     # O próprio Roblox / Bloxstrap / crash handler (abre handle no Beta pra dump)
     "robloxplayerbeta.exe", "robloxplayerlauncher.exe",
     "robloxcrashhandler.exe", "robloxstudiobeta.exe",
@@ -1706,8 +1706,8 @@ def scan_remote_threads_in_roblox() -> dict:
             # <200 módulos = varredura linear é rápida)
             ranges.sort()
 
-            def _addr_in_any_module(a: int) -> bool:
-                for base, end in ranges:
+            def _addr_in_any_module(a: int, _ranges=ranges) -> bool:
+                for base, end in _ranges:
                     if base <= a < end:
                         return True
                 return False

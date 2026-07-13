@@ -15,9 +15,8 @@ do Amcache que muitos anti-forense automatizam.
 Requer admin pra ler o canal.
 """
 
-from models import _result, _item, _fmt_ts
+from models import _result, _item
 import subprocess
-import re
 
 try:
     import win_tools

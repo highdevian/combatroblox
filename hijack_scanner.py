@@ -15,7 +15,6 @@ patchear binário do sistema, apenas escrever chave:
 
 from models import _result, _item
 import os
-import subprocess
 
 try:
     import winreg
@@ -283,9 +282,9 @@ def scan_com_user_hijack() -> dict:
                         f"DLL: {dll_path}\n"
                         f"Existe: {dll_exists}\n"
                         + (f"Hijack de {hijack_of}\n" if hijack_of else "")
-                        + f"Registrado em HKCU (sem admin necessário). HKCU tem "
-                        f"precedência sobre HKCR = DLL do usuário substitui o "
-                        f"componente do sistema pra processos do próprio user."),
+                        + "Registrado em HKCU (sem admin necessário). HKCU tem "
+                        "precedência sobre HKCR = DLL do usuário substitui o "
+                        "componente do sistema pra processos do próprio user."),
                 severity=severity, matched=matched,
             ))
     finally:

@@ -168,11 +168,11 @@ def scan_streamproof_windows() -> dict:
 
         # Match keyword em title ou pname
         import matching
-        kw, sev = matching.match_keyword(title) or matching.match_keyword(pname)
+        kw, _sev = matching.match_keyword(title) or matching.match_keyword(pname)
         if not kw:
-            kw2, sev2 = matching.match_keyword(pname)
+            kw2, _ = matching.match_keyword(pname)
             if kw2:
-                kw, sev = kw2, sev2
+                kw = kw2
 
         matched = f"streamproof:{kw}" if kw else "streamproof-unknown"
         # Match de keyword = critical. Sem match mas streamproof em processo

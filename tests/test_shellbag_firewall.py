@@ -6,7 +6,6 @@ adicionados em persistence.py (WMI) e system_hardening.py (ETW tamper).
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
 from unittest.mock import patch, MagicMock
 
 
@@ -85,7 +84,6 @@ class TestScanAppCompatFlags:
 
     def test_no_key_returns_clean(self):
         import shellbag_scanner
-        import winreg
         with patch.object(shellbag_scanner, "HAS_WINREG", True), \
              patch("winreg.OpenKey", side_effect=OSError("key not found")):
             r = shellbag_scanner.scan_appcompat_flags()
@@ -154,7 +152,6 @@ class TestScanFirewallRules:
 
     def test_empty_keys_returns_clean(self):
         import firewall_scanner
-        import winreg
         with patch.object(firewall_scanner, "HAS_WINREG", True), \
              patch("winreg.OpenKey", side_effect=OSError("no key")), \
              patch("winreg.CloseKey"):
@@ -300,7 +297,6 @@ class TestScanWmiPersistence:
 
     def test_subprocess_error_returns_error(self):
         import persistence
-        import subprocess
         with patch("subprocess.run", side_effect=OSError("no powershell")):
             r = persistence.scan_wmi_persistence()
         assert r["status"] == "error"

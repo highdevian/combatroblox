@@ -12,7 +12,6 @@ Artefatos de navegação do Windows Shell — sobrevivem a cleaners populares.
 
 from models import _result, _item
 import os
-import struct
 
 try:
     import winreg
@@ -49,7 +48,6 @@ def _extract_strings_from_pidl(blob: bytes) -> list[str]:
     while i < len(blob) - 3:
         # Detecta início de possível string UTF-16 LE (printável no range 0x20-0x7e)
         if (0x20 <= blob[i] <= 0x7e) and blob[i + 1] == 0:
-            start = i
             chars = []
             j = i
             while j < len(blob) - 1:

@@ -33,9 +33,7 @@ import os
 import re
 import shutil
 import sqlite3
-import struct
 import subprocess
-from datetime import datetime
 
 import debug
 
@@ -404,7 +402,7 @@ def scan_roblox_page_protection() -> dict:
             ctypes.byref(needed), LIST_MODULES_ALL,
         ):
             return _result(name, desc, items,
-                           error=f"EnumProcessModules falhou (Hyperion pode bloquear)")
+                           error="EnumProcessModules falhou (Hyperion pode bloquear)")
 
         count = needed.value // ctypes.sizeof(wintypes.HMODULE)
         main_base = None

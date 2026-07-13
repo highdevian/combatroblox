@@ -56,7 +56,6 @@ class TestSessionManager:
 
         # KnownDLLs enumeration
         kdll_values = knowndlls_values or []
-        enum_state = {"i": 0}
         def enum_value(key, i):
             if key is kdll_mock and i < len(kdll_values):
                 return kdll_values[i]
@@ -85,7 +84,6 @@ class TestSessionManager:
 
     def test_extra_knowndlls_critical(self):
         # Adiciona DLL não-padrão em KnownDLLs
-        import winreg as _wr
         r = self._run_with_values(knowndlls_values=[
             ("kernel32", "kernel32.dll", 1),  # esperado
             ("evil_hook", "C:\\Users\\hack\\evil.dll", 1),  # NÃO esperado
@@ -277,4 +275,5 @@ class TestChain:
     def test_scanner_count_bumped(self):
         import version
         assert version.SCANNER_COUNT == 112
-        assert version.VERSION == "3.50.0"
+        # Aceita patches 3.50.x (fix de build/CI não muda o count).
+        assert version.VERSION.startswith("3.50.")

@@ -31,7 +31,9 @@ jobs:
         run: python -c "import telador; print('all imports OK')"
 
       - name: Build telador.exe (via spec)
-        run: python -m PyInstaller --onefile --noupx telador.spec
+        # .spec já define onefile (EXE com bins/datas) e upx=False —
+        # flags makespec (--onefile/--noupx) são inválidas com .spec.
+        run: python -m PyInstaller telador.spec
 
       - name: Smoke test (--help)
         run: ./dist/telador.exe --help

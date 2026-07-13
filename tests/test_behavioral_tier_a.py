@@ -7,7 +7,6 @@ import sys
 import types
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import behavioral_tier_a as bt  # noqa: E402

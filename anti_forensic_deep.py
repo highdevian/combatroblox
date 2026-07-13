@@ -39,9 +39,7 @@ from __future__ import annotations
 from models import _result, _item, _fmt_ts
 import os
 import re
-import struct
 import time
-from datetime import datetime, timedelta
 
 import debug
 
