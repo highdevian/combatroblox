@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.51.2] - 2026-07-13
+
+**UX do veredito + ruído residual de SS em PC de dev/gamer.**
+
+### Veredito (bug LIMPO + INCONCLUSIVO)
+
+- Console mostrava `>>> VEREDITO: LIMPO` e em seguida
+  `ATENÇÃO: resultado INCONCLUSIVO` — cobertura aplicada **depois** do
+  resumo. Agora o veredito final (com cobertura) é o único banner.
+- PCA / Task Scheduler "inacessível ou vazio" = **soft skip** (não força
+  INCONCLUSIVO). `event` genérico removido de fontes fortes (casava PCA).
+- LIMPO → INCONCLUSIVO só com cegueira real (sem admin, --quick, ou erro
+  duro em Prefetch/Amcache/BAM/…).
+
+### Anti-ruído
+
+- **Firewall**: whitelist de basenames legítimos (Voicemod, Discord, Steam,
+  OBS, Chrome, VS Code…).
+- **Defender**: exclusão em Desktop/Documents sem marcador = **LOW** (era
+  MEDIUM); marcadores extras (`index.html`, `readme.md`, vite/next…).
+
 ## [3.51.1] - 2026-07-13
 
 **Anti-FP massivo nos scanners v3.48–v3.50 (ruído em máquina de dev limpa).**

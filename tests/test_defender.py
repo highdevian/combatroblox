@@ -231,12 +231,12 @@ def test_classify_desktop_dev_folder_downgraded(tmp_path, monkeypatch):
     assert m == "exclusao-dev"
 
 
-def test_classify_desktop_random_folder_is_medium(monkeypatch):
-    """Desktop SEM marcadores de dev = MEDIUM (devs excluem portfolio/projeto).
+def test_classify_desktop_random_folder_is_low(monkeypatch):
+    """Desktop SEM marcadores de dev = LOW (portfolio/projeto sem .git).
     HIGH fica pra Downloads/Temp/AppData (drop clássico de cheat)."""
     monkeypatch.setattr(dt, "_probe_dev_folder", lambda p: False)
     sev, m = dt._classify_exclusion(r"C:\Users\x\Desktop\cheat_hide", "path")
-    assert sev == "medium"
+    assert sev == "low"
     assert m == "exclusao-pasta-usuario"
     # Downloads ainda é HIGH
     sev2, m2 = dt._classify_exclusion(r"C:\Users\x\Downloads\hide", "path")

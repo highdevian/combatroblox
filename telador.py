@@ -469,8 +469,10 @@ def run_scanners(chain: list, only: list = None, high_only: bool = False) -> lis
     return findings
 
 
-def print_overview(findings: list) -> None:
-    verdict = fp_filter.compute_verdict(findings)
+def print_overview(findings: list, verdict: dict | None = None) -> None:
+    """Imprime resumo + veredito final (já com cobertura aplicada, se houver)."""
+    if verdict is None:
+        verdict = fp_filter.compute_verdict(findings)
 
     print(f"\n{BOLD}═══════════════════════════════════════════════════════════════{RESET}")
     print(f"{BOLD}                            RESUMO{RESET}")
@@ -483,7 +485,7 @@ def print_overview(findings: list) -> None:
     print(f"  {YELLOW}MEDIUM{RESET}  {verdict['medium']:>3}   (ferramenta auxiliar ou bypass)")
     print(f"  {MAGENTA}LOW   {RESET}  {verdict['low']:>3}   (palavra-chave ambígua)")
     print(f"  {GREY}Score:{RESET}  {verdict['score']:>5.1f}   (ponderado por severidade × confidence × recência)")
-    if verdict["most_recent_hit"]:
+    if verdict.get("most_recent_hit"):
         print(f"  {GREY}Mais recente: {verdict['most_recent_hit']}{RESET}")
     print()
 
@@ -493,6 +495,7 @@ def print_overview(findings: list) -> None:
         "SUSPEITO (REVISAR)":   YELLOW,
         "POSSÍVEIS PISTAS":     MAGENTA,
         "LIMPO":                GREEN,
+        "INCONCLUSIVO":         YELLOW,
     }
     color = color_map.get(verdict["verdict"], GREY)
     print(f"{color}{BOLD}>>> VEREDITO: {verdict['verdict']} (score {verdict['score']}) <<<{RESET}\n")
@@ -723,16 +726,6 @@ def main():
         findings = run_scanners_parallel(chain, only=only_list, max_workers=args.threads,
                                          high_only=args.high_only, on_result=watch_cb)
 
-    # Aviso de cobertura: scanner que deu status="error" não contribuiu com a
-    # fonte dele. Um "LIMPO" com fontes faltando é cobertura reduzida, não
-    # inocência — o supervisor precisa saber. (Detalhes só com --verbose.)
-    errored = [f for f in findings if f.get("status") == "error"]
-    if errored:
-        print(f"\n{YELLOW}[!]{RESET} {BOLD}{len(errored)} checagem(ns) falharam{RESET} "
-              f"{GREY}— cobertura reduzida. Rode com --verbose pra ver o motivo.{RESET}")
-        for f in errored:
-            print(f"      {YELLOW}● {f.get('name', '?')}{RESET} {GREY}— {f.get('error', 'erro desconhecido')}{RESET}")
-
     # Filtro de falsos positivos (a menos que --strict)
     fp_stats = None
     if not args.strict:
@@ -799,9 +792,7 @@ def main():
                 hint = f" ×{n}" if n > 1 else ""
                 print(f"      {GREY}✓ {src}{hint}{RESET}")
 
-    print_overview(findings)
-
-    # Cobertura + veredito (LIMPO com fontes cegas → INCONCLUSIVO)
+    # Cobertura + veredito FINAL antes do resumo (evita "LIMPO" + "INCONCLUSIVO")
     only_list_cov = None
     if args.only:
         only_list_cov = [s.strip().lower() for s in args.only.split(",")]
@@ -813,18 +804,32 @@ def main():
         only=only_list_cov,
         sig_version=getattr(database, "LOADED_SIG_VERSION", None),
     )
+    # Aviso de skips: soft (GHUB/PCA vazio) vs erro duro (Amcache falhou)
+    soft_n = cov.get("n_soft_skip") or 0
+    hard_n = cov.get("n_error") or 0
+    if soft_n or hard_n:
+        if hard_n:
+            print(f"\n{YELLOW}[!]{RESET} {BOLD}{hard_n} checagem(ns) com erro real{RESET} "
+                  f"{GREY}— cobertura reduzida.{RESET}")
+            for e in (cov.get("errored") or []):
+                print(f"      {YELLOW}● {e.get('name', '?')}{RESET} "
+                      f"{GREY}— {e.get('error', '')}{RESET}")
+        if soft_n:
+            print(f"{GREY}[i] {soft_n} skip(s) opcional(is) "
+                  f"(software ausente / canal vazio) — não invalidam LIMPO.{RESET}")
+            for e in (cov.get("soft_errored") or [])[:8]:
+                print(f"      {GREY}· {e.get('name', '?')} — {e.get('error', '')}{RESET}")
+
     verdict_obj = fp_filter.compute_verdict(findings)
     verdict_obj = coverage_mod.apply_coverage_to_verdict(verdict_obj, cov)
 
+    print_overview(findings, verdict_obj)
+
     if verdict_obj.get("inconclusive"):
-        print(f"{RED}{BOLD}>>> ATENÇÃO: resultado INCONCLUSIVO, não 'limpo'.{RESET}")
+        print(f"{YELLOW}{BOLD}>>> Cobertura incompleta — não inocenta por si só.{RESET}")
         for reason in cov.get("reasons") or []:
             print(f"{YELLOW}    · {reason}{RESET}")
-        print(f"{YELLOW}    'Nada encontrado' com cobertura incompleta NÃO inocenta.{RESET}\n")
-    elif not running_as_admin and verdict_obj["verdict"] == "LIMPO":
-        # fallback legado
-        print(f"{RED}{BOLD}>>> ATENÇÃO: resultado INCONCLUSIVO, não 'limpo'.{RESET}")
-        print(f"{YELLOW}    O scan rodou SEM admin — Prefetch/Amcache/BAM não foram lidos.{RESET}\n")
+        print()
 
     # 3. HTML report
 

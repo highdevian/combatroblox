@@ -106,6 +106,45 @@ def test_hard_error_still_incomplete():
     assert cov["n_error"] == 1
     assert cov["incomplete"] is True
     assert cov["strong_errored"]
+    v = coverage_mod.apply_coverage_to_verdict(
+        {"verdict": "LIMPO", "score": 0, "color": "green"}, cov)
+    assert v["verdict"] == "INCONCLUSIVO"
+
+
+def test_pca_empty_is_soft_and_keeps_limpo():
+    """PCA/TaskScheduler canal vazio ≠ cegueira forense."""
+    findings = [
+        _finding("PCA AppCompat Events", "error",
+                 error="Canal PCA inacessível (requer admin) ou vazio"),
+        _finding("Task Scheduler Execlog (tasks deletadas)", "error",
+                 error="Task Scheduler log inacessível (requer admin)"),
+        _finding("Amcache (forense)", "clean"),
+        _finding("prefetch", "clean"),
+    ]
+    cov = coverage_mod.build_coverage(findings, is_admin=True)
+    assert cov["n_soft_skip"] == 2
+    assert cov["n_error"] == 0
+    assert cov["strong_errored"] == []
+    assert cov["blind_strong"] is False
+    v = coverage_mod.apply_coverage_to_verdict(
+        {"verdict": "LIMPO", "score": 1.6, "color": "green"}, cov)
+    assert v["verdict"] == "LIMPO"
+    assert not v.get("inconclusive")
+
+
+def test_weak_hard_error_does_not_force_inconclusive():
+    """Erro duro em scanner fraco (ex. yara) não invalida LIMPO."""
+    findings = [
+        _finding("YARA Binaries", "error", error="yara module missing"),
+        _finding("prefetch", "clean"),
+        _finding("Amcache (forense)", "clean"),
+    ]
+    cov = coverage_mod.build_coverage(findings, is_admin=True)
+    assert cov["n_error"] == 1
+    # incomplete pro painel pode ser True (houve erro), mas LIMPO fica
+    v = coverage_mod.apply_coverage_to_verdict(
+        {"verdict": "LIMPO", "score": 0}, cov)
+    assert v["verdict"] == "LIMPO"
 
 
 def test_fp_filter_meta_only_leaves_clean_not_suspicious():

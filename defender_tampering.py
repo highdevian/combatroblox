@@ -45,6 +45,11 @@ _DEV_FOLDER_MARKERS = (
     "requirements.txt", "Cargo.toml", "go.mod", "pom.xml",
     "build.gradle", ".csproj", ".sln", "tsconfig.json", "Gemfile",
     ".venv", "venv", ".idea", ".vscode",
+    # Portfolio / web / docs sem .git (comum em Desktop\portfolio)
+    "index.html", "index.htm", "readme.md", "readme.txt",
+    "composer.json", "next.config.js", "next.config.ts",
+    "vite.config.js", "vite.config.ts", "astro.config.mjs",
+    "dockerfile", "docker-compose.yml", "makefile",
 )
 
 
@@ -112,10 +117,11 @@ def _classify_exclusion(value: str, kind: str):
             if _probe_dev_folder(v):
                 return "low", "exclusao-dev"
             # Downloads/Temp/AppData sem marcador = HIGH (drop clássico de cheat).
-            # Desktop/Documents sem marcador = MEDIUM (muitas vezes portfolio/projeto).
+            # Desktop/Documents sem marcador = LOW (portfolio/projeto sem .git
+            # é comum; não crava veredito sozinho — MEDIUM gerava ruído em SS).
             if in_drop:
                 return "high", "exclusao-pasta-usuario"
-            return "medium", "exclusao-pasta-usuario"
+            return "low", "exclusao-pasta-usuario"
 
     # Processo excluído fora de Program Files / Windows
     if kind == "process" and low and not low.startswith(

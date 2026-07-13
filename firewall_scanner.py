@@ -40,6 +40,22 @@ _LEGIT_APP_PREFIXES = (
     r"%programfiles%\\",
 )
 
+# Basenames de apps legítimos que moram em AppData/Users e criam Allow
+# outbound (Voicemod, Discord, Steam overlay, OBS…). Não são KeyAuth.
+_LEGIT_APP_BASENAMES = frozenset({
+    "voicemod.exe", "voicemodsteamwrapper.exe", "voicemoddesktop.exe",
+    "discord.exe", "discordcanary.exe", "discordptb.exe",
+    "steam.exe", "steamwebhelper.exe", "steamerrorreporter.exe",
+    "spotify.exe", "obs64.exe", "obs32.exe", "obs.exe",
+    "nvcontainer.exe", "nvidia share.exe", "nvidia web helper.exe",
+    "epicgameslauncher.exe", "fortniteclient-win64-shipping.exe",
+    "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+    "slack.exe", "teams.exe", "ms-teams.exe", "zoom.exe",
+    "code.exe", "cursor.exe", "devenv.exe",
+    "wallpaperengine.exe", "rainmeter.exe",
+    "overwolf.exe", "medal.exe", "geforcenow.exe",
+})
+
 _RE_APP = re.compile(r"[Aa]pp=([^|]+)")
 _RE_ACTION = re.compile(r"[Aa]ction=([^|]+)")
 _RE_DIR = re.compile(r"[Dd]ir=([^|]+)")
@@ -149,6 +165,9 @@ def scan_firewall_rules() -> dict:
                         if any(s in app_low for s in (
                             "\\users\\", "\\temp\\", "\\appdata\\", "\\downloads\\"
                         )):
+                            base = os.path.basename(app_low)
+                            if base in _LEGIT_APP_BASENAMES:
+                                continue
                             items.append(_item(
                                 label=f"[Firewall] Allow outbound: {os.path.basename(app)}",
                                 detail=(f"Regra Allow de saída pra executável em pasta de "

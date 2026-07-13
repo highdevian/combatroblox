@@ -10,14 +10,19 @@ from __future__ import annotations
 from typing import Any
 
 
-# Fontes "fortes" que tipicamente exigem admin / SysMain / Event Log
+# Fontes "fortes" — cegar estas com erro duro justifica INCONCLUSIVO.
+# NÃO usar substring genérica "event" (casava "PCA AppCompat Events").
 STRONG_SOURCES_HINTS = (
-    "prefetch", "amcache", "bam", "defender", "recycle", "lixeira",
-    "usn", "winevent", "event", "service",
+    "prefetch", "amcache", "bam",
+    "defender: detecção", "defender events", "defender mplog",
+    "recycle", "lixeira",
+    "usn", "usn journal",
+    "windows events", "winevent", "event log de execução",
+    "critical services", "service state",
 )
 
-# Erros "soft": software opcional ausente / base vazia — NÃO cegam forensics
-# e NÃO devem promover LIMPO → INCONCLUSIVO.
+# Erros "soft": opcional ausente / canal vazio / base vazia — NÃO cegam
+# forensics e NÃO devem promover LIMPO → INCONCLUSIVO.
 _SOFT_ERROR_HINTS = (
     "não está instalado",
     "nao esta instalado",
@@ -28,6 +33,12 @@ _SOFT_ERROR_HINTS = (
     "nao encontrado",
     "psutil não instalado",
     "psutil nao instalado",
+    # Canais secundários: vazios ou inacessíveis ≠ cegueira forense
+    "ou vazio",
+    "canal pca inacessível",
+    "task scheduler log inacessível",
+    "log inacessível (requer admin)",
+    "inacessível (requer admin) ou vazio",
 )
 
 
@@ -138,12 +149,30 @@ def build_coverage(
 
 
 def coverage_forces_inconclusive(coverage: dict, verdict_label: str) -> bool:
-    """True se um LIMPO deve virar INCONCLUSIVO pela cobertura."""
+    """True se um LIMPO deve virar INCONCLUSIVO pela cobertura.
+
+    Só força quando a cobertura está realmente cega em fonte forte
+    (sem admin, --quick/--only, ou erro duro em Prefetch/Amcache/BAM…).
+    Erro em scanner secundário (PCA vazio, Task Execlog) NÃO invalida LIMPO.
+    """
     if not coverage:
         return False
     if verdict_label != "LIMPO":
         return False
-    return bool(coverage.get("incomplete") or coverage.get("blind_strong"))
+    # Cegueira real em forensics fortes
+    if coverage.get("blind_strong"):
+        return True
+    # Modos limitados de execução
+    if not coverage.get("is_admin"):
+        return True
+    if coverage.get("quick") or coverage.get("only"):
+        return True
+    if coverage.get("skipped_groups"):
+        return True
+    # Erros duros em fontes FORTES (já em strong_errored → blind_strong)
+    # Erros duros em fontes fracas: incomplete pode ser True pro painel,
+    # mas NÃO promove LIMPO → INCONCLUSIVO.
+    return False
 
 
 def apply_coverage_to_verdict(verdict: dict, coverage: dict | None) -> dict:
