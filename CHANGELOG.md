@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.51.0] - 2026-07-13
+
+**Clipboard History — o 10º scanner do plano Winter-class (112 → 113).**
+
+### Novo scanner (`clipboard_history_scanner.py`)
+
+- **`scan_clipboard_history`**: texto **copiado/colado**, não só digitado.
+  Complementa `scan_powershell_history` (ConsoleHost = o que foi digitado
+  no PS). Cheater que cola `iex (irm …)` do browser/Discord deixa rastro
+  aqui mesmo sem histórico de PowerShell.
+- **Fontes** (sem admin):
+  1. Disco: `%LocalAppData%\Microsoft\Windows\Clipboard\{HistoryData,Pinned}`
+     — extrai strings UTF-16 LE / UTF-8 de blobs
+  2. Live: clipboard atual (`CF_UNICODETEXT` via Win32, fallback PowerShell)
+- **Sinais**: reusa `_match_in_line` do `command_history` (iex/irm, domínios
+  suspeitos, executor keywords com word-boundary, anti-signature-list)
+- **Meta**: se `EnableClipboardHistory=0`, item `meta_only` low (OPSEC)
+- **Wiring**: `telador` chain, `scanner_registry`, `SOURCE_WEIGHTS` (0.72),
+  `SOURCE_LABELS`, `version` 3.51.0 / count 113
+- **Testes**: `tests/test_clipboard_history.py`
+
+### Nota forense
+
+Itens não-pinned do histórico Windows morrem no reboot (memória). Pinned +
+residual em disco + clipboard **atual** ainda capturam o fluxo de SS ao vivo.
+
+## [3.50.5] - 2026-07-13
+
+**Release build: `telador.spec` versionado (estava no `.gitignore` `*.spec`).**
+
+- Exceção `!telador.spec` + commit do spec (glob hiddenimports)
+- Fix PyInstaller: `.spec` sem flags makespec (`--onefile`/`--noupx`)
+- `pca_scanner`: SyntaxError f-string+backslash no py3.11 (CI)
+- Limpeza ruff (F401/F541/B033/B023/F841)
+
 ## [3.47.1] - 2026-07-12
 
 **Auditoria pós-v3.47.0: 4 bugs corrigidos (1 FP crítico, 3 corretude).**

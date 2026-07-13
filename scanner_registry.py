@@ -63,6 +63,7 @@ def build_registry() -> list[ScannerMeta]:
     import os_integrity_scanner
     import task_execlog_scanner
     import cert_store_scanner
+    import clipboard_history_scanner
 
     groups: list[tuple[str, list, dict]] = [
         ("base", scanners.ALL_SCANNERS, {"in_quick": True, "cost": "low"}),
@@ -128,6 +129,9 @@ def build_registry() -> list[ScannerMeta]:
         }),
         ("cert_store", cert_store_scanner.ALL_CERT_STORE_SCANNERS, {
             "cost": "medium", "tags": ("forensic", "network"),
+        }),
+        ("clipboard", clipboard_history_scanner.ALL_CLIPBOARD_SCANNERS, {
+            "cost": "low", "tags": ("forensic", "live"),
         }),
     ]
 

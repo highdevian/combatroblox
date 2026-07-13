@@ -147,6 +147,9 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "lsa_package":          0.98,   # DLL em LSASS = raríssimo em máquina limpa
     "task_execlog":         0.82,   # tasks deletadas ainda deixam Event 200/201
     "cert_root_injection":  0.88,   # cert self-signed recente na raiz = MitM
+
+    # v3.51.0 — clipboard (copiado ≠ digitado)
+    "clipboard_history":    0.72,   # texto colado com iex/URL/keyword — complementa PS history
 }
 
 DEFAULT_SOURCE_WEIGHT = 0.65
@@ -734,6 +737,10 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("event log gap",         "anti_forense"),
         ("event log",             "anti_forense"),
         ("powershell",            "powershell_history"),
+        # clipboard ANTES de "history" genérico (Clipboard History ⊆ history)
+        ("clipboard history",     "clipboard_history"),
+        ("clipboard/",            "clipboard_history"),
+        ("clipboard",             "clipboard_history"),
         ("command",               "command_history"),
         ("history",               "command_history"),
         ("anti-vm",               "anti_evasion"),

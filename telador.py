@@ -66,6 +66,7 @@ import streamproof_scanner
 import os_integrity_scanner
 import task_execlog_scanner
 import cert_store_scanner
+import clipboard_history_scanner
 import winevent_scanner
 import service_state_scanner
 import seam_scanner
@@ -265,6 +266,8 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
         chain.extend(task_execlog_scanner.ALL_TASK_EXECLOG_SCANNERS)
     # Cert store — HKCU parcial (sem admin) + PowerShell — sempre.
     chain.extend(cert_store_scanner.ALL_CERT_STORE_SCANNERS)
+    # Clipboard history — HKCU/perfil, sem admin (disco + live).
+    chain.extend(clipboard_history_scanner.ALL_CLIPBOARD_SCANNERS)
     return chain
 
 

@@ -96,6 +96,8 @@ SOURCE_LABELS = {
     "lsa_package":        "LSA Package (LSASS)",
     "task_execlog":       "Task Execlog (deletadas)",
     "cert_root_injection":"Cert Root injetado",
+    # v3.51.0
+    "clipboard_history":  "Clipboard History",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
     "bloxstrap":          "Bloxstrap",
