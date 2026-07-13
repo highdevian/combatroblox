@@ -31,8 +31,10 @@ except ImportError:
 # Se Subject/Issuer contém qualquer um destes, é legítimo.
 _TRUSTED_CA_MARKERS = (
     "microsoft", "windows", "google", "digicert", "letsencrypt",
-    "let's encrypt", "globalsign", "godaddy", "verisign", "entrust",
+    "let's encrypt", "internet security research group", "isrg root",
+    "globalsign", "godaddy", "go daddy", "verisign", "entrust",
     "identrust", "comodo", "amazon", "starfield", "usertrust",
+    "addtrust", "addtrust external",  # legado Comodo/Sectigo (ainda em stores)
     "sectigo", "quovadis", "swisssign", "buypass", "wosign",
     "geotrust", "thawte", "symantec", "iso 27001", "iso27001",
     "affirmtrust", "certum", "cybertrust", "network solutions",
@@ -40,13 +42,15 @@ _TRUSTED_CA_MARKERS = (
     "so.g.e.i.", "d-trust", "trustcor", "actalis", "izenpe",
     "hellenic academic", "atos", "camerfirma", "chunghwa telecom",
     "e-me", "asseco", "tw ca", "quovadis root", "certsign",
-    # Enterprises comuns que aparecem em empresa
+    # Enterprises / tools comuns
     "cisco", "juniper", "ibm", "oracle", "vmware", "citrix",
     "logmein", "teamviewer", "anydesk", "zoom",
+    # Autohotkey / dev tools que instalam self-signed local (dual-use, não MitM)
+    "autohotkey",
     # Antivirus
     "kaspersky", "eset", "bitdefender", "avast", "avg",
     "malwarebytes", "sophos", "trend micro",
-    # Government CAs
+    # Government / generic CA naming
     "root ca", "certificate authority", "root certification",
 )
 

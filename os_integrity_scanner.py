@@ -39,20 +39,35 @@ _EXPECTED_BOOT_EXECUTE = {
 # SetupExecute default é vazio; alguma coisa aqui = criação recente.
 _EXPECTED_SETUP_EXECUTE: set[str] = set()
 
-# KnownDLLs padrão do Windows 11. Qualquer entrada não-listada é potencial
-# hijack. Também flagga qualquer VALOR (path) fora de \system32\.
+# KnownDLLs padrão Win10/11 (nomes de valor REG, lowercase, sem leading '*').
+# Win11 24H2+ inclui wow64*, xtajit64*, *kernel32 etc. Qualquer entrada
+# fora desta lista = potencial hijack.
 _EXPECTED_KNOWN_DLLS = {
-    "_wow64cpu", "_wowarmhw", "_xtajit", "advapi32", "clbcatq",
-    "combase", "comdlg32", "coml2", "difxapi", "gdi32", "gdiplus",
-    "imagehlp", "imm32", "kernel32", "msctf", "msvcrt", "normaliz",
-    "nsi", "ole32", "oleaut32", "psapi", "rpcrt4", "sechost",
-    "setupapi", "shcore", "shell32", "shlwapi", "user32", "wldap32",
-    "ws2_32",
+    # Core
+    "advapi32", "clbcatq", "combase", "comdlg32", "coml2", "difxapi",
+    "gdi32", "gdiplus", "imagehlp", "imm32", "kernel32", "msctf",
+    "msvcrt", "normaliz", "nsi", "ole32", "oleaut32", "psapi",
+    "rpcrt4", "sechost", "setupapi", "shcore", "shell32", "shlwapi",
+    "user32", "wldap32", "ws2_32",
+    # WOW64 / ARM / JIT (Win10 2004+ e Win11)
+    "wow64", "wow64base", "wow64con", "wow64win", "wow64cpu",
+    "_wow64cpu", "_wowarmhw",
+    "_xtajit", "_xtajitf", "_xtajitse",
+    "xtajit", "xtajitf", "xtajitse", "xtajit64", "xtajit64se",
     # Meta-valores
     "dllfailure", "excludefromknowndlls",
     # Path pra system32 (KnownDLLPath value)
     "dlldirectory", "dlldirectory32",
 }
+
+
+def _normalize_knowndll_name(name: str) -> str:
+    """Normaliza nome de valor KnownDLLs: lower + remove leading '*'."""
+    n = (name or "").lower().strip()
+    # Win11 marca algumas entradas com '*' (ex.: *kernel32)
+    while n.startswith("*"):
+        n = n[1:]
+    return n
 
 
 def _read_multi_sz(sub, name: str) -> list[str]:
@@ -141,25 +156,35 @@ def scan_session_manager_abuse() -> dict:
                         i += 1
                     except OSError:
                         break
-                    vname_low = vname.lower()
+                    vname_low = _normalize_knowndll_name(vname)
                     val_low = str(val).lower() if val else ""
 
-                    # Ignora entradas esperadas
+                    # Ignora entradas esperadas (nome canônico)
                     if vname_low in _EXPECTED_KNOWN_DLLS:
-                        # Mas se o VALOR aponta pra fora de system32, é hijack
-                        if val_low and val_low not in _EXPECTED_KNOWN_DLLS:
-                            # Path values (DllDirectory) devem ser \system32
-                            if vname_low in ("dlldirectory", "dlldirectory32"):
-                                if "system32" not in val_low and "syswow64" not in val_low:
-                                    items.append(_item(
-                                        label=f"[KnownDLLs] {vname} = {val}",
-                                        detail=(f"Valor KnownDLLs redirecionado: "
-                                                f"{vname} → {val}\n"
-                                                f"O padrão aponta pra %SystemRoot%\\System32. "
-                                                f"Redirect pra outra pasta = hijack."),
-                                        severity="critical",
-                                        matched="session-mgr-knowndlls-redirect",
-                                    ))
+                        # Path values (DllDirectory) devem apontar pra system32
+                        if vname_low in ("dlldirectory", "dlldirectory32"):
+                            if val_low and "system32" not in val_low and "syswow64" not in val_low:
+                                items.append(_item(
+                                    label=f"[KnownDLLs] {vname} = {val}",
+                                    detail=(f"Valor KnownDLLs redirecionado: "
+                                            f"{vname} → {val}\n"
+                                            f"O padrão aponta pra %SystemRoot%\\System32. "
+                                            f"Redirect pra outra pasta = hijack."),
+                                    severity="critical",
+                                    matched="session-mgr-knowndlls-redirect",
+                                ))
+                        # Valor de DLL esperado: basename deve ser <nome>.dll
+                        # (ou o próprio nome). Path absoluto fora de system32 = hijack.
+                        elif val_low and ("\\" in val_low or "/" in val_low):
+                            if "system32" not in val_low and "syswow64" not in val_low:
+                                items.append(_item(
+                                    label=f"[KnownDLLs] {vname} = {val}",
+                                    detail=(f"KnownDLLs '{vname}' aponta pra path "
+                                            f"fora de System32: {val}\n"
+                                            f"Baseline é só o basename (ex.: kernel32.dll)."),
+                                    severity="critical",
+                                    matched="session-mgr-knowndlls-redirect",
+                                ))
                         continue
 
                     # Nome não esperado = DLL nova em KnownDLLs

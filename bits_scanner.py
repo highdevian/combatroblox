@@ -23,13 +23,17 @@ import matching
 from database import SUSPICIOUS_DOMAINS
 
 
-# Whitelist de DisplayNames de jobs BITS legítimos do Windows.
+# Whitelist de DisplayNames de jobs BITS legítimos do Windows / browsers.
 _LEGIT_BITS_DISPLAY_NAMES = (
     "windows update", "microsoft update",
-    "google update", "chrome update",
+    "google update", "chrome update", "chrome",
+    "edge component updater", "edge update", "microsoft edge",
+    "msedge", "edge ",
     "onedrive", "office", "teams",
-    "windowsdefender", "mpsigstub",
+    "windowsdefender", "mpsigstub", "defender",
     "delivery optimization",
+    "store", "xbox", "winget", "app installer",
+    "visual studio", "nuget",
 )
 
 # Owner de jobs legítimos do sistema

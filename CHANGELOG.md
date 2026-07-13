@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.51.1] - 2026-07-13
+
+**Anti-FP massivo nos scanners v3.48–v3.50 (ruído em máquina de dev limpa).**
+
+### Correções
+
+- **Session Manager KnownDLLs**: baseline Win11 incompleto — flaggava
+  `*kernel32`, `wow64*`, `xtajit64*` como CRITICAL. Agora normaliza `*` e
+  inclui o set real de KnownDLLs do Win11 24H2.
+- **Certificate Store**: CAs legítimas self-signed (toda root CA é
+  self-signed) não casavam markers — `ISRG Root X1` / `Go Daddy` /
+  `AddTrust` / `AutoHotkey` viravam MEDIUM. Markers expandidos
+  (`isrg`, `go daddy`, `addtrust`, `internet security research group`…).
+- **BITS Jobs**: `Edge Component Updater` (12× MEDIUM) não estava na
+  whitelist. Adicionados Edge/Defender/Store/winget/VS.
+- **COM HKCU**: `LocalServer32` de VS Code / Antigravity / toast handlers
+  em AppData era tratado como hijack de DLL. Whitelist de basenames +
+  paths; LocalServer32 genérico vira `meta_only` low.
+- **WMI**: `SCM Event Log Consumer` (baseline Windows) só era filtrado
+  em filters, não em consumers — HIGH falso.
+
 ## [3.51.0] - 2026-07-13
 
 **Clipboard History — o 10º scanner do plano Winter-class (112 → 113).**

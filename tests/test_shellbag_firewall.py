@@ -295,6 +295,15 @@ class TestScanWmiPersistence:
         items = [i for i in r["items"] if "wmi-event-consumer" in i.get("matched", "")]
         assert items[0]["severity"] == "high"
 
+    def test_scm_event_consumer_ignored(self):
+        """SCM Event Log Consumer = baseline do Windows, não é persistência."""
+        stdout = (
+            "FILTER::SCM Event Log Filter::SELECT * FROM __InstanceModificationEvent\n"
+            "CONSUMER::NTEventLogEventConsumer::SCM Event Log Consumer::\n"
+        )
+        r = self._run_with_stdout(stdout)
+        assert r["items"] == []
+
     def test_subprocess_error_returns_error(self):
         import persistence
         with patch("subprocess.run", side_effect=OSError("no powershell")):

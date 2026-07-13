@@ -92,6 +92,21 @@ class TestSessionManager:
         assert len(items) >= 1
         assert items[0]["severity"] == "critical"
 
+    def test_win11_baseline_knowndlls_clean(self):
+        """*kernel32, wow64*, xtajit64* = baseline Win11, não CRITICAL."""
+        r = self._run_with_values(knowndlls_values=[
+            ("*kernel32", "kernel32.dll", 1),
+            ("wow64", "wow64.dll", 1),
+            ("wow64base", "wow64base.dll", 1),
+            ("wow64con", "wow64con.dll", 1),
+            ("wow64win", "wow64win.dll", 1),
+            ("xtajit64", "xtajit64.dll", 1),
+            ("xtajit64se", "xtajit64se.dll", 1),
+            ("_xtajitf", "xtajitf.dll", 1),
+        ])
+        extras = [i for i in r["items"] if "knowndlls-extra" in i["matched"]]
+        assert extras == []
+
     def test_pending_rename_with_executor_flagged(self):
         r = self._run_with_values(pending_rename=[
             "\\??\\C:\\Users\\user\\Downloads\\solara.exe",

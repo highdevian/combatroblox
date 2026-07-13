@@ -171,7 +171,7 @@ class TestChain:
         names = {m.fn_name for m in reg}
         assert "scan_clipboard_history" in names
         assert version.SCANNER_COUNT == 113
-        assert version.VERSION == "3.51.0"
+        assert version.VERSION.startswith("3.51.")
         chain = telador.assemble_scanners(
             skip_forensics=False, skip_antievasion=False,
             skip_persistence=False, skip_live=False,

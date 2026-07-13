@@ -370,6 +370,9 @@ def scan_wmi_persistence() -> dict:
             cmd = parts[2].strip() if len(parts) > 2 else ""
             if cname in consumers_seen:
                 continue
+            # SCM Event Log Consumer/Filter = baseline do Windows (não flaggar)
+            if cname.startswith("SCM Event") or "SCM Event Log" in cname:
+                continue
             consumers_seen.add(cname)
             # CommandLineEventConsumer executa programa = mais forte
             sev = "critical" if "CommandLine" in cls and cmd else "high"

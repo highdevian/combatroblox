@@ -186,14 +186,39 @@ _LEGIT_COM_PATH_PREFIXES = (
     "%programfiles%\\",
 )
 
-# Paths de AppData de apps corporativos conhecidos (Teams, Slack etc)
+# Paths de AppData de apps conhecidos (COM LocalServer32 / toast handlers).
+# VS Code, Chromium-based IDEs, etc. registram LocalServer32 em user-path —
+# isso NÃO é DLL hijack clássico.
 _TRUSTED_APPDATA_PATTERNS = (
     "\\microsoft\\teams\\",
     "\\microsoft\\onedrive\\",
+    "\\microsoft\\edge\\",
+    "\\microsoft vs code\\",
+    "\\microsoft\\vscode\\",
+    "\\programs\\microsoft vs code\\",
+    "\\programs\\cursor\\",
+    "\\programs\\antigravity\\",
     "\\slack\\",
     "\\zoom\\",
     "\\discord\\",
     "\\spotify\\",
+    "\\jetbrains\\",
+    "\\google\\chrome\\",
+    "\\mozilla firefox\\",
+    "\\openclaw\\",
+)
+
+# Basenames de LocalServer32 comumente registrados por apps legítimos
+# (toast activation, protocol handlers). InprocServer32 com estes nomes
+# ainda é suspeito se em temp — o filtro só aplica a LocalServer32.
+_LEGIT_LOCALSERVER_BASENAMES = (
+    "code.exe", "code - insiders.exe", "codehelper.exe",
+    "cursor.exe", "cursor helper.exe",
+    "antigravity.exe", "devenv.exe",
+    "slack.exe", "teams.exe", "ms-teams.exe",
+    "discord.exe", "spotify.exe", "chrome.exe", "msedge.exe",
+    "firefox.exe", "notepad++.exe",
+    "openclaw.tray.winui.exe", "openclaw.exe",
 )
 
 
@@ -229,15 +254,34 @@ def scan_com_user_hijack() -> dict:
             if not (clsid.startswith("{") and clsid.endswith("}") and len(clsid) == 38):
                 continue
 
-            # Tenta InprocServer32 primeiro (DLL in-process)
+            # Prefere InprocServer32 (DLL in-process = hijack clássico).
+            # LocalServer32 = out-of-process (toast, protocol handlers) —
+            # apps legítimos (VS Code, Discord…) registram isso em AppData.
             dll_path = None
-            for inproc_sub in ("InprocServer32", "InProcServer32", "LocalServer32"):
+            server_kind = None  # "inproc" | "local"
+            for inproc_sub, kind in (
+                ("InprocServer32", "inproc"),
+                ("InProcServer32", "inproc"),
+                ("LocalServer32", "local"),
+            ):
                 try:
                     inproc = winreg.OpenKey(root, f"{clsid}\\{inproc_sub}")
                     try:
                         val, _ = winreg.QueryValueEx(inproc, "")
                         if isinstance(val, str) and val.strip():
-                            dll_path = val.strip().strip('"')
+                            # LocalServer32 às vezes tem args: `app.exe" -ToastActivated`
+                            raw = val.strip().strip('"')
+                            # Pega o path do exe (antes de args)
+                            dll_path = raw.split('"')[0].strip() if raw else raw
+                            if not dll_path:
+                                dll_path = raw.split()[0] if raw.split() else raw
+                            server_kind = kind
+                            # Inproc tem prioridade: se achou, para.
+                            if kind == "inproc":
+                                break
+                            # Se só LocalServer, continua buscando Inproc
+                            # (já vai sobrescrever se achar Inproc depois —
+                            # ordem do loop coloca Inproc primeiro).
                             break
                     finally:
                         winreg.CloseKey(inproc)
@@ -248,25 +292,36 @@ def scan_com_user_hijack() -> dict:
                 continue
 
             dll_low = os.path.expandvars(dll_path).lower().replace("/", "\\")
+            base_name = os.path.basename(dll_low.split(" -")[0].strip().strip('"'))
 
             # Whitelist: paths do sistema
             if any(dll_low.startswith(p) for p in _LEGIT_COM_PATH_PREFIXES):
                 continue
 
-            # Whitelist: AppData de apps corporativos
+            # Whitelist: AppData de apps conhecidos
             if any(pat in dll_low for pat in _TRUSTED_APPDATA_PATTERNS):
                 continue
 
-            # Se o DLL existe: MEDIUM (pode ser legítimo obscuro).
-            # Se não existe: HIGH (hijack órfão, DLL deletada mas registrada).
+            # LocalServer32 de apps conhecidos (Code.exe toast etc.) = não flaggar
+            if server_kind == "local" and base_name in _LEGIT_LOCALSERVER_BASENAMES:
+                continue
+
+            # Se o DLL/exe existe: MEDIUM (pode ser legítimo obscuro).
+            # Se não existe: HIGH (hijack órfão).
+            # LocalServer32 genérico (app desconhecido em user-path) = LOW
+            # — muito ruído de IDEs/toasts; só sobe com keyword/CLSID crítico.
             dll_exists = False
             try:
-                dll_exists = os.path.isfile(os.path.expandvars(dll_path))
+                check_path = os.path.expandvars(dll_path.split(" -")[0].strip().strip('"'))
+                dll_exists = os.path.isfile(check_path)
             except OSError:
                 pass
 
             hijack_of = _COMMONLY_HIJACKED_CLSIDS.get(clsid.lower())
-            severity = "high" if not dll_exists else "medium"
+            if server_kind == "local" and not hijack_of:
+                severity = "low"
+            else:
+                severity = "high" if not dll_exists else "medium"
             if hijack_of:
                 severity = "critical"
 
@@ -276,16 +331,24 @@ def scan_com_user_hijack() -> dict:
             if kw:
                 severity = "high"
 
+            # LocalServer32 sem keyword e sem CLSID crítico e severity low:
+            # ainda reporta como contexto (meta) pra não poluir veredito.
+            meta = server_kind == "local" and not kw and not hijack_of
+
             items.append(_item(
-                label=f"[COM] {clsid} → {os.path.basename(dll_path)}",
+                label=f"[COM] {clsid} → {os.path.basename(dll_path.split()[0] if dll_path else '')}",
                 detail=(f"CLSID: {clsid}\n"
-                        f"DLL: {dll_path}\n"
+                        f"Server: {server_kind or '?'}\n"
+                        f"Path: {dll_path}\n"
                         f"Existe: {dll_exists}\n"
                         + (f"Hijack de {hijack_of}\n" if hijack_of else "")
-                        + "Registrado em HKCU (sem admin necessário). HKCU tem "
-                        "precedência sobre HKCR = DLL do usuário substitui o "
-                        "componente do sistema pra processos do próprio user."),
-                severity=severity, matched=matched,
+                        + ("LocalServer32 em user-path (toast/protocol handler) "
+                           "— comum em IDEs; InprocServer32 seria mais grave.\n"
+                           if server_kind == "local" else
+                           "Registrado em HKCU (sem admin necessário). HKCU tem "
+                           "precedência sobre HKCR = DLL do usuário substitui o "
+                           "componente do sistema pra processos do próprio user.")),
+                severity=severity, matched=matched, meta_only=meta,
             ))
     finally:
         winreg.CloseKey(root)

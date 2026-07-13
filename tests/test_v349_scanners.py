@@ -310,6 +310,47 @@ class TestComUserHijack:
 
         assert r["items"] == []
 
+    def test_vscode_localserver_ignored(self):
+        """LocalServer32 Code.exe (toast) = legítimo, não hijack de DLL."""
+        import hijack_scanner
+        root_mock = MagicMock()
+        local_mock = MagicMock()
+        clsid = "{33333333-3333-3333-3333-333333333333}"
+        enum_key_side = [clsid, OSError("done")]
+
+        def ek(key, i):
+            v = enum_key_side[i]
+            if isinstance(v, Exception):
+                raise v
+            return v
+
+        def open_key(hive, path):
+            if path.endswith("LocalServer32"):
+                return local_mock
+            if path.endswith(("InprocServer32", "InProcServer32")):
+                raise OSError("no")
+            return root_mock
+
+        def qv(k, name):
+            if name == "":
+                return (
+                    r'C:\Users\user\AppData\Local\Programs\Microsoft VS Code\Code.exe" -ToastActivated',
+                    1,
+                )
+            raise OSError()
+
+        with patch.object(hijack_scanner, "HAS_WINREG", True), \
+             patch("winreg.OpenKey", side_effect=open_key), \
+             patch("winreg.EnumKey", side_effect=ek), \
+             patch("winreg.QueryValueEx", side_effect=qv), \
+             patch("os.path.isfile", return_value=True), \
+             patch("winreg.CloseKey"):
+            r = hijack_scanner.scan_com_user_hijack()
+
+        # Nenhuma entrada real (meta_only não conta ou lista vazia)
+        real = [i for i in r["items"] if not i.get("meta_only")]
+        assert real == []
+
 
 # ============================================================
 # pca_scanner
