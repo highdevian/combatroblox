@@ -56,6 +56,8 @@ import external_scanner
 import anti_forensic_deep
 import system_hardening
 import behavioral_tier_a
+import shellbag_scanner
+import firewall_scanner
 import winevent_scanner
 import service_state_scanner
 import seam_scanner
@@ -237,6 +239,10 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
     # subprocess do PowerShell — respeita --no-live.
     if not skip_live:
         chain.extend(behavioral_tier_a.ALL_BEHAVIORAL_TIER_A_SCANNERS)
+    # ShellBag + AppCompatFlags — artefatos de navegação (HKCU, sem admin).
+    chain.extend(shellbag_scanner.ALL_SHELLBAG_SCANNERS)
+    # Firewall rules — requer admin pra HKLM.
+    chain.extend(firewall_scanner.ALL_FIREWALL_SCANNERS)
     return chain
 
 

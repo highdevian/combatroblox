@@ -53,6 +53,8 @@ def build_registry() -> list[ScannerMeta]:
     import service_state_scanner
     import system_hardening
     import behavioral_tier_a
+    import shellbag_scanner
+    import firewall_scanner
 
     groups: list[tuple[str, list, dict]] = [
         ("base", scanners.ALL_SCANNERS, {"in_quick": True, "cost": "low"}),
@@ -88,6 +90,12 @@ def build_registry() -> list[ScannerMeta]:
         }),
         ("behavioral_tier_a", behavioral_tier_a.ALL_BEHAVIORAL_TIER_A_SCANNERS, {
             "requires_admin": True, "cost": "medium", "tags": ("behavioral", "live"),
+        }),
+        ("shellbag", shellbag_scanner.ALL_SHELLBAG_SCANNERS, {
+            "cost": "medium", "tags": ("forensic",),
+        }),
+        ("firewall", firewall_scanner.ALL_FIREWALL_SCANNERS, {
+            "requires_admin": True, "cost": "low", "tags": ("network",),
         }),
     ]
 

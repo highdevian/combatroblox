@@ -240,13 +240,14 @@ def test_activities_clean_no_match(tmp_path, monkeypatch):
 # ------------------------------ Chain / registry ------------------------------
 
 def test_all_scanners_exist():
-    assert len(sh.ALL_SYSTEM_HARDENING_SCANNERS) == 4
+    assert len(sh.ALL_SYSTEM_HARDENING_SCANNERS) == 5
     names = [f.__name__ for f in sh.ALL_SYSTEM_HARDENING_SCANNERS]
     assert set(names) == {
         "scan_dse_state",
         "scan_vbs_hvci_disabled",
         "scan_roblox_page_protection",
         "scan_activities_cache_timeline",
+        "scan_etw_autologger_tamper",
     }
 
 
@@ -256,4 +257,4 @@ def test_registry_has_system_hardening_group():
     groups = {m.group for m in reg}
     assert "system_hardening" in groups
     sh_scanners = [m for m in reg if m.group == "system_hardening"]
-    assert len(sh_scanners) == 4
+    assert len(sh_scanners) == 5

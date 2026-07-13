@@ -301,9 +301,97 @@ def scan_wer_dumps() -> dict:
                    items)
 
 
+
+# ============================ WMI persistence ============================
+
+def scan_wmi_persistence() -> dict:
+    """
+    Assinaturas WMI em root\\subscription — método de persistência avançado.
+    Aplicativos legítimos quase nunca usam root\\subscription; cheaters e loaders
+    criam __EventFilter + __EventConsumer pra executar o cheat no boot/login sem
+    aparecer em Startup/Run keys (menos detectável).
+    Precisa de admin; query via PowerShell.
+    """
+    name = "WMI Persistence (root\\subscription)"
+    desc = "Assinaturas WMI pra execução automática — bypass de Startup/Run keys"
+
+    ps = (
+        "$ErrorActionPreference='SilentlyContinue';"
+        "Get-WMIObject -Namespace root\\subscription -Class __EventFilter"
+        " | ForEach-Object { Write-Output ('FILTER::' + $_.Name + '::' + $_.Query) };"
+        "Get-WMIObject -Namespace root\\subscription -Class __EventConsumer"
+        " | ForEach-Object { Write-Output ('CONSUMER::' + $_.__CLASS + '::' + $_.Name + '::' + $_.CommandLineTemplate) };"
+        "Get-WMIObject -Namespace root\\subscription -Class __FilterToConsumerBinding"
+        " | ForEach-Object { Write-Output ('BINDING::' + $_.Filter + '::' + $_.Consumer) }"
+    )
+    try:
+        result = subprocess.run(
+            [win_tools.powershell(), "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, text=True, timeout=20,
+            encoding="utf-8", errors="replace",
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return _result(name, desc, [], error=str(e))
+
+    if result.returncode != 0 and not result.stdout.strip():
+        return _result(name, desc, [],
+                       error="Não conseguiu consultar WMI (sem admin?)")
+
+    items = []
+    filters_seen: set[str] = set()
+    consumers_seen: set[str] = set()
+
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        if line.startswith("FILTER::"):
+            parts = line[8:].split("::", 1)
+            filter_name = parts[0].strip()
+            query = parts[1].strip() if len(parts) > 1 else ""
+            if filter_name in filters_seen or filter_name.startswith("SCM Event"):
+                continue
+            filters_seen.add(filter_name)
+            items.append(_item(
+                label=f"[WMI Filter] {filter_name}",
+                detail=(f"Filtro de evento WMI em root\\subscription:\n"
+                        f"Nome: {filter_name}\nQuery: {query}\n"
+                        f"Filtros em root\\subscription são raros em máquinas limpas. "
+                        f"Loaders de cheat criam filtros pra disparar no boot/logon."),
+                severity="high", matched="wmi-event-filter",
+            ))
+
+        elif line.startswith("CONSUMER::"):
+            parts = line[10:].split("::", 2)
+            cls = parts[0].strip() if parts else ""
+            cname = parts[1].strip() if len(parts) > 1 else ""
+            cmd = parts[2].strip() if len(parts) > 2 else ""
+            if cname in consumers_seen:
+                continue
+            consumers_seen.add(cname)
+            # CommandLineEventConsumer executa programa = mais forte
+            sev = "critical" if "CommandLine" in cls and cmd else "high"
+            label_detail = f"Classe: {cls} | Nome: {cname}"
+            if cmd:
+                label_detail += f" | Comando: {cmd}"
+            items.append(_item(
+                label=f"[WMI Consumer] {cname}",
+                detail=(f"Consumidor WMI em root\\subscription:\n"
+                        f"{label_detail}\n"
+                        f"CommandLineEventConsumer executa um executável no trigger — "
+                        f"padrão clássico de persistência de malware e cheat loader."),
+                severity=sev, matched="wmi-event-consumer",
+            ))
+
+    return _result(name, desc, items)
+
+
 ALL_PERSISTENCE_SCANNERS = [
     scan_startup_folders,
     scan_run_keys,
     scan_scheduled_tasks,
     scan_wer_dumps,
+    scan_wmi_persistence,
 ]

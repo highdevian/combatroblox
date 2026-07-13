@@ -78,6 +78,12 @@ SOURCE_LABELS = {
     "apc_injection":      "APC Injection (Roblox)",
     "event_log_exec":     "Event Log (execução)",
     "defender_detection": "Defender (detecção)",
+    # v3.48.0 — novos scanners de bypass
+    "shellbag":           "ShellBags (hist. pastas)",
+    "appcompat_flags":    "AppCompatFlags",
+    "wmi_persistence":    "WMI Persistence",
+    "etw_tamper":         "ETW Autologger desativado",
+    "firewall_rules":     "Regras de Firewall",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
     "bloxstrap":          "Bloxstrap",

@@ -126,6 +126,13 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "dropper_task":         0.80,   # task recente + AtLogon + exe user-path
     "amsi_bypass":          0.92,   # AmsiScanBuffer patcheada no PowerShell
     "apc_injection":        0.85,   # DLL fora de path legítimo no Roblox
+
+    # v3.48.0 — bypass avançado (sobrevivem a cleaners / bypass AV)
+    "shellbag":             0.70,   # pasta visitada no Explorer (persiste após deleção)
+    "appcompat_flags":      0.75,   # flags de compat. = exe configurado explicitamente
+    "wmi_persistence":      0.88,   # assinatura WMI root\subscription — raro em máquina limpa
+    "etw_tamper":           0.92,   # ETW autologger desativado = silencia kernel telemetry
+    "firewall_rules":       0.72,   # regra Allow user-path ou Block Roblox
 }
 
 DEFAULT_SOURCE_WEIGHT = 0.65
@@ -718,6 +725,20 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("anti-vm",               "anti_evasion"),
         ("anti-sandbox",          "anti_evasion"),
         ("clock",                 "anti_evasion"),
+        # v3.48.0
+        ("shellbag",              "shellbag"),
+        ("histórico de pastas",   "shellbag"),
+        ("appcompat",             "appcompat_flags"),
+        ("modo de compatibilidade", "appcompat_flags"),
+        ("wmi persistence",       "wmi_persistence"),
+        ("wmi filter",            "wmi_persistence"),
+        ("wmi consumer",          "wmi_persistence"),
+        ("wmi event",             "wmi_persistence"),
+        ("etw autologger",        "etw_tamper"),
+        ("etw tamper",            "etw_tamper"),
+        ("regras do firewall",    "firewall_rules"),
+        ("firewall",              "firewall_rules"),
+        # existentes
         ("startup",               "persistence"),
         ("scheduled task",        "persistence"),
         ("run key",               "persistence"),

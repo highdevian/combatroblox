@@ -655,6 +655,96 @@ def scan_activities_cache_timeline() -> dict:
     return _result(name, desc, items)
 
 
+
+# ============================ ETW Autologger tamper ============================
+
+# Loggers críticos do Windows. Desativar qualquer um silencia telemetria do kernel.
+# Cheater usa isso pra impedir que o Event Log ou AV receba eventos de injeção.
+_CRITICAL_ETW_LOGGERS = {
+    "EventLog-Application":     "log de aplicativos do Windows",
+    "EventLog-Security":        "log de segurança (auditoria, login, exec)",
+    "EventLog-System":          "log do sistema",
+    "DiagTrack-Listener":       "telemetria diagnóstica do Windows",
+    "Microsoft-Windows-Kernel-EventTracing": "ETW do kernel",
+    "DefenderAuditLogger":      "auditoria do Windows Defender",
+    "MDAG":                     "Microsoft Defender Application Guard",
+}
+
+_ETW_AUTOLOGGER_KEY = r"SYSTEM\CurrentControlSet\Control\WMI\Autologger"
+
+try:
+    import winreg as _winreg
+    _HAS_WINREG_SH = True
+except ImportError:
+    _HAS_WINREG_SH = False
+
+
+def scan_etw_autologger_tamper() -> dict:
+    """
+    Verifica se loggers ETW críticos foram desativados via registro.
+    ETW (Event Tracing for Windows) é a backbone do Event Log e do Defender.
+    Desativar loggers críticos via HKLM\\...\\WMI\\Autologger é a forma mais
+    silenciosa de suprimir eventos de execução, injeção e auditoria —
+    usuário comum nunca toca aqui.
+    Requer admin pra ler HKLM.
+    """
+    name = "ETW Autologger (tamper via registro)"
+    desc = "Loggers ETW desativados no registro — silencia telemetria do kernel"
+
+    if not _HAS_WINREG_SH:
+        return _result(name, desc, [], error="winreg indisponível")
+
+    items = []
+    try:
+        root = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, _ETW_AUTOLOGGER_KEY)
+    except OSError:
+        return _result(name, desc, [],
+                       error="Chave WMI\\Autologger inacessível (requer admin)")
+
+    try:
+        i = 0
+        while True:
+            try:
+                logger_name = _winreg.EnumKey(root, i)
+                i += 1
+            except OSError:
+                break
+
+            known_label = _CRITICAL_ETW_LOGGERS.get(logger_name)
+            if known_label is None:
+                continue
+
+            try:
+                sub = _winreg.OpenKey(root, logger_name)
+            except OSError:
+                continue
+
+            try:
+                enabled = None
+                try:
+                    enabled, _ = _winreg.QueryValueEx(sub, "Enabled")
+                except OSError:
+                    pass
+
+                if enabled == 0:
+                    items.append(_item(
+                        label=f"[ETW] {logger_name} DESATIVADO",
+                        detail=(f"Logger crítico '{logger_name}' ({known_label}) está "
+                                f"marcado como Enabled=0 no registro.\n"
+                                f"Chave: HKLM\\{_ETW_AUTOLOGGER_KEY}\\{logger_name}\n"
+                                f"Desativar este logger silencia eventos de execução / "
+                                f"injeção / auditoria que o Event Log e o Defender "
+                                f"usam. Usuário comum não mexe aqui."),
+                        severity="high", matched="etw-autologger-disabled",
+                    ))
+            finally:
+                _winreg.CloseKey(sub)
+    finally:
+        _winreg.CloseKey(root)
+
+    return _result(name, desc, items)
+
+
 # ============================ Chain ============================
 
 ALL_SYSTEM_HARDENING_SCANNERS = [
@@ -662,4 +752,5 @@ ALL_SYSTEM_HARDENING_SCANNERS = [
     scan_vbs_hvci_disabled,
     scan_roblox_page_protection,
     scan_activities_cache_timeline,
+    scan_etw_autologger_tamper,
 ]
