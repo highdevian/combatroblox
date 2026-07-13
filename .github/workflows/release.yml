@@ -27,44 +27,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install psutil pyinstaller
 
-      - name: Build telador.exe
-        run: >
-          python -m PyInstaller --onefile --console --name telador --noupx
-          --icon=icon.ico --version-file version_info.txt
-          --hidden-import psutil --hidden-import winreg --hidden-import sqlite3
-          --hidden-import zlib --hidden-import ctypes.wintypes
-          --hidden-import concurrent.futures --hidden-import live_analysis
-          --hidden-import command_history --hidden-import peripherals
-          --hidden-import fp_filter --hidden-import pe_analysis
-          --hidden-import report_signing --hidden-import diff_tool
-          --hidden-import redaction --hidden-import report_md
-          --hidden-import discord_cache --hidden-import network_scanners
-          --hidden-import fresh_install --hidden-import extra_forensics
-          --hidden-import evidence --hidden-import watch_server
-          --hidden-import sigupdate --hidden-import external_scanner
-          --hidden-import anti_forensic_deep --hidden-import scanner_registry
-          --hidden-import http.server
-          --hidden-import urllib.request --hidden-import hashlib
-          --hidden-import hmac --hidden-import service_state_scanner
-          --hidden-import system_hardening --hidden-import behavioral_tier_a
-          --hidden-import shellbag_scanner --hidden-import firewall_scanner
-          --hidden-import bits_scanner --hidden-import hijack_scanner
-          --hidden-import pca_scanner --hidden-import defender_mplog_scanner
-          --hidden-import streamproof_scanner --hidden-import os_integrity_scanner
-          --hidden-import task_execlog_scanner --hidden-import cert_store_scanner
-          --hidden-import ads_scanner --hidden-import antievasion
-          --hidden-import capture --hidden-import cleaner_tools
-          --hidden-import clock_tampering --hidden-import database
-          --hidden-import debug --hidden-import defender_tampering
-          --hidden-import dma_scanner --hidden-import forensics
-          --hidden-import persistence --hidden-import removable_media
-          --hidden-import report --hidden-import scan_coverage
-          --hidden-import scanners --hidden-import seam_scanner
-          --hidden-import timestomp_scanner --hidden-import user_accounts
-          --hidden-import version --hidden-import winevent_scanner
-          --hidden-import yara_scan --hidden-import matching
-          --hidden-import models --hidden-import win_tools
-          --paths . --collect-submodules psutil telador.py
+      - name: Verify modules load locally (pre-build sanity)
+        run: python -c "import telador; print('all imports OK')"
+
+      - name: Build telador.exe (via spec)
+        run: python -m PyInstaller --onefile --noupx telador.spec
 
       - name: Smoke test (--help)
         run: ./dist/telador.exe --help
