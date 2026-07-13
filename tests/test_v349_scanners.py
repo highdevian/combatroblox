@@ -455,7 +455,7 @@ class TestScannerChain:
         assert "scan_defender_mplog" in names
         assert "scan_streamproof_windows" in names
 
-    def test_scanner_count_bumped(self):
+    def test_scanner_count_at_least_108(self):
+        # v3.49.0 requer >= 108; futuras versões só sobem.
         import version
-        assert version.SCANNER_COUNT == 108
-        assert version.VERSION == "3.49.0"
+        assert version.SCANNER_COUNT >= 108

@@ -91,6 +91,11 @@ SOURCE_LABELS = {
     "pca_appcompat":      "PCA AppCompat Events",
     "defender_mplog":     "Defender MPLog",
     "streamproof":        "Streamproof (janela oculta)",
+    # v3.50.0 — persistência pré-boot e PKI
+    "session_manager":    "Session Manager (Boot/KnownDLLs)",
+    "lsa_package":        "LSA Package (LSASS)",
+    "task_execlog":       "Task Execlog (deletadas)",
+    "cert_root_injection":"Cert Root injetado",
     "roblox_logs":        "Roblox Logs",
     "roblox_bytecode":    "Roblox Bytecode",
     "bloxstrap":          "Bloxstrap",

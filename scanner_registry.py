@@ -60,6 +60,9 @@ def build_registry() -> list[ScannerMeta]:
     import pca_scanner
     import defender_mplog_scanner
     import streamproof_scanner
+    import os_integrity_scanner
+    import task_execlog_scanner
+    import cert_store_scanner
 
     groups: list[tuple[str, list, dict]] = [
         ("base", scanners.ALL_SCANNERS, {"in_quick": True, "cost": "low"}),
@@ -116,6 +119,15 @@ def build_registry() -> list[ScannerMeta]:
         }),
         ("streamproof", streamproof_scanner.ALL_STREAMPROOF_SCANNERS, {
             "cost": "low", "tags": ("live", "anti-ss"),
+        }),
+        ("os_integrity", os_integrity_scanner.ALL_OS_INTEGRITY_SCANNERS, {
+            "requires_admin": True, "cost": "low", "tags": ("forensic", "boot"),
+        }),
+        ("task_execlog", task_execlog_scanner.ALL_TASK_EXECLOG_SCANNERS, {
+            "requires_admin": True, "cost": "medium", "tags": ("forensic",),
+        }),
+        ("cert_store", cert_store_scanner.ALL_CERT_STORE_SCANNERS, {
+            "cost": "medium", "tags": ("forensic", "network"),
         }),
     ]
 

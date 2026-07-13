@@ -63,6 +63,9 @@ import hijack_scanner
 import pca_scanner
 import defender_mplog_scanner
 import streamproof_scanner
+import os_integrity_scanner
+import task_execlog_scanner
+import cert_store_scanner
 import winevent_scanner
 import service_state_scanner
 import seam_scanner
@@ -256,6 +259,12 @@ def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
         chain.extend(hijack_scanner.ALL_HIJACK_SCANNERS)
         chain.extend(pca_scanner.ALL_PCA_SCANNERS)
         chain.extend(defender_mplog_scanner.ALL_DEFENDER_MPLOG_SCANNERS)
+        # OS integrity (Session Manager + LSA) + Task Scheduler execlog:
+        # todos requerem admin e são baseados em log/reg — forense.
+        chain.extend(os_integrity_scanner.ALL_OS_INTEGRITY_SCANNERS)
+        chain.extend(task_execlog_scanner.ALL_TASK_EXECLOG_SCANNERS)
+    # Cert store — HKCU parcial (sem admin) + PowerShell — sempre.
+    chain.extend(cert_store_scanner.ALL_CERT_STORE_SCANNERS)
     return chain
 
 

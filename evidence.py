@@ -141,6 +141,12 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "pca_appcompat":        0.75,   # PCA event log — sobrevive a limpeza do Amcache
     "defender_mplog":       0.94,   # texto plano do Defender — sobrevive a Clear History
     "streamproof":          0.95,   # SetWindowDisplayAffinity = janela invisível a SS
+
+    # v3.50.0 — persistência pré-boot e PKI
+    "session_manager":      0.98,   # BootExecute/KnownDLLs desvio = quase certo malicioso
+    "lsa_package":          0.98,   # DLL em LSASS = raríssimo em máquina limpa
+    "task_execlog":         0.82,   # tasks deletadas ainda deixam Event 200/201
+    "cert_root_injection":  0.88,   # cert self-signed recente na raiz = MitM
 }
 
 DEFAULT_SOURCE_WEIGHT = 0.65
@@ -759,6 +765,17 @@ def _source_slug_from_name(scanner_name: str) -> str:
         ("pca ",                  "pca_appcompat"),
         ("defender mplog",        "defender_mplog"),
         ("mplog",                 "defender_mplog"),
+        # v3.50.0
+        ("session manager",       "session_manager"),
+        ("bootexecute",           "session_manager"),
+        ("knowndlls",             "session_manager"),
+        ("lsa packages",          "lsa_package"),
+        ("lsa ",                  "lsa_package"),
+        ("task scheduler execlog","task_execlog"),
+        ("tasks deletadas",       "task_execlog"),
+        ("certificate store",     "cert_root_injection"),
+        ("root ca",               "cert_root_injection"),
+        ("cert store",            "cert_root_injection"),
         # existentes
         ("startup",               "persistence"),
         ("scheduled task",        "persistence"),
