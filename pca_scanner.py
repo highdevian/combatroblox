@@ -141,8 +141,9 @@ def scan_pca_appcompat_events() -> dict:
         if not reason:
             continue
 
+        basename = fn.rsplit("\\", 1)[-1] if "\\" in fn else fn
         items.append(_item(
-            label=f"[PCA] {pn or fn.split('\\\\')[-1]}",
+            label=f"[PCA] {pn or basename}",
             detail=(f"Path: {fn}\n"
                     f"Publisher: {cn or '(vazio)'}\n"
                     f"Program name: {pn or '(vazio)'}\n"
