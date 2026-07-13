@@ -46,7 +46,25 @@ jobs:
           --hidden-import http.server
           --hidden-import urllib.request --hidden-import hashlib
           --hidden-import hmac --hidden-import service_state_scanner
-          --collect-submodules psutil telador.py
+          --hidden-import system_hardening --hidden-import behavioral_tier_a
+          --hidden-import shellbag_scanner --hidden-import firewall_scanner
+          --hidden-import bits_scanner --hidden-import hijack_scanner
+          --hidden-import pca_scanner --hidden-import defender_mplog_scanner
+          --hidden-import streamproof_scanner --hidden-import os_integrity_scanner
+          --hidden-import task_execlog_scanner --hidden-import cert_store_scanner
+          --hidden-import ads_scanner --hidden-import antievasion
+          --hidden-import capture --hidden-import cleaner_tools
+          --hidden-import clock_tampering --hidden-import database
+          --hidden-import debug --hidden-import defender_tampering
+          --hidden-import dma_scanner --hidden-import forensics
+          --hidden-import persistence --hidden-import removable_media
+          --hidden-import report --hidden-import scan_coverage
+          --hidden-import scanners --hidden-import seam_scanner
+          --hidden-import timestomp_scanner --hidden-import user_accounts
+          --hidden-import version --hidden-import winevent_scanner
+          --hidden-import yara_scan --hidden-import matching
+          --hidden-import models --hidden-import win_tools
+          --paths . --collect-submodules psutil telador.py
 
       - name: Smoke test (--help)
         run: ./dist/telador.exe --help
