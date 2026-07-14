@@ -200,6 +200,62 @@ def severity_to_color(sev: str) -> str:
     return {"critical": RED, "high": RED, "medium": YELLOW, "low": MAGENTA}.get(sev, GREY)
 
 
+def assemble_ss_live_scanners() -> list:
+    """Subset otimizado pra SS ao vivo: alvo < 45s no PC do suspeito.
+
+    Filosofia: cada scanner tem que ser (1) rápido (<3s no PC-alvo médio) e
+    (2) alto sinal pra cheat AO VIVO. Pula parsers de log grandes
+    (Get-WinEvent do PCA/TaskExec/MPLog/WinEvent), forensics pesados (YARA,
+    extra_forensics, anti_forensic_deep, ActivitiesCache SQLite) e histórico
+    de shell que não muda o veredito.
+
+    O staff usa isso na chamada — precisa de veredito rápido, não relatório
+    forense de 3 páginas. `python telador.py` full continua sendo o gold
+    standard offline.
+    """
+    chain = list(scanners.ALL_SCANNERS)
+    # Live: process tree, DLL injection, external scanner
+    chain.extend(live_analysis.ALL_LIVE_ANALYSIS_SCANNERS)
+    chain.extend(external_scanner.ALL_EXTERNAL_SCANNERS)
+    # Behavioral (dropper/AMSI/APC) — rápido, alto sinal ao vivo
+    chain.extend(behavioral_tier_a.ALL_BEHAVIORAL_TIER_A_SCANNERS)
+    # Streamproof (Winter/Solara) + clipboard atual — sinais AO VIVO puros
+    chain.extend(streamproof_scanner.ALL_STREAMPROOF_SCANNERS)
+    chain.extend(clipboard_history_scanner.ALL_CLIPBOARD_SCANNERS)
+    # Persistence rápido: só Startup/Run/WMI (schtasks é lento)
+    chain.append(persistence.scan_startup_folders)
+    chain.append(persistence.scan_run_keys)
+    chain.append(persistence.scan_wmi_persistence)
+    # System hardening: DSE/VBS/Roblox RWX — estado atual, muito rápido
+    chain.append(system_hardening.scan_dse_state)
+    chain.append(system_hardening.scan_vbs_hvci_disabled)
+    chain.append(system_hardening.scan_roblox_page_protection)
+    # Rede + Discord + Fresh + Defender + Clock + Cleaner + ADS + timestomp
+    chain.extend(network_scanners.ALL_NETWORK_SCANNERS)
+    chain.extend(discord_cache.ALL_DISCORD_SCANNERS)
+    chain.extend(fresh_install.ALL_FRESH_INSTALL_SCANNERS)
+    chain.extend(removable_media.ALL_REMOVABLE_SCANNERS)
+    chain.extend(user_accounts.ALL_USER_ACCOUNT_SCANNERS)
+    chain.extend(defender_tampering.ALL_DEFENDER_SCANNERS)
+    chain.extend(clock_tampering.ALL_CLOCK_SCANNERS)
+    chain.extend(cleaner_tools.ALL_CLEANER_SCANNERS)
+    chain.extend(ads_scanner.ALL_ADS_SCANNERS)
+    chain.extend(timestomp_scanner.ALL_TIMESTOMP_SCANNERS)
+    chain.extend(dma_scanner.ALL_DMA_SCANNERS)
+    chain.extend(service_state_scanner.ALL_SERVICE_STATE_SCANNERS)
+    # Regs rápidos: firewall, BITS, hijack, session mgr, LSA
+    chain.extend(firewall_scanner.ALL_FIREWALL_SCANNERS)
+    chain.extend(bits_scanner.ALL_BITS_SCANNERS)
+    chain.extend(hijack_scanner.ALL_HIJACK_SCANNERS)
+    chain.extend(os_integrity_scanner.ALL_OS_INTEGRITY_SCANNERS)
+    # Pula: forensics/extra_forensics/yara/winevent/anti_forensic_deep
+    # (todos leem MB de log ou hive — não cabem em 45s)
+    # Pula também: pca/task_execlog/mplog (Get-WinEvent grande)
+    # Pula: cert_store (PowerShell 45s timeout), shellbag (recursivo)
+    # Pula: peripherals/antievasion/command_history (baixo sinal ao vivo)
+    return chain
+
+
 def assemble_scanners(skip_forensics: bool, skip_antievasion: bool,
                        skip_persistence: bool = False,
                        skip_live: bool = False,
@@ -530,6 +586,8 @@ def main():
     parser.add_argument("--force-screenshot", action="store_true", help="Captura tela mesmo se gerenciador de senhas estiver aberto")
     parser.add_argument("--md",            action="store_true", help="Também salva relatório em Markdown (colável no Discord)")
     parser.add_argument("--quick",         action="store_true", help="Modo rápido: só scanners base (pula forensics/persistence/live/etc)")
+    parser.add_argument("--ss-live",       action="store_true",
+                        help="Modo SS ao vivo (alvo <45s): subset com live+external+streamproof+behavioral+hardening+rede. Pula parsers de log grandes e forensics pesados.")
     parser.add_argument("--watch",         action="store_true",
                         help="Abre um dashboard LOCAL ao vivo (127.0.0.1) mostrando scanners e veredito em tempo real. Nada sai do PC.")
     parser.add_argument("--update-sigs",   action="store_true",
@@ -664,6 +722,19 @@ def main():
         print(f"{CYAN}[QUICK]{RESET} {GREY}Modo rápido — só {len(chain)} scanners base{RESET}")
         print(f"{YELLOW}[QUICK]{RESET} {GREY}Cobertura reduzida: veredito LIMPO aqui "
               f"é INCONCLUSIVO até rodar o full scan.{RESET}")
+    elif args.ss_live:
+        # SS-live: subset otimizado pra call ao vivo (< 45s alvo).
+        chain = assemble_ss_live_scanners()
+        skipped_groups = [
+            "yara", "winevent", "extra_forensics", "anti_forensic_deep",
+            "pca", "task_execlog", "mplog", "cert_store", "shellbag",
+            "peripherals", "antievasion", "command_history",
+        ]
+        print(f"{CYAN}[SS-LIVE]{RESET} {GREY}Modo SS ao vivo — {len(chain)} scanners "
+              f"(alvo <45s){RESET}")
+        print(f"{YELLOW}[SS-LIVE]{RESET} {GREY}Cobertura focada em cheat AO VIVO "
+              f"(live+external+streamproof+behavioral+hardening). Pra forense "
+              f"pós-mortem completa rode `python telador.py` normal.{RESET}")
     else:
         if args.no_forensics:
             skipped_groups.append("forensics")
@@ -830,6 +901,29 @@ def main():
         for reason in cov.get("reasons") or []:
             print(f"{YELLOW}    · {reason}{RESET}")
         print()
+
+    # Veredito do staff — 3 bullets O QUE / POR QUÊ / O QUE FAZER.
+    # Mesmo texto do HTML report; permite decisão em call SS sem abrir browser.
+    try:
+        o_que, por_que, o_que_fazer = report.build_staff_verdict_bullets(
+            clusters, verdict_obj, cov)
+        # Cor do bloco reflete o veredito
+        if any(getattr(c, "verdict", "") in ("CONFIRMED", "DETECTED") for c in clusters):
+            head_color = RED
+        elif verdict_obj.get("inconclusive"):
+            head_color = YELLOW
+        elif any(getattr(c, "verdict", "") == "SUSPECT" for c in clusters):
+            head_color = YELLOW
+        else:
+            head_color = GREEN
+        print(f"{head_color}{BOLD}>>> VEREDITO DO STAFF <<<{RESET}")
+        print(f"  {BOLD}O quê:{RESET}        {o_que}")
+        print(f"  {BOLD}Por quê:{RESET}      {por_que}")
+        print(f"  {BOLD}O que fazer:{RESET}  {o_que_fazer}")
+        print()
+    except Exception:
+        # Nunca deve derrubar o scan por falha no bloco cosmético
+        pass
 
     # 3. HTML report
 

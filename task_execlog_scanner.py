@@ -34,14 +34,37 @@ _LEGIT_TASK_PATH_PREFIXES = (
     "%systemroot%\\", "%programfiles%\\",
     "c:\\programdata\\microsoft\\",
     "c:\\programdata\\nvidia", "c:\\programdata\\amd",
-    "c:\\programdata\\intel",
+    "c:\\programdata\\intel", "c:\\programdata\\package cache\\",
 )
 
 # Tasks de sistema conhecidas (pra dedup)
 _LEGIT_TASK_NAMES = (
     "\\microsoft\\", "\\google\\", "\\intel\\", "\\nvidia\\",
     "\\onedrive", "\\windowsupdate",
+    # Squirrel-based apps (Update.exe em %LOCALAPPDATA%\<App>\)
+    "\\discord", "\\slack", "\\github desktop", "\\githubdesktop",
+    "\\notion", "\\cursor", "\\visual studio code", "\\vscode",
+    "\\microsoft vs code", "\\code -", "\\code_",
+    "\\zoom", "\\telegram", "\\whatsapp", "\\dropbox",
+    "\\adobe", "\\creative cloud", "\\creativecloud",
+    "\\squirrel", "\\update",
+    # Roblox/Bloxstrap update tasks
+    "\\roblox", "\\bloxstrap",
+    # Riot / Steam / Epic / Ubisoft / EA
+    "\\riot", "\\valorant", "\\league of legends",
+    "\\battle.net", "\\blizzard",
+    "\\steam", "\\epic games", "\\epicgames", "\\ubisoft",
+    "\\ea desktop", "\\eadesktop", "\\origin", "\\rockstar",
+    # Voicemod / Overwolf
+    "\\voicemod", "\\overwolf",
 )
+
+# Basenames de exes de updater legítimos em user-path
+_LEGIT_UPDATER_BASENAMES = frozenset({
+    "update.exe", "squirrel.exe", "squirrelsetup.exe",
+    "setup.exe", "installer.exe", "updater.exe",
+    "onedrivelauncher.exe", "onedrive.exe",
+})
 
 
 def _powershell():
@@ -132,6 +155,11 @@ def scan_task_scheduler_execlog() -> dict:
         if any(t in task_low for t in _LEGIT_TASK_NAMES):
             continue
 
+        # Skip updaters legítimos (Squirrel Update.exe etc.) sem keyword
+        import os as _os_local
+        basename_low = _os_local.path.basename(action_low)
+        is_legit_updater = basename_low in _LEGIT_UPDATER_BASENAMES
+
         dedup = (task, action_low)
         if dedup in seen:
             continue
@@ -153,7 +181,7 @@ def scan_task_scheduler_execlog() -> dict:
             severity = sev
             matched = f"tasksched-exec:{kw}"
             reason = f"Nome de executor: {kw}"
-        elif in_user_path:
+        elif in_user_path and not is_legit_updater:
             severity = "medium"
             matched = "tasksched-userpath"
             reason = "Task rodou exe de user-path (não Windows/Program Files)"

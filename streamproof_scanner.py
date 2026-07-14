@@ -52,20 +52,34 @@ WDA_EXCLUDEFROMCAPTURE = 0x11
 _LEGIT_STREAMPROOF_PROCESSES = frozenset({
     # DRM / streaming apps
     "netflix.exe", "spotify.exe", "primevideo.exe", "hulu.exe",
-    "disneyplus.exe",
+    "disneyplus.exe", "youtubemusic.exe", "appletv.exe",
     # Browsers com secure video playback
     "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
-    "opera.exe", "operagx.exe",
+    "opera.exe", "operagx.exe", "vivaldi.exe",
     # Password managers
     "1password.exe", "bitwarden.exe", "keepass.exe", "keepassxc.exe",
-    "lastpass.exe",
+    "lastpass.exe", "dashlane.exe",
     # Meetings apps (proteção de compartilhamento)
-    "teams.exe", "zoom.exe", "webex.exe", "slack.exe",
+    "teams.exe", "ms-teams.exe", "zoom.exe", "webex.exe", "slack.exe",
+    "discord.exe", "discordcanary.exe", "discordptb.exe",
     "obs64.exe", "obs32.exe",  # OBS pode ter overlay
+    "slobs.exe", "streamlabs obs.exe",
     # Windows components
     "explorer.exe", "shellexperiencehost.exe", "searchapp.exe",
     "startmenuexperiencehost.exe", "textinputhost.exe",
-    "systemsettings.exe", "widgetservice.exe",
+    "systemsettings.exe", "widgetservice.exe", "widgets.exe",
+    "lockapp.exe", "logonui.exe", "credentialuibroker.exe",
+    "sechealthui.exe",  # Windows Security UI
+    # Xbox / Game Bar (Win11 sempre presente)
+    "gamebar.exe", "gamebarft.exe", "gamebarpresencewriter.exe",
+    "xboxpcapp.exe", "xboxpcappft.exe",
+    # Copilot (Win11 24H2+)
+    "copilot.exe", "microsoftcopilot.exe", "windowscopilot.exe",
+    # NVIDIA overlays / GeForce Experience
+    "nvidia share.exe", "nvcontainer.exe",
+    "nvidia geforce experience.exe", "nvcp.exe",
+    # AV / EDR proteções contra screen scraping
+    "windefend.exe", "msmpeng.exe", "securityhealthservice.exe",
 })
 
 

@@ -1261,25 +1261,91 @@ def _render_coverage_panel(coverage: dict | None, verdict: dict | None) -> str:
     """
 
 
+def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
+                                 coverage: dict | None) -> tuple[str, str, str]:
+    """Retorna 3 strings pro veredito staff: (o_que, por_que, o_que_fazer).
+
+    Usadas tanto no HTML quanto no console — mesma mensagem, dois canais.
+    Regra: cada bullet responde uma pergunta que o staff faz na call de SS.
+    """
+    v = (verdict or {}).get("verdict", "?")
+    confirmed = [c for c in (clusters or []) if getattr(c, "verdict", "") == "CONFIRMED"]
+    detected = [c for c in (clusters or []) if getattr(c, "verdict", "") == "DETECTED"]
+    suspect = [c for c in (clusters or []) if getattr(c, "verdict", "") == "SUSPECT"]
+
+    is_inconclusive = bool(verdict and verdict.get("inconclusive"))
+
+    # --- O QUE encontrei? ---
+    if confirmed:
+        labels = ", ".join(sorted({c.label for c in confirmed[:3]}))
+        extra = f" (+{len(confirmed) - 3})" if len(confirmed) > 3 else ""
+        o_que = f"CONFIRMADO — executor(es): {labels}{extra}"
+    elif detected:
+        labels = ", ".join(sorted({c.label for c in detected[:3]}))
+        extra = f" (+{len(detected) - 3})" if len(detected) > 3 else ""
+        o_que = f"DETECTADO — target(s): {labels}{extra}"
+    elif suspect:
+        n = len(suspect)
+        o_que = f"SUSPEITO — {n} alvo(s) com evidência parcial (sem confirmação cruzada)"
+    elif is_inconclusive:
+        o_que = "INCONCLUSIVO — cobertura forense incompleta"
+    else:
+        o_que = "LIMPO — nenhum target acima do limite de FP"
+
+    # --- POR QUE eu confio nisso? ---
+    if confirmed or detected:
+        top = (confirmed + detected)[0]
+        srcs = sorted(top.sources)
+        n_src = len(srcs)
+        first_srcs = ", ".join(_src_label(s) for s in srcs[:3])
+        more = f" (+{n_src - 3})" if n_src > 3 else ""
+        por_que = (f"{n_src} fonte(s) independente(s) apontaram pro mesmo target "
+                   f"— confidence {top.confidence_pct}% "
+                   f"[{first_srcs}{more}]")
+    elif suspect:
+        top = suspect[0]
+        por_que = (f"Fonte única ou evidência fraca — confidence {top.confidence_pct}% "
+                   f"(precisa cruzamento pra virar DETECTADO)")
+    elif is_inconclusive:
+        reason = (verdict or {}).get("inconclusive_reason", "")
+        if reason:
+            por_que = f"{reason[:180]}"
+        else:
+            por_que = ("Fontes forenses fortes (Prefetch/Amcache/BAM/Defender) "
+                       "não puderam ser lidas — provavelmente sem admin")
+    else:
+        blind = (coverage or {}).get("blind_strong", 0)
+        if blind:
+            por_que = (f"Nenhum hit real + {blind} fonte(s) forte(s) cega(s) — "
+                       f"resultado é 'sem evidência', não 'inocente'")
+        else:
+            por_que = "Nenhum artefato de executor em nenhuma das fontes cruzadas"
+
+    # --- O QUE FAZER agora? ---
+    if is_inconclusive:
+        o_que_fazer = "Rode de novo como admin (UAC) antes de fechar a SS — sem admin o veredito não vale"
+    elif confirmed or detected:
+        o_que_fazer = "Não deixa formatar/reiniciar. Copie o resumo (botão no hero) e cole no Discord da liga"
+    elif suspect:
+        o_que_fazer = "Abra as seções HIGH/MEDIUM abaixo, cruze com SS visual (Task Manager + pasta Downloads)"
+    else:
+        o_que_fazer = "Sessão OK — libere o suspeito. Ainda vale um SS visual rápido do task manager"
+
+    return o_que, por_que, o_que_fazer
+
+
 def _render_operator_tldr(clusters: list, verdict: dict | None, coverage: dict | None) -> str:
-    """Uma página de ação pro supervisor (Discord / live SS)."""
+    """Bloco 'Veredito do staff' — 3 bullets estruturados (O quê / Por quê / O que fazer).
+
+    Pareado com print_staff_verdict_console() em telador.py — mesma mensagem em
+    2 canais (call de SS lê o console; supervisor abre o HTML).
+    """
     v = (verdict or {}).get("verdict", "?")
     score = (verdict or {}).get("score", 0)
     conf = (verdict or {}).get("highest_confidence", 0)
-    lines = []
-    if verdict and verdict.get("inconclusive"):
-        lines.append("1. Não inocente: cobertura incompleta — rode de novo como admin.")
-        lines.append("2. Peça UAC e repita o scan antes de fechar a SS.")
-    elif v.startswith("CHEATER") or v.startswith("ALTAMENTE"):
-        lines.append("1. Peça pro suspeito NÃO reiniciar / formatar.")
-        lines.append("2. Revise os targets do Confidence Engine abaixo (fontes ✓).")
-        lines.append("3. Cole o resumo no Discord (botão Copiar no hero).")
-    elif "SUSPEITO" in v or "PISTAS" in v:
-        lines.append("1. Abra as seções HIGH/MEDIUM e confira paths reais.")
-        lines.append("2. Cruze com SS visual (task manager, pastas suspeitas).")
-    else:
-        lines.append("1. Ainda faça SS visual — ferramenta é heurística.")
-        lines.append("2. Confira o painel de cobertura (admin / erros).")
+
+    o_que, por_que, o_que_fazer = build_staff_verdict_bullets(
+        clusters, verdict, coverage)
 
     confirmed = [c for c in (clusters or []) if getattr(c, "verdict", "") == "CONFIRMED"]
     detected = [c for c in (clusters or []) if getattr(c, "verdict", "") == "DETECTED"]
@@ -1293,15 +1359,16 @@ def _render_operator_tldr(clusters: list, verdict: dict | None, coverage: dict |
         )
         top_html = f"<ul class='tldr-targets'>{items}</ul>"
 
-    steps_html = "".join(
-        f"<li>{_escape(s.split('. ', 1)[-1] if '. ' in s else s)}</li>" for s in lines
-    )
     return f"""
-    <section class="operator-tldr" id="tldr" aria-label="Resumo do operador">
-      <h2>Resumo do operador (30 s)</h2>
+    <section class="operator-tldr" id="tldr" aria-label="Veredito do staff">
+      <h2>Veredito do staff (30 s)</h2>
       <p class="tldr-verdict">Veredito: <strong>{_escape(str(v))}</strong>
          · score {score} · conf. máx. {conf}%</p>
-      <ol class="tldr-steps">{steps_html}</ol>
+      <dl class="tldr-staff-bullets">
+        <dt>O quê</dt><dd>{_escape(o_que)}</dd>
+        <dt>Por quê</dt><dd>{_escape(por_que)}</dd>
+        <dt>O que fazer</dt><dd>{_escape(o_que_fazer)}</dd>
+      </dl>
       {top_html}
     </section>
     """
@@ -2958,6 +3025,27 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     .tldr-steps { margin: 0 0 8px; padding-left: 1.2rem; }
     .tldr-steps li { margin: 0.25rem 0; }
     .tldr-targets { margin: 8px 0 0; padding-left: 1.1rem; color: #e8e0d2; }
+    /* 3 bullets veredito staff — layout de FAQ apertado */
+    .tldr-staff-bullets {
+        margin: 4px 0 8px;
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        column-gap: 12px;
+        row-gap: 4px;
+        align-items: baseline;
+    }
+    .tldr-staff-bullets dt {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 11px;
+        color: var(--accent, #d8a24f);
+    }
+    .tldr-staff-bullets dd {
+        margin: 0;
+        color: #e8e0d2;
+        line-height: 1.35;
+    }
     .coverage-panel.cov-bad { border-left: 3px solid oklch(0.78 0.12 85); }
     .coverage-panel.cov-ok { border-left: 3px solid oklch(0.72 0.14 160); }
     .cov-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

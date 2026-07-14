@@ -29,11 +29,21 @@ _LEGIT_BITS_DISPLAY_NAMES = (
     "google update", "chrome update", "chrome",
     "edge component updater", "edge update", "microsoft edge",
     "msedge", "edge ",
+    "brave update", "firefox update", "mozilla update",
+    "opera update", "vivaldi update",
     "onedrive", "office", "teams",
     "windowsdefender", "mpsigstub", "defender",
     "delivery optimization",
     "store", "xbox", "winget", "app installer",
-    "visual studio", "nuget",
+    "visual studio", "nuget", "vscode", "cursor",
+    # Roblox bootstrapper baixa updates via BITS
+    "roblox", "bloxstrap", "fishstrap",
+    # Steam / Epic / Battle.net updaters
+    "steam", "epic", "battle.net", "blizzard",
+    # NVIDIA / AMD / Intel drivers
+    "nvidia", "geforce", "amd", "radeon", "intel driver",
+    # Adobe / creative cloud
+    "adobe", "creative cloud",
 )
 
 # Owner de jobs legítimos do sistema

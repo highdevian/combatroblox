@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.52.0] - 2026-07-14
+
+**PLANO_ECHO_TIER Semana 1 — modo SS ao vivo + veredito staff + anti-FP baseline.**
+
+### Novo: `--ss-live` (alvo < 45 s)
+
+- Subset de 71 scanners otimizado pra chamada de SS ao vivo. Foca em sinais
+  AO VIVO fortes (streamproof, external, live_analysis, behavioral, hardening,
+  rede, hijack rápido) e pula parsers de log grandes (PCA / TaskExec / MPLog /
+  WinEvent / Amcache / ActivitiesCache SQLite / cert-store PowerShell).
+- Cobertura reduzida vs. full scan é intencional — o full continua sendo o
+  gold standard pós-mortem. `--ss-live` existe pra call, não pra relatório.
+- Ficam de fora: `pca_scanner`, `task_execlog_scanner`, `defender_mplog_scanner`,
+  `winevent_scanner`, `cert_store_scanner`, `shellbag_scanner`,
+  `scan_activities_cache_timeline`, `scheduled_tasks` (schtasks), YARA,
+  `extra_forensics`, `anti_forensic_deep`, `command_history`, `peripherals`,
+  `antievasion`.
+
+### Veredito do staff (3 bullets — O quê / Por quê / O que fazer)
+
+- Novo bloco no console DEPOIS do overview + no HTML report (`operator-tldr`
+  reestruturado). Uma linha responde cada pergunta que o staff faz na call:
+  o que foi encontrado, por que confiamos (quantas fontes cruzaram), e a
+  ação concreta ("Não deixa formatar" / "Rode como admin" / "Libere").
+- Cor do bloco reflete o pior veredito (vermelho pra CONFIRMED/DETECTED,
+  amarelo pra SUSPECT/INCONCLUSIVO, verde pra LIMPO).
+- Helper puro (`report.build_staff_verdict_bullets`) — testável, mesma
+  mensagem no HTML e no console.
+
+### Anti-FP baseline gamer/dev (v3.48–v3.51 residual)
+
+- **Firewall** (`firewall_scanner`): whitelist ampliada com Roblox
+  (`RobloxPlayerBeta.exe`, `RobloxPlayerLauncher.exe`, `RobloxStudioBeta.exe`,
+  `Bloxstrap.exe`), Riot (`RiotClientServices.exe`, `Valorant.exe`),
+  Battle.net, Origin, Ubisoft Connect, Rockstar, Squirrel `Update.exe`,
+  Vanguard `vgc.exe`, FACEIT, Malwarebytes user-mode.
+- **Streamproof** (`streamproof_scanner`): `widgets.exe`, Xbox Game Bar
+  (`gamebar.exe`, `gamebarft.exe`, `gamebarpresencewriter.exe`), Copilot,
+  Windows Security UI, Discord/Slack (overlay), NVIDIA GeForce Experience.
+- **Cert Store** (`cert_store_scanner`): CAs de baseline faltando
+  (`baltimore`, `t-systems`, `teliasonera`, `swisscom`, `ssl.com`,
+  `ac raiz fnmt-rcm`, `certigna`, `certinomis`, `microsec e-szigno`,
+  `sslcom`, `digital signature trust`, `hongkong` etc.). Dev/localhost
+  self-signed: `mkcert`, `localhost`, `iis express`, `dev-certs`,
+  `dotnet-httpsdevcert`, `asp.net core`, `kestrel`, `docker`, `kubernetes`,
+  `minikube`.
+- **Task Scheduler execlog** (`task_execlog_scanner`): Squirrel-based
+  updaters não flaggam mais — task names de Discord/Slack/Cursor/VS Code/
+  Zoom/GitHub Desktop/Notion/Dropbox/Adobe/Steam/Epic/Riot/EA/Origin/
+  Rockstar/Voicemod/Overwolf/Roblox/Bloxstrap. `Update.exe`,
+  `Squirrel.exe`, `OneDriveLauncher.exe` skippados quando sem keyword.
+- **PCA event log** (`pca_scanner`): user-path sem publisher só flagga se
+  basename não for updater/runtime conhecido (`Update.exe`, `python.exe`,
+  `node.exe`, `RobloxPlayerBeta.exe`, `Bloxstrap.exe` etc.).
+- **BITS** (`bits_scanner`): whitelist expandida — Brave/Firefox/Opera/Vivaldi
+  update, Roblox/Bloxstrap/Fishstrap, Steam/Epic/Battle.net, NVIDIA/AMD/Intel,
+  Adobe/Creative Cloud, VS Code, Cursor.
+
+### Testes
+
+- Novo `tests/test_v352_antifp.py` (32 testes): cada scanner anti-FP tem o
+  cenário concreto de FP + a asserção "nada flaggado" + o teste
+  simétrico "hit malicioso continua flaggando".
+- Suite: **806 verdes** (774 + 32).
+
+### Zero regressão de detecção
+
+- Todos os cenários maliciosos continuam batendo: cheat CA com nome suspeito
+  → CRITICAL; Squirrel na wild com nome random → tasksched-userpath medium;
+  streamproof em processo desconhecido → HIGH; user-path sem publisher com
+  nome dropper → medium.
+
 ## [3.51.2] - 2026-07-13
 
 **UX do veredito + ruído residual de SS em PC de dev/gamer.**

@@ -42,11 +42,23 @@ _TRUSTED_CA_MARKERS = (
     "so.g.e.i.", "d-trust", "trustcor", "actalis", "izenpe",
     "hellenic academic", "atos", "camerfirma", "chunghwa telecom",
     "e-me", "asseco", "tw ca", "quovadis root", "certsign",
+    # CAs também comuns em Win11 baseline / OEM
+    "baltimore", "t-systems", "teliasonera", "telia sonera", "swisscom",
+    "ssl.com", "dst root", "dfn-verein", "starcom",
+    "ac raiz fnmt-rcm", "fnmt", "izenpe", "acraiz",
+    "certigna", "certinomis", "e-guven", "government of turkey",
+    "türkiye", "hongkong", "microsec e-szigno",
+    "sslcom", "gigatrust", "digital signature trust",
+    "consorci aoc", "cca india", "camerasoft",
     # Enterprises / tools comuns
     "cisco", "juniper", "ibm", "oracle", "vmware", "citrix",
     "logmein", "teamviewer", "anydesk", "zoom",
     # Autohotkey / dev tools que instalam self-signed local (dual-use, não MitM)
     "autohotkey",
+    # Dev/localhost self-signed (mkcert, dotnet dev-certs, IIS Express, docker)
+    "mkcert", "localhost", "iis express", "development",
+    "dotnet-httpsdevcert", "asp.net core", "kestrel",
+    "docker", "kubernetes", "minikube",
     # Antivirus
     "kaspersky", "eset", "bitdefender", "avast", "avg",
     "malwarebytes", "sophos", "trend micro",

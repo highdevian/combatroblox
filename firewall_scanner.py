@@ -47,13 +47,46 @@ _LEGIT_APP_BASENAMES = frozenset({
     "discord.exe", "discordcanary.exe", "discordptb.exe",
     "steam.exe", "steamwebhelper.exe", "steamerrorreporter.exe",
     "spotify.exe", "obs64.exe", "obs32.exe", "obs.exe",
+    "streamlabs obs.exe", "slobs.exe",
     "nvcontainer.exe", "nvidia share.exe", "nvidia web helper.exe",
+    "nvidia geforce experience.exe",
     "epicgameslauncher.exe", "fortniteclient-win64-shipping.exe",
+    "epicwebhelper.exe", "epicgameslauncher-mac-shipping.exe",
     "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+    "opera.exe", "operagx.exe", "vivaldi.exe",
     "slack.exe", "teams.exe", "ms-teams.exe", "zoom.exe",
     "code.exe", "cursor.exe", "devenv.exe",
+    "code - insiders.exe", "windsurf.exe", "antigravity.exe",
     "wallpaperengine.exe", "rainmeter.exe",
     "overwolf.exe", "medal.exe", "geforcenow.exe",
+    # Roblox (rodam de %LOCALAPPDATA%\Roblox\Versions\version-XXXX\)
+    "robloxplayerbeta.exe", "robloxplayerlauncher.exe",
+    "robloxstudiobeta.exe", "roblox.exe",
+    "bloxstrap.exe",  # bootstrapper open-source legítimo
+    # Riot / Battle.net / Origin / Ubisoft / Rockstar (rodam de user path)
+    "riotclientservices.exe", "riotclientux.exe", "riotclientcrashhandler.exe",
+    "valorant.exe", "valorant-win64-shipping.exe",
+    "leagueclient.exe", "leagueclientux.exe",
+    "battle.net.exe", "agent.exe",
+    "origin.exe", "eadesktop.exe", "ealauncher.exe",
+    "upc.exe", "ubisoftconnect.exe", "ubisoftgamelauncher.exe",
+    "rockstargameslauncher.exe", "launcher.exe", "playgtav.exe",
+    # Squirrel-based updaters (Electron apps)
+    "update.exe", "squirrel.exe", "squirrelsetup.exe",
+    # Comms / social
+    "telegram.exe", "whatsapp.exe", "signal.exe",
+    "github desktop.exe", "githubdesktop.exe",
+    "notion.exe", "notion helper.exe",
+    "dropbox.exe", "dropboxupdate.exe",
+    # Devs & tools (às vezes rodam de user path)
+    "python.exe", "pythonw.exe", "node.exe", "npm.exe",
+    "docker desktop.exe", "docker.exe",
+    "insomnia.exe", "postman.exe",
+    # Anti-cheat / anti-spy legítimos
+    "vgc.exe", "vgtray.exe",  # Vanguard
+    "faceit.exe", "faceitclient.exe",
+    # AV / EDR user-mode (raro em user path mas acontece)
+    "malwarebytes.exe", "mbam.exe",
 })
 
 _RE_APP = re.compile(r"[Aa]pp=([^|]+)")

@@ -30,6 +30,20 @@ import matching
 _PCA_CHANNEL = "Microsoft-Windows-Application-Experience/Program-Inventory"
 
 
+# Basenames de apps que rodam de user-path SEM CompanyName (Squirrel/Electron
+# minimal metadata, updaters). Não flaggar por "sem publisher" sozinho.
+_PCA_LEGIT_NOPUB_BASENAMES = frozenset({
+    "update.exe", "squirrel.exe", "squirrelsetup.exe",
+    "setup.exe", "installer.exe", "updater.exe",
+    "python.exe", "pythonw.exe", "node.exe",
+    "npm.exe", "pip.exe", "pipx.exe",
+    "code.exe", "cursor.exe", "code - insiders.exe",
+    # Roblox / Bloxstrap (identidade legítima às vezes sem publisher no PCA)
+    "robloxplayerbeta.exe", "robloxplayerlauncher.exe",
+    "robloxstudiobeta.exe", "roblox.exe", "bloxstrap.exe",
+})
+
+
 def _powershell():
     if HAS_WIN_TOOLS:
         return win_tools.powershell()
@@ -132,7 +146,8 @@ def scan_pca_appcompat_events() -> dict:
             in_user_path = any(t in fn_low for t in (
                 "\\users\\", "\\downloads\\", "\\temp\\", "\\appdata\\local\\temp",
             ))
-            if in_user_path and not cn.strip():
+            basename_low = fn_low.rsplit("\\", 1)[-1] if "\\" in fn_low else fn_low
+            if in_user_path and not cn.strip() and basename_low not in _PCA_LEGIT_NOPUB_BASENAMES:
                 reason = "Executado em user-path sem publisher"
                 severity = "medium"
                 matched = "pca-userpath-nopublisher"
