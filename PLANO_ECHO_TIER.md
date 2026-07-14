@@ -190,12 +190,13 @@ Alinha com a ideia de **13–25/07 detecção/bugs/FP/bypass** e **depois** cami
 
 ## Checklist semanal (imprimir)
 
-### Semana 1
-- [ ] `--ss-live` ou equivalente &lt; 45s  
-- [ ] Veredito staff 3 linhas no HTML  
-- [ ] FP baseline Win = 0 em gamer limpo  
-- [ ] `build.bat` usa `telador.spec`  
-- [ ] Release 3.52.x  
+### Semana 1 — ✅ fechada em 14/07 com v3.52.0 → v3.52.4
+- [x] `--ss-live` (71 scanners, medido 21.8s no PC dev — target &lt; 45s ✅)
+- [x] Veredito staff 3 linhas — HTML + console + Discord md + JSON (`build_staff_verdict_bullets`)
+- [x] Anti-FP baseline gamer/dev: 7 scanners endurecidos + 40+ testes em `tests/test_v352_antifp.py`
+- [x] `build.bat` usa `telador.spec` (era destrutivo — apagava o `.spec`)
+- [x] Release 3.52.x (5 releases: 3.52.0 → 3.52.4)
+- [x] Bonus: Winter Bypass/Fishstrap no core (era só opt-in), sigs 2026.07.14 (+62)
 
 ### Semana 2
 - [ ] GUI com 1 botão Iniciar  
@@ -227,11 +228,21 @@ Alinha com a ideia de **13–25/07 detecção/bugs/FP/bypass** e **depois** cami
 
 ---
 
-## Próximo passo imediato (hoje / amanhã)
+## Próximo passo imediato (Semana 2 começa 20/07)
 
-1. Congelar feature bagunçada: **só S1**.  
-2. Implementar **`--ss-live`** (subset de chain + meta de tempo).  
-3. Bloco **“Veredito do staff”** no HTML (3 bullets).  
-4. Rodar 1 scan gamer limpo + 1 dev + anotar FPs.
+**Semana 1 está fechada** — motor pronto pra call de SS. Foco agora vira UX.
 
-Quando quiser executar o plano no código, comece por: *“implementa --ss-live e o bloco veredito staff do PLANO_ECHO_TIER”*.
+1. **GUI mínima** (P0 da Semana 2): 1 botão Iniciar → progresso → veredito
+   grande com semáforo verde/amarelo/vermelho → [Abrir HTML] [Copiar
+   Discord] [Sair]. Já tem `--watch` (dashboard local) — vira default da GUI.
+2. **UAC no clique** (P0): se usuário negar admin → tela "INCONCLUSIVO,
+   peça admin", não roda scan limitado silenciosamente.
+3. **Zip de distribuição** (P1): `Telador-v3.53.zip` = `.exe` + `INICIAR.bat`
+   + `TELADOR-AO-VIVO.bat` + playbook 1 página (PDF/MD).
+4. **Landing mínimo** (P1): página `/` com download latest + SHA256 + 3
+   screenshots + link pro `/playbook` de call de SS.
+
+Release-alvo Semana 2: **v3.53.0 — "Telador com interface"**.
+
+Quando começar Semana 2: *"implementa a GUI mínima do PLANO_ECHO_TIER
+Semana 2, começando pelo P0 (janela + botão + tela de veredito)."*
