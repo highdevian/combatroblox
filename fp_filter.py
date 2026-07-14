@@ -29,12 +29,19 @@ DEV_INDICATORS = [
     r"%PROGRAMFILES(X86)%\JetBrains",
     r"%LOCALAPPDATA%\Programs\Microsoft VS Code",
     r"%LOCALAPPDATA%\Programs\Cursor",
+    r"%LOCALAPPDATA%\Programs\Antigravity",
+    r"%LOCALAPPDATA%\Programs\Zed",
     r"%LOCALAPPDATA%\JetBrains",
     r"%USERPROFILE%\.vscode",
     r"%USERPROFILE%\.cursor",
     r"%USERPROFILE%\.idea",
+    r"%USERPROFILE%\.zed",
+    r"%USERPROFILE%\.config\nvim",
     r"%LOCALAPPDATA%\Programs\Windsurf",
+    r"%LOCALAPPDATA%\Programs\Fleet",
     r"%APPDATA%\Code",
+    r"%APPDATA%\Sublime Text",
+    r"%APPDATA%\Sublime Text 3",
 
     # Runtimes / SDKs
     r"%PROGRAMFILES%\Python311",
@@ -42,16 +49,32 @@ DEV_INDICATORS = [
     r"%PROGRAMFILES%\Python313",
     r"%PROGRAMFILES%\Python314",
     r"%LOCALAPPDATA%\Programs\Python",
+    r"%LOCALAPPDATA%\Programs\Python\Python311",
+    r"%LOCALAPPDATA%\Programs\Python\Python312",
+    r"%LOCALAPPDATA%\Programs\Python\Python313",
     r"%PROGRAMFILES%\nodejs",
+    r"%APPDATA%\npm",
+    r"%USERPROFILE%\.npm",
     r"%PROGRAMFILES%\dotnet",
     r"%PROGRAMFILES%\Git",
     r"%PROGRAMFILES(X86)%\Git",
     r"%PROGRAMFILES%\Docker",
+    r"%LOCALAPPDATA%\Docker",
     r"%PROGRAMFILES%\CMake",
     r"%PROGRAMFILES%\LLVM",
     r"%PROGRAMFILES%\Go",
+    r"%USERPROFILE%\go",
     r"%USERPROFILE%\.rustup",
     r"%USERPROFILE%\.cargo",
+    r"%PROGRAMFILES%\Java",
+    r"%USERPROFILE%\.m2",  # Maven local repo
+    r"%USERPROFILE%\.gradle",
+    r"%USERPROFILE%\anaconda3",
+    r"%USERPROFILE%\miniconda3",
+    r"%PROGRAMDATA%\anaconda3",
+    # WSL — presença do WSL indica dev quase certo
+    r"%LOCALAPPDATA%\Packages\CanonicalGroupLimited.Ubuntu",
+    r"%LOCALAPPDATA%\Packages\CanonicalGroupLimited.UbuntuonWindows",
 
     # Source folders (Microsoft convention + comuns)
     r"%USERPROFILE%\source\repos",
@@ -61,6 +84,9 @@ DEV_INDICATORS = [
     r"%USERPROFILE%\Developer",
     r"%USERPROFILE%\Projects",
     r"%USERPROFILE%\github",
+    r"%USERPROFILE%\workspace",
+    r"%USERPROFILE%\code",
+    r"%USERPROFILE%\repos",
 ]
 
 
