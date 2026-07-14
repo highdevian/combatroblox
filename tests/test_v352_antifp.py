@@ -487,6 +487,33 @@ class TestStaffVerdictBullets:
         assert "Por quê" in html
         assert "O que fazer" in html
 
+    def test_copy_button_summary_includes_bullets(self):
+        """Botao 'Copiar resumo' deve incluir os 3 bullets no data-summary."""
+        import report
+
+        class FakeCluster:
+            def __init__(self):
+                self.label = "Solara"
+                self.verdict = "CONFIRMED"
+                self.confidence_pct = 92
+                self.sources = ["prefetch", "amcache"]
+                self.score = 8.0
+                self.n_sources = 2
+                self.evidences = [type("E",(),{"source":s})() for s in self.sources]
+                self.first_seen = None
+                self.kind = "executor"
+                self.worst_severity = "critical"
+
+        html = report._render_hero_verdict(
+            [FakeCluster()],
+            {"verdict": "CHEATER", "score": 42, "highest_confidence": 92})
+        # O data-summary do botao Copiar deve ter os 3 marcadores
+        assert "O qu&ecirc;" in html or "O quê:" in html, \
+            "copy summary sem 'O que'"
+        assert "Por qu&ecirc;" in html or "Por quê:" in html, \
+            "copy summary sem 'Por que'"
+        assert "O que fazer" in html, "copy summary sem 'O que fazer'"
+
 
 # ============================================================
 # behavioral_tier_a.scan_scheduled_task_dropper — Squirrel updaters

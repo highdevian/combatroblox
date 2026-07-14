@@ -148,9 +148,22 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         cards_wrapper = f'<div class="hv-cards">{cards_html}</div>'
 
     # Resumo em texto puro pro botão "Copiar" — supervisor cola no Discord.
+    # Inclui 3-bullets veredito staff no topo pra dar contexto imediato pro
+    # canal (senão o supervisor cola só a lista de targets sem "o que fazer").
     summary_lines = [f"TELADOR — {headline}"]
     if global_conf is not None:
         summary_lines[0] += f" ({global_conf}%)"
+    try:
+        o_que, por_que, o_que_fazer = build_staff_verdict_bullets(
+            clusters, verdict, (verdict or {}).get("coverage"))
+        summary_lines.append("")
+        summary_lines.append(f"• O quê: {o_que}")
+        summary_lines.append(f"• Por quê: {por_que}")
+        summary_lines.append(f"• O que fazer: {o_que_fazer}")
+        if confirmed or detected or suspect:
+            summary_lines.append("")
+    except Exception:
+        pass
     for c in (confirmed + detected + suspect)[:6]:
         srcs = ", ".join(_src_label(s) for s in sorted(c.sources))
         summary_lines.append(
