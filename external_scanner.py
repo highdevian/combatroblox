@@ -148,6 +148,29 @@ _FAMILY_CATALOG: dict[str, dict] = {
         "basenames": ["bauix", "bauix external"],
         "aliases": ["bauixexternal"],
     },
+    "winter": {
+        # Winter Bypass — IoC 07/2026. Loader/wrapper (Fishstrap) +
+        # streamproof + RobloxCrashHandler.exe como masquerade.
+        # Distintivo: WEAO-LIVE-WindowsPlayer aparece em Prefetch/Amcache.
+        "label": "Winter Bypass (loader/wrapper via Fishstrap; streamproof)",
+        "severity": "high",
+        "processes": [
+            "winter.exe", "winterbypass.exe", "winter-bypass.exe",
+            "winter_bypass.exe", "winterexecutor.exe", "fishstrap.exe",
+            "weao-live-windowsplayer.exe",
+        ],
+        "tokens": [
+            "winter bypass", "winter-bypass", "winter_bypass",
+            "winterbypass", "winter executor", "fishstrap",
+            "weao-live-windowsplayer", "weao live",
+        ],
+        "basenames": [
+            "winter bypass", "winter-bypass", "winter_bypass",
+            "winterbypass", "fishstrap", "weao-live-windowsplayer",
+        ],
+        "aliases": ["winterbypass", "fishstrap", "weao"],
+        # NÃO: bare "winter" (nome próprio comum), bare "weao"
+    },
     "sheldon": {
         "label": "Sheldon External (free/showcase)",
         "severity": "high",
@@ -2189,8 +2212,13 @@ def scan_post_roblox_processes() -> dict:
 
             if _is_process_whitelisted(pname, _FOOTPRINT_WHITELIST, exe):
                 continue
+            # RobloxCrashHandler/Launcher LEGÍTIMOS moram em Roblox\Versions.
+            # Winter Bypass masquerada como RobloxCrashHandler roda de user
+            # path (Downloads/Temp) — não pode escapar por nome só.
             if pname in {"robloxcrashhandler.exe", "robloxlauncher.exe"}:
-                continue
+                low_exe_check = exe.lower().replace("/", "\\")
+                if "\\roblox\\versions\\" in low_exe_check:
+                    continue
 
             low_exe = exe.lower().replace("/", "\\")
             if low_exe.startswith(_LEGIT_PATH_PREFIXES):

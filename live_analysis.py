@@ -755,8 +755,9 @@ def scan_roblox_launcher_integrity() -> dict:
     Anti-FP (validado: 9 binários oficiais nesta máquina, todos assinados):
       - Só flaga assinatura COMPROVADAMENTE quebrada (False), nunca
         indeterminada (None).
-      - Bloxstrap/Fishstrap (alternativas legítimas) usam o RobloxPlayerBeta
-        oficial assinado — não caem aqui.
+      - Bloxstrap (bootstrapper open-source legítimo) usa RobloxPlayerBeta
+        oficial assinado — não cai aqui. Fishstrap NÃO — descoberto em
+        07/2026 como wrapper do Winter Bypass.
       - Instalador oficial assinado em Downloads é ignorado.
     """
     items = []

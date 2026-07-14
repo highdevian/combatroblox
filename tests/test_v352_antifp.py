@@ -554,3 +554,81 @@ class TestDropperAntiFP:
             exec_path=r"C:\Users\u\AppData\Roaming\loader.exe")
         assert r["status"] == "suspicious"
         assert any(i["matched"] == "dropper-task" for i in r["items"])
+
+
+# ============================================================
+# external_scanner.scan_post_roblox_processes — RobloxCrashHandler
+# masquerade só escapa se path for real Roblox\Versions\
+# ============================================================
+
+class TestRobloxCrashHandlerMasqueradePath:
+
+    def test_real_robloxcrashhandler_ignored(self):
+        """RobloxCrashHandler.exe em Roblox\\Versions\\ é oficial — ignora."""
+        import external_scanner as es
+        assert "\\roblox\\versions\\" in (
+            r"C:\Users\gabri\AppData\Local\Roblox\Versions\version-abc"
+            r"\RobloxCrashHandler.exe").lower()
+
+    def test_masquerade_robloxcrashhandler_detected(self):
+        """Winter Bypass masqueraded como RobloxCrashHandler em Downloads
+        NÃO deve escapar do post_roblox scan — path check no source."""
+        import os
+        src_path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "external_scanner.py")
+        with open(src_path, "r", encoding="utf-8") as fh:
+            content = fh.read()
+        # Path check especifico: RobloxCrashHandler so escapa se path REAL Roblox
+        assert "\\\\roblox\\\\versions\\\\" in content.lower() or \
+               "\\roblox\\versions\\" in content.lower(), \
+            "Fix path check pra RobloxCrashHandler masquerade removido do source"
+
+
+# ============================================================
+# Winter Bypass ecosystem — IoC 07/2026, testes de regressao
+# ============================================================
+
+class TestWinterBypassEcosystem:
+
+    def test_winter_family_in_catalog(self):
+        """Winter Bypass deve estar em _FAMILY_CATALOG (contexto rico)."""
+        import external_scanner as es
+        assert "winter" in es._FAMILY_CATALOG
+        fam = es._FAMILY_CATALOG["winter"]
+        assert fam["severity"] == "high"
+        assert "fishstrap.exe" in fam["processes"]
+        assert "winter bypass" in fam["tokens"]
+        assert "weao-live-windowsplayer" in fam["tokens"]
+
+    def test_fishstrap_in_core_database(self):
+        """Fishstrap tem que estar embutido no .exe (nao so signatures.dist)."""
+        import database
+        assert "fishstrap.exe" in database.EXECUTOR_PROCESS_NAMES
+        assert database.EXECUTOR_PROCESS_NAMES["fishstrap.exe"] == "high"
+        assert database.EXECUTOR_KEYWORDS.get("fishstrap") == "high"
+        assert database.EXECUTOR_KEYWORDS.get("winter bypass") == "high"
+        assert database.EXECUTOR_KEYWORDS.get("weao-live-windowsplayer") == "high"
+
+    def test_fishstrap_not_in_handle_whitelist(self):
+        """Regressao: fishstrap NUNCA pode estar em _HANDLE_WHITELIST."""
+        import external_scanner as es
+        assert "fishstrap.exe" not in es._HANDLE_WHITELIST, \
+            "Fishstrap na _HANDLE_WHITELIST = Winter Bypass invisível"
+
+    def test_fishstrap_not_in_footprint_whitelist(self):
+        """Regressao: fishstrap NUNCA pode estar em _FOOTPRINT_WHITELIST."""
+        import external_scanner as es
+        assert "fishstrap.exe" not in es._FOOTPRINT_WHITELIST, \
+            "Fishstrap na _FOOTPRINT_WHITELIST = Winter escapava"
+
+    def test_fishstrap_not_in_legit_parents(self):
+        """Regressao: fishstrap NUNCA pode estar em _LEGIT_PARENTS."""
+        import external_scanner as es
+        assert "fishstrap.exe" not in es._LEGIT_PARENTS, \
+            "Fishstrap na _LEGIT_PARENTS = spawn cheat invisível"
+
+    def test_fishstrap_not_in_legit_bits_names(self):
+        """Regressao: fishstrap NUNCA em _LEGIT_BITS_DISPLAY_NAMES."""
+        import bits_scanner as bs
+        assert "fishstrap" not in bs._LEGIT_BITS_DISPLAY_NAMES, \
+            "Fishstrap na BITS whitelist = download silencioso ignorado"

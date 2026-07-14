@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.52.2] - 2026-07-14
+
+**Winter Bypass ecosystem — família dedicada + regression coverage.**
+
+### Novo
+
+- **Family entry Winter no `external_scanner._FAMILY_CATALOG`** — antes
+  Fishstrap/Winter só casavam por keyword genérico (severidade high mas
+  sem label rico). Agora tem label ("Winter Bypass — loader/wrapper via
+  Fishstrap; streamproof"), lista canônica de processes/tokens/basenames
+  e alimenta as detecções de handle/footprint/overlay como family conhecida.
+
+### Bugs corrigidos
+
+- **`scan_post_roblox_processes`**: `robloxcrashhandler.exe` era skippado
+  por nome (sem checar path). Winter Bypass masquerada como
+  `RobloxCrashHandler.exe` em Downloads escapava. Agora só skippa se o
+  path contém `\Roblox\Versions\` (Roblox oficial).
+- Comentários em `database.py` e `live_analysis.py` que chamavam
+  Fishstrap de "legítimo" — corrigidos.
+
+### Testes
+
+- **6 novos testes de regressão em `TestWinterBypassEcosystem`** — se
+  alguém futuramente re-adicionar Fishstrap a qualquer whitelist
+  (_HANDLE_WHITELIST, _FOOTPRINT_WHITELIST, _LEGIT_PARENTS,
+  _LEGIT_BITS_DISPLAY_NAMES), o CI quebra.
+- Suite: **822 verdes** (+8 vs 3.52.1).
+
 ## [3.52.1] - 2026-07-14
 
 **Bugfix crítico: Fishstrap/Winter Bypass no core (era só opt-in).**

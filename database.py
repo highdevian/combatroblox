@@ -396,7 +396,8 @@ EXECUTOR_KEYWORDS = {
     # ===== Evasão de ban e contas alt =====
     # Gerenciadores de alt / multi-instância: MEDIUM (rodar várias contas
     # não prova cheat, mas é sinal forte de botting/alt evasion num SS).
-    # NÃO inclui "fps unlocker"/"bloxstrap"/"fishstrap" (legítimos).
+    # NÃO inclui "fps unlocker"/"bloxstrap" (legítimos). Fishstrap NÃO é
+    # legítimo — descoberto em 07/2026 como wrapper do Winter Bypass.
     "roblox account manager": "medium",
     "rbx account manager":    "medium",
     "alt manager":            "medium",
