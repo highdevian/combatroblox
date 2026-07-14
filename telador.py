@@ -557,12 +557,51 @@ def print_overview(findings: list, verdict: dict | None = None) -> None:
     print(f"{color}{BOLD}>>> VEREDITO: {verdict['verdict']} (score {verdict['score']}) <<<{RESET}\n")
 
 
-def save_json(findings: list, sys_info: dict) -> str:
+def save_json(findings: list, sys_info: dict,
+              verdict: dict = None, clusters: list = None,
+              coverage: dict = None) -> str:
+    """Export machine-readable do scan completo.
+
+    Inclui system + findings + veredito (com score e cores) + clusters do
+    Confidence Engine (serializados) + coverage + veredito staff 3-bullets.
+    Facilita integração externa (dashboard, bot Discord, comparação de sessões).
+    """
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = os.path.join(tempfile.gettempdir(), f"telador_relatorio_{ts}.json")
-    payload = {"system": sys_info, "findings": findings}
+
+    clusters_serialized = []
+    for c in (clusters or []):
+        clusters_serialized.append({
+            "label": getattr(c, "label", ""),
+            "kind": getattr(c, "kind", ""),
+            "verdict": getattr(c, "verdict", ""),
+            "confidence_pct": getattr(c, "confidence_pct", 0),
+            "score": getattr(c, "score", 0),
+            "worst_severity": getattr(c, "worst_severity", ""),
+            "n_sources": getattr(c, "n_sources", 0),
+            "sources": sorted(getattr(c, "sources", [])),
+        })
+
+    staff_bullets = None
+    try:
+        o, p, a = report.build_staff_verdict_bullets(
+            clusters or [], verdict or {}, coverage)
+        staff_bullets = {
+            "o_que": o, "por_que": p, "o_que_fazer": a,
+        }
+    except Exception:
+        pass
+
+    payload = {
+        "system": sys_info,
+        "verdict": verdict,
+        "clusters": clusters_serialized,
+        "coverage": coverage,
+        "staff_verdict_bullets": staff_bullets,
+        "findings": findings,
+    }
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2, ensure_ascii=False)
+        json.dump(payload, fh, indent=2, ensure_ascii=False, default=str)
     return path
 
 
@@ -947,7 +986,9 @@ def main():
 
     json_path = None
     if args.json:
-        json_path = save_json(findings, sys_info)
+        json_path = save_json(findings, sys_info,
+                              verdict=verdict_obj, clusters=clusters,
+                              coverage=cov)
         print(f"{GREEN}✓ Relatório JSON:{RESET} {json_path}")
 
     # Markdown export (sempre útil na SS; --md mantém, e auto se --codigo)
