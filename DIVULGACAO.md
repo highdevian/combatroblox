@@ -20,11 +20,14 @@ de marketing e queima credibilidade no primeiro falso positivo).
 > 10 segundos.
 > ➤ **Pega executor renomeado.** Não depende só do nome do arquivo — detecta
 > pela estrutura. Renomear `solara.exe` pra `roblox.exe` não engana.
-> ➤ **Pega bypass privado.** 97 scanners: além dos executores conhecidos,
+> ➤ **Pega bypass privado.** 113 scanners: além dos executores conhecidos,
 > checa o **estado do Windows** (DSE / VBS / HVCI desativados = cheater ligou
 > pra rodar driver custom), **memória do Roblox** (páginas RWX = patch
-> in-memory), **AMSI patcheado**, **APC injection** e **timeline SQLite** que
-> cleaner popular não sabe limpar.
+> in-memory), **AMSI patcheado**, **APC injection**, **streamproof**
+> (janela do cheat oculta de OBS/screen share — Winter Bypass/Solara) e
+> **timeline SQLite** que cleaner popular não sabe limpar.
+> ➤ **Modo SS ao vivo** (`--ss-live`, novo em v3.52): scan em < 45 s com
+> os sinais que importam pra call de SS — sem esperar log parse pesado.
 > ➤ **Dashboard ao vivo, 100% local.** Roda em `127.0.0.1` na própria
 > máquina. Os scanners aparecem em tempo real, mas **nada sai do PC do
 > suspeito** — diferente de ferramentas que mandam tudo pra um servidor.
@@ -65,11 +68,14 @@ de marketing e queima credibilidade no primeiro falso positivo).
 > it in 10 seconds.
 > ➤ **Catches renamed executors.** Doesn't rely only on the filename —
 > detects by structure. Renaming `solara.exe` won't fool it.
-> ➤ **Catches private bypasses.** 97 scanners: beyond known executors, it
+> ➤ **Catches private bypasses.** 113 scanners: beyond known executors, it
 > checks **Windows state** (DSE / VBS / HVCI disabled = cheater set it up
 > to run a custom driver), **Roblox memory** (RWX pages = in-memory patch),
-> **AMSI patched**, **APC injection**, and **Timeline SQLite** that popular
-> cleaners don't wipe.
+> **AMSI patched**, **APC injection**, **streamproof** (cheat window
+> hidden from OBS/screen share — Winter Bypass/Solara) and **Timeline
+> SQLite** that popular cleaners don't wipe.
+> ➤ **Live SS mode** (`--ss-live`, new in v3.52): scan in < 45 s with the
+> signals that matter on a live SS call — no heavy log parsing wait.
 > ➤ **Live dashboard, 100% local.** Runs on `127.0.0.1` on the machine
 > itself. Scanners stream in real time, but **nothing leaves the suspect's
 > PC** — unlike tools that upload everything to a server.

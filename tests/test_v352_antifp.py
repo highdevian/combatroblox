@@ -659,3 +659,75 @@ class TestWinterBypassEcosystem:
         import bits_scanner as bs
         assert "fishstrap" not in bs._LEGIT_BITS_DISPLAY_NAMES, \
             "Fishstrap na BITS whitelist = download silencioso ignorado"
+
+
+# ============================================================
+# --json export schema — v3.52.4+ inclui verdict/clusters/coverage/bullets
+# ============================================================
+
+class TestJsonExportSchema:
+
+    def _fake_cluster(self, label="Solara", verdict="CONFIRMED", conf=95):
+        c = type("Cluster", (), {})()
+        c.label = label
+        c.verdict = verdict
+        c.confidence_pct = conf
+        c.sources = ["prefetch", "amcache"]
+        c.score = 8.0
+        c.n_sources = 2
+        c.evidences = [type("E",(),{"source":s})() for s in c.sources]
+        c.first_seen = None
+        c.kind = "executor"
+        c.worst_severity = "critical"
+        return c
+
+    def _load(self, **kwargs):
+        import telador, json
+        path = telador.save_json(
+            findings=kwargs.get("findings", []),
+            sys_info=kwargs.get("sys_info", {"host": "t"}),
+            verdict=kwargs.get("verdict"),
+            clusters=kwargs.get("clusters"),
+            coverage=kwargs.get("coverage"),
+        )
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def test_all_top_level_keys_present(self):
+        """v3.52.4+ garante os 6 top-level keys sempre."""
+        d = self._load(verdict={"verdict":"LIMPO","score":0})
+        expected = {"system", "verdict", "clusters", "coverage",
+                    "staff_verdict_bullets", "findings"}
+        assert expected.issubset(set(d.keys())), \
+            f"faltando: {expected - set(d.keys())}"
+
+    def test_clusters_serialized_with_required_fields(self):
+        """Cada cluster no JSON tem os campos que a UI/bot precisa."""
+        d = self._load(
+            verdict={"verdict":"CHEATER"},
+            clusters=[self._fake_cluster()])
+        assert len(d["clusters"]) == 1
+        c = d["clusters"][0]
+        required = {"label", "kind", "verdict", "confidence_pct",
+                    "score", "worst_severity", "n_sources", "sources"}
+        assert required.issubset(set(c.keys())), \
+            f"cluster faltando: {required - set(c.keys())}"
+
+    def test_staff_bullets_populated_for_confirmed(self):
+        """staff_verdict_bullets sempre tem 3 keys quando confirmed."""
+        d = self._load(
+            verdict={"verdict":"CHEATER"},
+            clusters=[self._fake_cluster()])
+        b = d.get("staff_verdict_bullets")
+        assert isinstance(b, dict)
+        assert set(b.keys()) == {"o_que", "por_que", "o_que_fazer"}
+        assert "Solara" in b["o_que"]
+        assert "2 fonte" in b["por_que"]
+
+    def test_findings_still_at_top(self):
+        """Backward-compat: 'findings' e 'system' ainda existem."""
+        d = self._load(sys_info={"host": "PC", "user": "u"})
+        assert "system" in d
+        assert d["system"]["host"] == "PC"
+        assert "findings" in d
+        assert d["findings"] == []

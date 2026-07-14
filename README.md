@@ -32,7 +32,7 @@ e entrega um **veredito de cheat com % de confiança**.
         ✓ prefetch   ✓ amcache   ✓ bam   ✓ live_processes
 ```
 
-> **97 scanners forenses** cruzam evidência de dezenas de fontes do Windows. Uma fonte
+> **113 scanners forenses** cruzam evidência de dezenas de fontes do Windows. Uma fonte
 > sozinha **nunca** confirma — o **Confidence Engine** agrupa os hits do mesmo alvo num
 > veredito único (CONFIRMED / DETECTED / SUSPECT) com % de confiança, em vez de cuspir
 > 50 hits soltos pra você interpretar.
@@ -79,10 +79,12 @@ backdated) · cheat em **pendrive** · **outra conta** de Windows · **Defender 
 
 ```text
 telador.exe                       roda tudo, gera o HTML
+--ss-live                         modo SS ao vivo — 71 scanners rápidos (< 45 s)
 --watch                           dashboard ao vivo em 127.0.0.1 (nada sai do PC)
 --update-sigs                     baixa a base de assinaturas mais recente
 --quick                           ~1s, só os scanners base
 --md                              também exporta Markdown (cola no Discord)
+--json                            também exporta JSON completo (verdict + clusters + bullets)
 --save-tsr fulano.tsr             snapshot com selo HMAC de integridade
 --diff antigo.tsr                 compara com um snapshot anterior
 --codigo X7K9                     código do supervisor no relatório (prova de SS ao vivo)
