@@ -427,6 +427,18 @@ EXECUTOR_KEYWORDS = {
     "cleaner spoofer":        "high",
     "exodus spoofer":         "high",
     "vanity spoofer":         "high",
+
+    # ===== Winter Bypass ecosystem (IoC 07/2026) =====
+    # Fishstrap: wrapper Roblox que carrega Winter Bypass (NÃO confundir com
+    # Bloxstrap open-source legítimo). RobloxCrashHandler.exe: masquerade
+    # usado pelo Winter Bypass p/ se esconder. WEAO-LIVE-WindowsPlayer:
+    # path/GUID que aparece no Prefetch/Amcache do Winter.
+    "winter bypass":          "high",
+    "winter executor":        "high",
+    "fishstrap":              "high",
+    "fishstrap.exe":          "high",
+    "weao-live-windowsplayer":"high",
+    "weao live":              "high",
 }
 
 EXECUTOR_PROCESS_NAMES = {
@@ -621,6 +633,14 @@ EXECUTOR_PROCESS_NAMES = {
     "macspoofer.exe":         "high",
     "byfronspoofer.exe":      "high",
     "robloxspoofer.exe":      "high",
+
+    # ===== Winter Bypass ecosystem (IoC 07/2026) =====
+    # Fishstrap: wrapper Roblox que carrega Winter Bypass (NÃO confundir com
+    # Bloxstrap open-source legítimo).
+    "fishstrap.exe":          "high",
+    "winter.exe":             "high",
+    "winterbypass.exe":       "high",
+    "winter-bypass.exe":      "high",
 }
 
 SUSPICIOUS_DOMAINS = {

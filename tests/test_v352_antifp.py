@@ -452,6 +452,21 @@ class TestStaffVerdictBullets:
         assert "prefetch" in p.lower() or "cobertura" in p.lower()
         assert "admin" in a.lower()
 
+    def test_inconclusive_multiple_reasons_truncated(self):
+        """Quando ha varias razoes de cobertura, mostra so a 1a + '(+N outras)'."""
+        import report
+        multi_reason = ("Scan sem administrador — Prefetch/Amcache/BAM falham.; "
+                        "Grupo desligado: yara.; Grupo desligado: winevent.; "
+                        "Grupo desligado: pca.; 10 checagens com erro real.")
+        o, p, a = report.build_staff_verdict_bullets(
+            [], {"verdict": "INCONCLUSIVO", "inconclusive": True,
+                 "inconclusive_reason": multi_reason}, None)
+        # Nao deve mostrar todas as razoes concatenadas com ";"
+        assert p.count(";") == 0, f"Bullet ainda tem ; concatenando razoes: {p}"
+        assert "administrador" in p.lower() or "prefetch" in p.lower()
+        # Deve mencionar quantas outras razoes existem
+        assert "+4" in p or "outra" in p.lower()
+
     def test_suspect_bullets(self):
         import report
         clusters = [self._fake_cluster("dubiousExec", "SUSPECT", 45,
@@ -471,3 +486,71 @@ class TestStaffVerdictBullets:
         assert "O quê" in html
         assert "Por quê" in html
         assert "O que fazer" in html
+
+
+# ============================================================
+# behavioral_tier_a.scan_scheduled_task_dropper — Squirrel updaters
+# ============================================================
+
+class TestDropperAntiFP:
+
+    def _run_with_task(self, task_name="Update", task_path="\\Discord\\",
+                       exec_path=r"C:\Users\u\AppData\Local\Discord\Update.exe"):
+        import behavioral_tier_a as bt
+        from datetime import datetime, timezone, timedelta
+        import json, types
+        recent = datetime.now(timezone.utc) - timedelta(hours=1)
+        payload = [{
+            "Name": task_name, "Path": task_path,
+            "Date": recent.isoformat(),
+            "Trigger": "MSFT_TaskLogonTrigger",
+            "Exec": exec_path, "Args": "",
+        }]
+        fake = types.SimpleNamespace(
+            returncode=0, stdout=json.dumps(payload), stderr="")
+        original_run = bt.subprocess.run
+        bt.subprocess.run = lambda *a, **kw: fake
+        try:
+            return bt.scan_scheduled_task_dropper()
+        finally:
+            bt.subprocess.run = original_run
+
+    def test_discord_squirrel_update_ignored(self):
+        r = self._run_with_task(
+            task_name="Update", task_path="\\Discord\\",
+            exec_path=r"C:\Users\u\AppData\Local\Discord\Update.exe")
+        assert r["status"] == "clean", \
+            f"Discord updater vazou: {r.get('items')}"
+
+    def test_cursor_squirrel_update_ignored(self):
+        r = self._run_with_task(
+            task_name="Update", task_path="\\Cursor\\",
+            exec_path=r"C:\Users\u\AppData\Local\Programs\cursor\Update.exe")
+        assert r["status"] == "clean"
+
+    def test_vscode_task_ignored(self):
+        r = self._run_with_task(
+            task_name="Update", task_path="\\Microsoft VS Code\\",
+            exec_path=r"C:\Users\u\AppData\Local\Programs\Microsoft VS Code\Update.exe")
+        assert r["status"] == "clean"
+
+    def test_bloxstrap_update_ignored(self):
+        r = self._run_with_task(
+            task_name="Update", task_path="\\Bloxstrap\\",
+            exec_path=r"C:\Users\u\AppData\Local\Bloxstrap\Bloxstrap.exe")
+        assert r["status"] == "clean"
+
+    def test_google_chrome_task_ignored(self):
+        r = self._run_with_task(
+            task_name="GoogleUpdateTaskMachineUA",
+            task_path="\\Google\\GoogleUpdater\\",
+            exec_path=r"C:\Users\u\AppData\Local\Google\GoogleUpdater\bin\updater.exe")
+        assert r["status"] == "clean"
+
+    def test_random_cheat_dropper_still_flagged(self):
+        r = self._run_with_task(
+            task_name="AutoRunLoader",
+            task_path="\\",
+            exec_path=r"C:\Users\u\AppData\Roaming\loader.exe")
+        assert r["status"] == "suspicious"
+        assert any(i["matched"] == "dropper-task" for i in r["items"])

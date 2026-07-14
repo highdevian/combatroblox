@@ -1187,10 +1187,12 @@ _HANDLE_WHITELIST = {
     # Shell / gerenciadores comuns que abrem handles limitados
     "explorer.exe", "taskmgr.exe", "sihost.exe", "dwm.exe",
     "searchindexer.exe",
-    # O próprio Roblox / Bloxstrap / crash handler (abre handle no Beta pra dump)
+    # O próprio Roblox / Bloxstrap / crash handler (abre handle no Beta pra dump).
+    # NOTA: `fishstrap.exe` NÃO entra — Fishstrap é o wrapper do Winter Bypass
+    # e fishstrap abrindo handles no Roblox é EXATAMENTE o que queremos flaggar.
     "robloxplayerbeta.exe", "robloxplayerlauncher.exe",
     "robloxcrashhandler.exe", "robloxstudiobeta.exe",
-    "bloxstrap.exe", "fishstrap.exe",
+    "bloxstrap.exe",
     # Overlays legítimos
     "discord.exe", "nvcontainer.exe", "steam.exe", "rtss.exe",
     "obs64.exe", "obs32.exe", "obs.exe",
@@ -1374,8 +1376,8 @@ _FOOTPRINT_WHITELIST = {
     "spotify.exe", "obs64.exe", "obs32.exe", "obs.exe", "steam.exe",
     "steamwebhelper.exe", "epicgameslauncher.exe", "galaxyclient.exe",
     "riotclientservices.exe", "leagueoflegends.exe", "vanguard.exe",
-    # Launchers / anti-cheat
-    "bloxstrap.exe", "fishstrap.exe", "robloxplayerbeta.exe",
+    # Launchers / anti-cheat (fishstrap NÃO — é wrapper Winter Bypass)
+    "bloxstrap.exe", "robloxplayerbeta.exe",
     "robloxplayerlauncher.exe", "robloxstudiobeta.exe",
     # O próprio Telador (exato; variantes via _is_self_process)
     "telador.exe",
@@ -1970,9 +1972,9 @@ _POPUP_OVERLAY_WHITELIST = {
     # Anti-Virus
     "msmpeng.exe", "avastui.exe", "avguard.exe",
     "windefend.exe", "securityhealthsystray.exe",
-    # O Roblox
+    # O Roblox (fishstrap NÃO — wrapper Winter Bypass)
     "robloxplayerbeta.exe", "robloxplayerlauncher.exe",
-    "bloxstrap.exe", "fishstrap.exe",
+    "bloxstrap.exe",
     "robloxstudiobeta.exe",
 }
 
@@ -2409,12 +2411,15 @@ def scan_random_name_executables() -> dict:
 
 # ============================ (11) Rede de processo user-path nao-assinado ============================
 
-# Pais legítimos que spawnam instaladores/helpers (não flagga ancestry sozinho)
+# Pais legítimos que spawnam instaladores/helpers (não flagga ancestry sozinho).
+# NOTA: `fishstrap.exe` NÃO entra — Fishstrap é o wrapper do Winter Bypass
+# (IoC direto do meu amigo mostrou em 07/2026). Bloxstrap open-source =
+# ok, Fishstrap = red flag confirmado.
 _LEGIT_PARENTS = {
     "explorer.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "wt.exe",
     "svchost.exe", "services.exe", "taskeng.exe", "taskhostw.exe",
     "sihost.exe", "runtimebroker.exe", "chrome.exe", "msedge.exe",
-    "discord.exe", "steam.exe", "bloxstrap.exe", "fishstrap.exe",
+    "discord.exe", "steam.exe", "bloxstrap.exe",
 }
 
 

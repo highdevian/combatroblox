@@ -1307,9 +1307,23 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
         por_que = (f"Fonte única ou evidência fraca — confidence {top.confidence_pct}% "
                    f"(precisa cruzamento pra virar DETECTADO)")
     elif is_inconclusive:
+        # inconclusive_reason vem como "; "-joined; pega só o primeiro (mais
+        # relevante — coverage.reasons ordena por importância).
         reason = (verdict or {}).get("inconclusive_reason", "")
-        if reason:
-            por_que = f"{reason[:180]}"
+        first_reason = reason.split(";")[0].strip() if reason else ""
+        cov_reasons = (coverage or {}).get("reasons") or []
+        n_extra = 0
+        if not first_reason and cov_reasons:
+            first_reason = cov_reasons[0]
+            n_extra = max(0, len(cov_reasons) - 1)
+        elif reason:
+            n_extra = max(0, len([r for r in reason.split(";") if r.strip()]) - 1)
+
+        if first_reason:
+            extra_suffix = f" (+{n_extra} outra{'s' if n_extra != 1 else ''})" if n_extra else ""
+            # Corta primeira razão em 140 chars pra caber no console sem quebrar
+            trimmed = first_reason if len(first_reason) <= 140 else first_reason[:137] + "…"
+            por_que = f"{trimmed}{extra_suffix}"
         else:
             por_que = ("Fontes forenses fortes (Prefetch/Amcache/BAM/Defender) "
                        "não puderam ser lidas — provavelmente sem admin")

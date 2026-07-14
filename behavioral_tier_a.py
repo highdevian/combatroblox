@@ -62,6 +62,35 @@ _DROPPER_SUSPICIOUS_PREFIXES = (
     "c:\\programdata\\",
 )
 
+# TaskPaths de apps legítimos que criam tasks em user-path na instalação/
+# update (Squirrel/Electron). Match por SUBSTRING no path (case-insensitive).
+# Sem essa lista, instalar/atualizar VS Code / Discord / Cursor gera dropper-FP.
+_DROPPER_LEGIT_TASK_PATH_MARKERS = (
+    "\\discord\\", "\\slack\\", "\\cursor\\", "\\vscode\\",
+    "\\microsoft vs code\\", "\\visual studio code\\",
+    "\\code -", "\\code_",
+    "\\zoom\\", "\\telegram\\", "\\whatsapp\\",
+    "\\dropbox\\", "\\onedrive\\",
+    "\\notion\\", "\\github desktop\\", "\\githubdesktop\\",
+    "\\adobe\\", "\\creative cloud\\", "\\creativecloud\\",
+    "\\squirrel\\",
+    "\\roblox\\", "\\bloxstrap\\",
+    "\\riot\\", "\\valorant\\", "\\league of legends\\",
+    "\\battle.net\\", "\\blizzard\\", "\\steam\\",
+    "\\epic games\\", "\\epicgames\\", "\\ubisoft\\",
+    "\\ea desktop\\", "\\eadesktop\\", "\\origin\\", "\\rockstar\\",
+    "\\voicemod\\", "\\overwolf\\",
+    "\\microsoft\\", "\\google\\",  # Google Chrome/Drive tasks
+)
+
+# Basenames de updaters legítimos (Squirrel). Não flaggam sozinho.
+_DROPPER_LEGIT_EXE_BASENAMES = frozenset({
+    "update.exe", "squirrel.exe", "squirrelsetup.exe",
+    "setup.exe", "installer.exe", "updater.exe",
+    "onedrivelauncher.exe", "onedrive.exe",
+    "googleupdater.exe", "googleupdate.exe",
+})
+
 
 def scan_scheduled_task_dropper() -> dict:
     """Task recente + AtLogon + exe user-path. Persistência clássica de
@@ -142,6 +171,15 @@ def scan_scheduled_task_dropper() -> dict:
         exec_expanded = os.path.expandvars(exec_low).replace("/", "\\")
         # Filtro 2: exe em user-path (não em Program Files/System32)
         if not any(exec_expanded.startswith(p) for p in _DROPPER_SUSPICIOUS_PREFIXES):
+            continue
+        # Filtro 2.5: whitelist de apps legítimos (Squirrel updaters etc.)
+        task_path_low = (row.get("Path") or "").lower()
+        task_name_low = (row.get("Name") or "").lower()
+        combined_path = (task_path_low + task_name_low).replace("/", "\\")
+        if any(m in combined_path for m in _DROPPER_LEGIT_TASK_PATH_MARKERS):
+            continue
+        exe_basename = os.path.basename(exec_expanded)
+        if exe_basename in _DROPPER_LEGIT_EXE_BASENAMES:
             continue
         # Filtro 3: date recente (formato ISO PS "\/Date(1720...)\/")
         date_raw = row.get("Date")

@@ -37,7 +37,8 @@ _LEGIT_BITS_DISPLAY_NAMES = (
     "store", "xbox", "winget", "app installer",
     "visual studio", "nuget", "vscode", "cursor",
     # Roblox bootstrapper baixa updates via BITS
-    "roblox", "bloxstrap", "fishstrap",
+    # (fishstrap NÃO — é wrapper Winter Bypass, IoC direto)
+    "roblox", "bloxstrap",
     # Steam / Epic / Battle.net updaters
     "steam", "epic", "battle.net", "blizzard",
     # NVIDIA / AMD / Intel drivers

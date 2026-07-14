@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.52.1] - 2026-07-14
+
+**Bugfix crítico: Fishstrap/Winter Bypass no core (era só opt-in).**
+
+### Bugs corrigidos
+
+- **Winter Bypass ecosystem no core (database.py):** o IoC do Winter
+  Bypass (Fishstrap wrapper + WEAO-LIVE-WindowsPlayer + winter*.exe)
+  estava APENAS em `signatures.dist.json` — o `.exe` só detectava depois
+  do usuário rodar `--update-sigs`. Agora está embutido em
+  `EXECUTOR_KEYWORDS` + `EXECUTOR_PROCESS_NAMES`, ativo por padrão.
+- **Fishstrap tratado como parent legítimo (external_scanner.py):**
+  `fishstrap.exe` estava em 4 whitelists (`_LEGIT_PARENTS`,
+  `_HANDLE_WHITELIST`, `_FOOTPRINT_WHITELIST`, popup overlays legítimos).
+  Cheat rodando via Fishstrap era ignorado. Removido de todas.
+- **BITS whitelist:** `fishstrap` estava em `_LEGIT_BITS_DISPLAY_NAMES`
+  (introduzido por engano em 3.52.0). Removido — Fishstrap baixando via
+  BITS é IoC direto.
+- **Dropper anti-FP (behavioral_tier_a):** `scan_scheduled_task_dropper`
+  não whitelistava Squirrel-based updaters (Discord/Slack/Cursor/VS
+  Code/GitHub Desktop/Steam/Google Chrome). Task de Update.exe em
+  user-path virava FP. Whitelist alinhada com `task_execlog_scanner`.
+
+### Melhorias
+
+- **Veredito staff (inconclusive):** quando múltiplas razões de cobertura,
+  concatenava tudo com `; ` e cortava no meio da palavra. Agora mostra só
+  a primeira razão + "(+N outras)".
+- **Test suite: 814 verdes** (+8 novos anti-FP + fishstrap-matches).
+
 ## [3.52.0] - 2026-07-14
 
 **PLANO_ECHO_TIER Semana 1 — modo SS ao vivo + veredito staff + anti-FP baseline.**

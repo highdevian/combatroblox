@@ -62,8 +62,10 @@ def test_spoofer_process_names_present():
 LEGIT_AND_COMMON = [
     "roblox fps unlocker",       # tool legítimo de FPS
     "rbxfpsunlocker.exe",
-    "bloxstrap.exe",             # bootstrapper legítimo
-    "fishstrap",                 # idem
+    "bloxstrap.exe",             # bootstrapper legítimo (open-source)
+    # "fishstrap" REMOVIDO — descoberto em 07/2026 como wrapper do Winter
+    # Bypass. Agora está em EXECUTOR_KEYWORDS + EXECUTOR_PROCESS_NAMES e
+    # DEVE casar (test_fishstrap_matches abaixo).
     "my alt account on discord", # "alt" comum, não é "alt manager"
     "steam multi instance",      # multi-instance de OUTRO jogo, não Roblox
     "altair.exe",                # nome que contém "alt"
@@ -77,3 +79,12 @@ def test_legit_and_common_terms_no_false_positive():
     for t in LEGIT_AND_COMMON:
         kw, sev = matching.match_keyword(t)
         assert kw is None, f"FALSO POSITIVO: {t!r} casou com {kw!r}"
+
+
+def test_fishstrap_matches_after_winter_bypass_ioc():
+    """Fishstrap é o wrapper do Winter Bypass — DEVE casar (IoC 07/2026)."""
+    for t in ("fishstrap", "fishstrap.exe", "winter bypass",
+              "C:\\Users\\u\\AppData\\Local\\Fishstrap\\Fishstrap.exe"):
+        kw, sev = matching.match_keyword(t)
+        assert kw is not None, f"Winter/Fishstrap deveria casar: {t!r}"
+        assert sev == "high", f"Winter/Fishstrap deveria ser HIGH: {t!r} -> {sev}"
