@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.53.0] - 2026-07-14
+
+**Novos IoCs 2026 (HWID spoofers modernos + KMS activators) + anti-FP em peripherals.**
+
+### Novo — Catálogo 2026 de HWID spoofers (HIGH)
+
+Cobertura ampliada pra spoofers que apareceram em 2026 e não estavam no
+`database.EXECUTOR_KEYWORDS` / `EXECUTOR_PROCESS_NAMES`:
+
+- **BE-Kit / bekit** — bypass em kit
+- **Naza HWID / Naza Spoofer**
+- **Insane Bypass**
+- **ZeroTwo HWID / ZeroTwo Spoofer** (evita FP com personagem de anime)
+- **Koshun HWID / Koshun Spoofer**
+- **hwspoof** — nome genérico
+- **HWID Pro / HWID Bypass** (variantes)
+- **Temp Spoofer / Perm Spoofer** — categorias temp/perm de spoof
+
+### Novo — KMS activators (LOW = contexto)
+
+Ativadores de Windows pirata: **KMSAuto, KMSPico, HWIDgen, MSToolkit,
+Microsoft Toolkit, W10 Digital Activation, Windows Loader, KMSEmulator,
+Chew WGA**. Todos LOW — dual-use, muita gente pirata Windows sem cheatar.
+Alimentam o Confidence Engine como sinal fraco: sozinho é contexto,
+combinado com executor CONFIRMADO vira evidência corroborante.
+
+### Anti-FP — Peripherals
+
+- **`scan_mouse_software_installed`**: G HUB / Razer Synapse / Corsair
+  iCUE / SteelSeries GG / Wooting / etc **instalados sozinhos** agora
+  são `meta_only=True` (contexto puro, não contam pro veredito). Todo
+  dono de mouse gaming das grandes marcas tem esse software — era FP em
+  milhões de PCs. Bloody continua visível (mas LOW) por histórico
+  cheat-friendly, e o `scan_logitech_ghub_scripts` continua flaggando
+  scripts com red flag real (recoil control, auto headshot etc).
+
+### Testes
+
+- **19 novos testes** em `tests/test_v353_detect.py`:
+  - 9 HWID spoofers 2026 (matches + 2 anti-FP)
+  - 5 KMS activators (matches + regressão de processos)
+  - 3 peripherals anti-FP (G HUB / Razer meta_only, Bloody visível)
+- Suite: **846 verdes** (+23 vs 3.52.4).
+
 ## [3.52.4] - 2026-07-14
 
 **Bundle: --json completo + copy summary com bullets + DEV_INDICATORS +18.**

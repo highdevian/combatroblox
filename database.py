@@ -418,6 +418,8 @@ EXECUTOR_KEYWORDS = {
     # legítimo pra jogador normal: HIGH. Expande a cobertura existente.
     "hwid changer":           "high",
     "hwid reset":             "high",
+    "hwid bypass":            "high",
+    "hwid spoof":             "high",
     "serial spoofer":         "high",
     "disk spoofer":           "high",
     "smbios spoofer":         "high",
@@ -428,6 +430,39 @@ EXECUTOR_KEYWORDS = {
     "cleaner spoofer":        "high",
     "exodus spoofer":         "high",
     "vanity spoofer":         "high",
+    # 2026 additions
+    "be-kit":                 "high",
+    "bekit spoofer":          "high",
+    "naza hwid":              "high",
+    "naza spoofer":           "high",
+    "insane bypass":          "high",
+    "zerotwo hwid":           "high",
+    "zerotwo spoofer":        "high",
+    "koshun hwid":            "high",
+    "koshun spoofer":         "high",
+    "hwspoof":                "high",
+    "hwid pro":               "high",
+    "temp spoofer":           "high",
+    "temporary spoofer":      "high",
+    "perm spoofer":           "high",
+    "permanent spoofer":      "high",
+
+    # ===== KMS activators (Windows pirata) — contexto, não veredito =====
+    # Dual-use: usado por MUITOS pra ativar Windows pirata (não é cheat).
+    # Vira sinal corroborante se combinado com executor confirmado.
+    # LOW isolado; correlation eleva se houver hit forte no mesmo PC.
+    "kmsauto":                "low",
+    "kmspico":                "low",
+    "kmstools":               "low",
+    "kmsactivator":           "low",
+    "hwidgen":                "low",  # ativador de licença digital
+    "mstoolkit":              "low",
+    "microsoft toolkit":      "low",
+    "w10 digital activation": "low",
+    "w7 loader":              "low",
+    "windows loader":         "low",
+    "kmsemulator":            "low",
+    "chew wga":               "low",
 
     # ===== Winter Bypass ecosystem (IoC 07/2026) =====
     # Fishstrap: wrapper Roblox que carrega Winter Bypass (NÃO confundir com
@@ -634,6 +669,30 @@ EXECUTOR_PROCESS_NAMES = {
     "macspoofer.exe":         "high",
     "byfronspoofer.exe":      "high",
     "robloxspoofer.exe":      "high",
+
+    # ===== HWID spoofers (processos) 2026 =====
+    "bekit.exe":              "high",
+    "be-kit.exe":             "high",
+    "nazahwid.exe":           "high",
+    "naza-hwid.exe":          "high",
+    "nazaspoofer.exe":        "high",
+    "insanebypass.exe":       "high",
+    "zerotwohwid.exe":        "high",
+    "zerotwo.exe":            "high",
+    "koshunhwid.exe":         "high",
+    "koshunspoofer.exe":      "high",
+    "hwspoof.exe":            "high",
+    "hwidpro.exe":            "high",
+    "tempspoofer.exe":        "high",
+    "permspoofer.exe":        "high",
+
+    # ===== KMS activators (processos) — LOW, contexto =====
+    "kmsauto.exe":            "low",
+    "kmsautonet.exe":         "low",
+    "kmspico.exe":            "low",
+    "hwidgen.exe":            "low",
+    "mstoolkit.exe":          "low",
+    "microsoft_toolkit.exe":  "low",
 
     # ===== Winter Bypass ecosystem (IoC 07/2026) =====
     # Fishstrap: wrapper Roblox que carrega Winter Bypass (NÃO confundir com

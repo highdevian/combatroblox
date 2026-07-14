@@ -53,16 +53,25 @@ def scan_mouse_software_installed() -> dict:
         except OSError:
             ts = ""
 
-        # G HUB e Bloody = MUITO usados pra macro de Roblox
-        if soft_id in ("logitech_ghub", "bloody", "xmouse"):
-            sev = "medium"
+        # G HUB instalado sozinho = CONTEXTO, não anti-cheat.
+        # Todo dono de Logitech G-series tem G HUB — FP em milhões de PCs.
+        # Bloody = mais suspeito historicamente (macros de aim vendidas)
+        # mas ainda é software legítimo — só flagga MEDIUM se script real
+        # com red flag aparecer (scan_logitech_ghub_scripts / bloody).
+        # X-Mouse idem: profile com red flag vira MEDIUM no scan próprio.
+        if soft_id == "bloody":
+            sev = "low"  # historicamente mais usado por cheat, mas ainda legit
+            meta_only = False
         else:
+            # Logitech/Razer/Corsair/SteelSeries/etc: contexto puro
             sev = "low"
+            meta_only = True  # não conta pro veredito, aparece como info
 
         items.append(_item(
             label=f"{info['name']} instalado",
             detail=installed_in,
             severity=sev, matched=soft_id, timestamp=ts,
+            meta_only=meta_only,
         ))
 
     return _result("Mouse Software (instalado)",
