@@ -606,7 +606,20 @@ def save_json(findings: list, sys_info: dict,
 
 
 def main():
+    # --gui: intercepta antes de qualquer parsing/elevação pra abrir a
+    # janela CustomTkinter direto. GUI cuida do seu proprio fluxo.
+    if "--gui" in sys.argv[1:]:
+        try:
+            import gui
+            gui.main()
+            return
+        except ImportError as e:
+            print(f"[GUI] customtkinter não instalado ({e}) — abrindo CLI clássica.")
+            print("      Pra instalar: pip install customtkinter")
+
     parser = argparse.ArgumentParser(description="Telador BR - SS para Roblox")
+    parser.add_argument("--gui",           action="store_true",
+                        help="Abre a interface gráfica (janela CustomTkinter) — modo produto sem terminal.")
     parser.add_argument("--no-open",       action="store_true", help="Não abrir HTML no navegador")
     parser.add_argument("--no-confirm",    action="store_true", help="Pular prompt de confirmação")
     parser.add_argument("--no-screenshot", action="store_true", help="Pular captura de tela")

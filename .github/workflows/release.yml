@@ -25,7 +25,7 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install psutil pyinstaller
+          pip install psutil pyinstaller customtkinter
 
       - name: Verify modules load locally (pre-build sanity)
         run: python -c "import telador; print('all imports OK')"

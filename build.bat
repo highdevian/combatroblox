@@ -47,6 +47,19 @@ if errorlevel 1 (
     echo   - PyInstaller OK
 )
 
+python -c "import customtkinter" >nul 2>nul
+if errorlevel 1 (
+    echo   - Instalando customtkinter (GUI)...
+    python -m pip install --no-cache-dir customtkinter
+    if errorlevel 1 (
+        echo ERRO: Falha ao instalar customtkinter.
+        pause
+        exit /b 1
+    )
+) else (
+    echo   - customtkinter OK
+)
+
 REM Sanity check pre-build: se import quebra local, quebra no CI tambem.
 echo.
 echo [2.5/4] Pre-flight check (import telador)...

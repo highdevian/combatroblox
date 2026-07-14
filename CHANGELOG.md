@@ -2,6 +2,75 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.54.0] - 2026-07-14
+
+**GUI mínima — PLANO_ECHO_TIER Semana 2 P0.**
+
+Fecha o marco "Telador com interface" — staff/suspeito não precisa mais
+terminal. Semana 2 do plano estava prevista pra 20/07 mas Semana 1
+fechou 6 dias antes; entregando adiantado.
+
+### Novo: `--gui` (janela CustomTkinter)
+
+- `gui.py` novo (~450 linhas): janela nativa em dark mode com state
+  machine em 4 telas:
+  1. **INITIAL** — hero explicativo + status admin + botão gigante
+     **Iniciar SS** + botão discreto "Pedir permissão de administrador".
+  2. **SCANNING** — progress bar + contador `X/71 scanners` + nome do
+     scanner atual + timer `Ns (alvo <45s)` + log rolante das últimas
+     ~80 linhas.
+  3. **VERDICT** — semáforo grande (🟢 LIMPO / 🟡 SUSPEITO / 🔴
+     CHEATER-CONFIRMADO / ⚫ INCONCLUSIVO), score + confidence,
+     3 bullets do veredito staff (O quê / Por quê / O que fazer),
+     botões **Abrir HTML** / **Copiar Discord** / **Nova SS** / **Sair**.
+  4. **ERROR** — se scan crashou, mostra stack trace com botão Voltar.
+- Rodagem em thread separada com `queue.Queue` de mensagens; GUI faz
+  poll com `.after(100)`. Zero acesso a widget de fora da thread principal.
+- Chain fixa: `assemble_ss_live_scanners()` (< 45s alvo — não faz sentido
+  travar GUI por 3 minutos rodando log parsers pesados).
+- UAC: se não é admin, botão "Pedir permissão de administrador (UAC)"
+  chama `ShellExecuteW runas` e essa instância encerra na aceitação.
+- Copy Discord: gera markdown via `report_md` e cola no clipboard nativo
+  do tkinter — feedback verde "✓ Copiado! Cole no Discord da liga."
+- `INICIAR-GUI.bat` novo: 2 cliques → `telador.exe --gui` (fallback pra
+  Python se `.exe` não existir).
+
+### Ajustes
+
+- `telador.spec`: bundla `customtkinter` via `collect_data_files` +
+  `collect_submodules` — sem isso o `.exe` abre com "assets/CTk_*"
+  faltando. Também adiciona `tkinter`/`tkinter.ttk`/`tkinter.messagebox`
+  como hidden imports defensivos.
+- `build.bat`: instala `customtkinter` no setup local.
+- `.github/workflows/release.yml`: adiciona `customtkinter` no `pip install`.
+- `requirements.txt`: `customtkinter>=6.0` (opcional em runtime, obrig.
+  pra build — se ausente, GUI cai gracioso pra CLI).
+- README: seção "Sem terminal" reescrita mencionando GUI, `--gui` na
+  tabela de Flags.
+
+### Testes
+
+- `tests/test_gui.py` (+15 testes): imports, mapping de veredicts (LIMPO/
+  SUSPECT/SUSPEITO/CHEATER/CONFIRMED/ALTAMENTE/INCONCLUSIVO), schema do
+  `_minimal_sys_info`, `_is_admin` retorna bool, `_try_elevate` é no-op
+  quando já admin (evita relaunch loop em CI), state machine roda em
+  janela real sem mainloop (initial → scanning → verdict → error → back),
+  regressão da `.spec` bundlar CTk.
+- Suite: **861 verdes** (+15 vs 3.53.0).
+
+### Tamanho do exe
+
+`.exe` cresce de ~11 MB → ~13 MB (customtkinter + assets). Aceito pra
+ganhar produto com semáforo/veredito visual — versão de terminal
+continua funcionando com todos os args existentes.
+
+### Motivação
+
+Regra de ouro do PLANO_ECHO_TIER: *"zero feature de detecção nova se
+GUI/veredito staff estiver quebrado"*. GUI destrava Semana 2 P1
+(playbook staff + zip de distribuição) e libera Semana 3 (polish
+Echo-like / dashboard default).
+
 ## [3.53.0] - 2026-07-14
 
 **Novos IoCs 2026 (HWID spoofers modernos + KMS activators) + anti-FP em peripherals.**

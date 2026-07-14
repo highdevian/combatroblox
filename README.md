@@ -13,7 +13,7 @@ e entrega um **veredito de cheat com % de confiança**.
 [![release](https://img.shields.io/github/v/tag/highdevian/combatroblox?sort=semver&label=release&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?branch=main&label=CI)](https://github.com/highdevian/combatroblox/actions)
 ![scanners](https://img.shields.io/badge/scanners-113-8b5cf6)
-![tests](https://img.shields.io/badge/tests-846%20passing-3fbf7f)
+![tests](https://img.shields.io/badge/tests-861%20passing-3fbf7f)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 
@@ -43,8 +43,14 @@ Baixa o `telador.exe` e roda. Ele pede admin sozinho (UAC) — **aceita**, senã
 mais fortes (Prefetch, Amcache, BAM) não são lidas e o resultado fica incompleto. Em
 alguns segundos o relatório HTML abre no navegador.
 
-Sem terminal? `INICIAR.bat` (scan) e `TELADOR-AO-VIVO.bat` (dashboard ao vivo) rodam com
-dois cliques. Pra distribuir, zipa o `.exe` com os `.bat` e manda no Discord.
+**Sem terminal:**
+- `INICIAR-GUI.bat` — abre a janela do Telador (`telador.exe --gui`). Botão gigante
+  **Iniciar SS** → progresso ao vivo → veredito com semáforo grande + os 3 bullets
+  do staff → botões **Abrir HTML** / **Copiar Discord** / **Sair**. Novo em v3.54.0.
+- `INICIAR.bat` — scan clássico com console (sem janela).
+- `TELADOR-AO-VIVO.bat` — dashboard local (`--watch`) em `127.0.0.1`.
+
+Pra distribuir, zipa o `.exe` com os `.bat` e manda no Discord.
 
 > **Sem admin, "nada encontrado" não inocenta — é inconclusivo.** O programa avisa isso.
 
@@ -79,6 +85,7 @@ backdated) · cheat em **pendrive** · **outra conta** de Windows · **Defender 
 
 ```text
 telador.exe                       roda tudo, gera o HTML
+--gui                             abre janela CustomTkinter (sem terminal) — v3.54.0+
 --ss-live                         modo SS ao vivo — 71 scanners rápidos (< 45 s)
 --watch                           dashboard ao vivo em 127.0.0.1 (nada sai do PC)
 --update-sigs                     baixa a base de assinaturas mais recente
