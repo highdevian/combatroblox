@@ -47,6 +47,19 @@ def generate_markdown_report(
             )
     lines.append("")
 
+    # Veredito staff 3-bullets — mesma mensagem do console/HTML (o que fecha SS)
+    try:
+        import report as _report_mod
+        o_que, por_que, o_que_fazer = _report_mod.build_staff_verdict_bullets(
+            clusters or [], verdict or {}, coverage)
+        lines.append("### Veredito do staff")
+        lines.append(f"- **O quê:** {o_que}")
+        lines.append(f"- **Por quê:** {por_que}")
+        lines.append(f"- **O que fazer:** {o_que_fazer}")
+        lines.append("")
+    except Exception:
+        pass
+
     lines.append(
         f"- **Host:** `{sys_info.get('host', '?')}` · "
         f"**User:** `{sys_info.get('user', '?')}`"

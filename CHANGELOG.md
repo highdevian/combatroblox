@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.52.3] - 2026-07-14
+
+**Veredito staff no Discord markdown (3º canal).**
+
+- `report_md.generate_markdown_report`: agora inclui bloco "Veredito
+  do staff" com os 3 bullets (O quê / Por quê / O que fazer). Antes só
+  o console e o HTML tinham — o supervisor copiando pro Discord perdia
+  a mensagem estruturada.
+- Mesma helper `build_staff_verdict_bullets` alimenta os 3 canais.
+
 ## [3.52.2] - 2026-07-14
 
 **Winter Bypass ecosystem — família dedicada + regression coverage.**
