@@ -13,7 +13,7 @@ e entrega um **veredito de cheat com % de confiança**.
 [![release](https://img.shields.io/github/v/tag/highdevian/combatroblox?sort=semver&label=release&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?branch=main&label=CI)](https://github.com/highdevian/combatroblox/actions)
 ![scanners](https://img.shields.io/badge/scanners-113-8b5cf6)
-![tests](https://img.shields.io/badge/tests-822%20passing-3fbf7f)
+![tests](https://img.shields.io/badge/tests-823%20passing-3fbf7f)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 

@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.52.4] - 2026-07-14
+
+**Bundle: --json completo + copy summary com bullets + DEV_INDICATORS +18.**
+
+### Melhorias
+
+- **`--json` export completo** (`telador.save_json`): antes exportava só
+  `{system, findings}`. Agora inclui `verdict`, `clusters` (serializados
+  do Confidence Engine), `coverage` e `staff_verdict_bullets` — dashboard
+  externo / bot Discord consegue reconstruir a decisão sem reparsear
+  findings.
+- **Botão "Copiar resumo" no HTML**: `data-summary` agora inclui os 3
+  bullets (O quê / Por quê / O que fazer) no topo. Supervisor cola no
+  Discord com contexto acionável, não só lista de targets.
+- **`fp_filter.DEV_INDICATORS` +18 pastas**: WSL (Canonical Ubuntu),
+  npm cache (`%APPDATA%\npm`, `~/.npm`), Go local (`~/go`), Java/Maven
+  (`~/.m2`)/Gradle (`~/.gradle`), Docker (`%LOCALAPPDATA%\Docker`),
+  anaconda3/miniconda3, editors (Antigravity, Zed, Fleet, Sublime Text,
+  nvim), source folders extras (workspace, code, repos). Dev usando
+  WSL + Zed + nvim (sem VSCode/JetBrains) agora conta como is_dev.
+
+Suite: **823 verdes**.
+
 ## [3.52.3] - 2026-07-14
 
 **Veredito staff no Discord markdown (3º canal).**
