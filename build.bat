@@ -2,6 +2,10 @@
 REM ============================================================
 REM   Build do Telador BR em executavel unico (.exe)
 REM   Saida: dist\telador.exe
+REM
+REM   Usa telador.spec (mesmo que o CI em release.yml) — nao
+REM   duplica lista de hidden-imports, garantido reproducibilidade.
+REM   Nunca apaga o .spec (ele e' commitado, nao gerado).
 REM ============================================================
 
 setlocal
@@ -43,52 +47,27 @@ if errorlevel 1 (
     echo   - PyInstaller OK
 )
 
+REM Sanity check pre-build: se import quebra local, quebra no CI tambem.
+echo.
+echo [2.5/4] Pre-flight check (import telador)...
+python -c "import telador" >nul 2>nul
+if errorlevel 1 (
+    echo ERRO: import telador falhou. Rode 'python -c "import telador"' pra ver o erro.
+    pause
+    exit /b 1
+) else (
+    echo   - imports OK
+)
+
 echo.
 echo [3/4] Limpando builds antigos...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
-if exist telador.spec del /q telador.spec
+REM NAO deletar telador.spec — ele e' commitado (v3.50.5+) e o build depende dele.
 
 echo.
-echo [4/4] Gerando executavel...
-python -m PyInstaller ^
-    --onefile ^
-    --console ^
-    --name telador ^
-    --noupx ^
-    --icon=icon.ico ^
-    --version-file version_info.txt ^
-    --hidden-import psutil ^
-    --hidden-import winreg ^
-    --hidden-import sqlite3 ^
-    --hidden-import zlib ^
-    --hidden-import ctypes.wintypes ^
-    --hidden-import concurrent.futures ^
-    --hidden-import live_analysis ^
-    --hidden-import command_history ^
-    --hidden-import peripherals ^
-    --hidden-import fp_filter ^
-    --hidden-import pe_analysis ^
-    --hidden-import report_signing ^
-    --hidden-import diff_tool ^
-    --hidden-import redaction ^
-    --hidden-import report_md ^
-    --hidden-import discord_cache ^
-    --hidden-import network_scanners ^
-    --hidden-import fresh_install ^
-    --hidden-import extra_forensics ^
-    --hidden-import evidence ^
-    --hidden-import watch_server ^
-    --hidden-import sigupdate ^
-    --hidden-import external_scanner ^
-    --hidden-import anti_forensic_deep ^
-    --hidden-import scanner_registry ^
-    --hidden-import http.server ^
-    --hidden-import urllib.request ^
-    --hidden-import hashlib ^
-    --hidden-import hmac ^
-    --collect-submodules psutil ^
-    telador.py
+echo [4/4] Gerando executavel via telador.spec...
+python -m PyInstaller telador.spec
 
 if errorlevel 1 (
     echo.

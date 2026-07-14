@@ -170,8 +170,11 @@ class TestChain:
         reg = scanner_registry.build_registry()
         names = {m.fn_name for m in reg}
         assert "scan_clipboard_history" in names
-        assert version.SCANNER_COUNT == 113
-        assert version.VERSION.startswith("3.51.")
+        assert version.SCANNER_COUNT >= 113
+        # scan_clipboard_history entrou em 3.51.0 — todo release depois inclui
+        major, minor = version.VERSION.split(".")[:2]
+        assert (int(major), int(minor)) >= (3, 51), \
+            f"clipboard scanner exige >=3.51, achou {version.VERSION}"
         chain = telador.assemble_scanners(
             skip_forensics=False, skip_antievasion=False,
             skip_persistence=False, skip_live=False,
