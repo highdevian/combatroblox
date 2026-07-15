@@ -28,3 +28,11 @@ Thumbs.db
 signatures.json
 yara_rules.json
 trusted_domains.json
+
+# Planos / notas internas de melhoria do Telador (NAO publicar)
+# Roadmap de deteccao e sprints ajudam o adversario se vazarem.
+private/
+docs/PLANO_*.md
+docs/ROADMAP.md
+docs/*PLANO*.md
+docs/*ROADMAP*.md
