@@ -12,6 +12,7 @@ Garante que:
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -39,8 +40,23 @@ def _hit(label, matched, severity="high"):
             "severity": severity, "timestamp": "", "confidence": 85}
 
 
+def _urlopen_retry(url, *, timeout=10, retries=6):
+    """CI Windows/py3.11 as vezes timeouta no 1o GET apos start()."""
+    last = None
+    for i in range(retries):
+        try:
+            return urllib.request.urlopen(url, timeout=timeout)
+        except urllib.error.HTTPError:
+            # 4xx/5xx reais (ex: 404) - nao re-tenta
+            raise
+        except (TimeoutError, urllib.error.URLError, ConnectionError, OSError) as e:
+            last = e
+            time.sleep(0.05 * (i + 1))
+    raise last
+
+
 def _get_state(url):
-    with urllib.request.urlopen(url + "state", timeout=5) as r:
+    with _urlopen_retry(url + "state") as r:
         return json.load(r)
 
 
@@ -55,7 +71,7 @@ def test_server_binds_loopback_only():
 
 def test_dashboard_html_served():
     url = watch_server.start(1, open_browser=False)
-    with urllib.request.urlopen(url, timeout=5) as r:
+    with _urlopen_retry(url) as r:
         html = r.read().decode("utf-8")
         assert r.headers["X-Content-Type-Options"] == "nosniff"
         assert r.headers["Referrer-Policy"] == "no-referrer"
@@ -68,7 +84,8 @@ def test_dashboard_html_served():
 def test_dashboard_unknown_route_404():
     url = watch_server.start(1, open_browser=False)
     with pytest.raises(urllib.error.HTTPError) as exc:
-        urllib.request.urlopen(url + "nao-existe", timeout=5)
+        with _urlopen_retry(url + "nao-existe"):
+            pass
     assert exc.value.code == 404
 
 
@@ -78,7 +95,7 @@ def test_dashboard_escapes_cluster_fields():
     renomeado pra conter HTML executa JS no navegador do supervisor e forja o
     veredito. O painel tem que passar TODO campo dinâmico pelo esc()."""
     url = watch_server.start(1, open_browser=False)
-    with urllib.request.urlopen(url, timeout=5) as r:
+    with _urlopen_retry(url) as r:
         html = r.read().decode("utf-8")
     assert "const esc =" in html                 # helper de escape presente
     assert "${esc(c.label)}" in html             # label do cluster escapado

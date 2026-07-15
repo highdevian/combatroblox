@@ -24,7 +24,9 @@ Fluxo:
 from __future__ import annotations
 
 import json
+import socket
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -118,14 +120,18 @@ class _Handler(BaseHTTPRequestHandler):
         )
 
     def _write(self, status: int, content_type: str, body: bytes, no_store: bool = False):
-        self.send_response(status)
-        self._send_common_headers()
-        self.send_header("Content-Type", content_type)
-        if no_store:
-            self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self._send_common_headers()
+            self.send_header("Content-Type", content_type)
+            if no_store:
+                self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+            # Cliente fechou (timeout de teste / browser). Nao derruba o thread.
+            pass
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
@@ -187,6 +193,16 @@ def start(total: int, open_browser: bool = True) -> str | None:
     port = _server.server_address[1]
     _server_thread = threading.Thread(target=_server.serve_forever, daemon=True)
     _server_thread.start()
+
+    # Espera o socket aceitar conexoes (evita race no CI Windows/py3.11
+    # onde urlopen logo apos start() timeouta).
+    deadline = time.time() + 3.0
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                break
+        except OSError:
+            time.sleep(0.02)
 
     url = f"http://127.0.0.1:{port}/"
     if open_browser:
