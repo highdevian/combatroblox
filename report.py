@@ -61,16 +61,16 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=True)
         state_class = "hv-state-bad"
     elif suspect:
-        icon_key, headline, color = ("alert-triangle", "REVISAR — EVIDÊNCIA SUSPEITA", INK_MED)
+        icon_key, headline, color = ("alert-triangle", "REVISAR: EVIDÊNCIA SUSPEITA", INK_MED)
         global_conf = max((c.confidence_pct for c in suspect), default=0)
-        sub_msg = f"{len(suspect)} alvo(s) com evidência parcial — sem confirmação cruzada"
+        sub_msg = f"{len(suspect)} alvo(s) com evidência parcial, sem confirmação cruzada"
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=False)
         state_class = "hv-state-warn"
     elif verdict.get("inconclusive") or verdict.get("verdict") == "INCONCLUSIVO":
         # LIMPO com cobertura cega: NÃO inocenta
         icon_key, headline, color = (
             "alert-triangle",
-            "INCONCLUSIVO — COBERTURA INCOMPLETA",
+            "INCONCLUSIVO: COBERTURA INCOMPLETA",
             "oklch(0.78 0.12 85)",
         )
         global_conf = None
@@ -1292,18 +1292,18 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
     if confirmed:
         labels = ", ".join(sorted({c.label for c in confirmed[:3]}))
         extra = f" (+{len(confirmed) - 3})" if len(confirmed) > 3 else ""
-        o_que = f"CONFIRMADO — executor(es): {labels}{extra}"
+        o_que = f"CONFIRMADO. Executor(es): {labels}{extra}"
     elif detected:
         labels = ", ".join(sorted({c.label for c in detected[:3]}))
         extra = f" (+{len(detected) - 3})" if len(detected) > 3 else ""
-        o_que = f"DETECTADO — target(s): {labels}{extra}"
+        o_que = f"DETECTADO. Target(s): {labels}{extra}"
     elif suspect:
         n = len(suspect)
-        o_que = f"SUSPEITO — {n} alvo(s) com evidência parcial (sem confirmação cruzada)"
+        o_que = f"SUSPEITO. {n} alvo(s) com evidencia parcial (sem confirmacao cruzada)"
     elif is_inconclusive:
-        o_que = "INCONCLUSIVO — cobertura forense incompleta"
+        o_que = "INCONCLUSIVO. Cobertura forense incompleta"
     else:
-        o_que = "LIMPO — nenhum target acima do limite de FP"
+        o_que = "LIMPO. Nenhum target acima do limite de FP"
 
     # --- POR QUE eu confio nisso? ---
     if confirmed or detected:
@@ -1312,12 +1312,12 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
         n_src = len(srcs)
         first_srcs = ", ".join(_src_label(s) for s in srcs[:3])
         more = f" (+{n_src - 3})" if n_src > 3 else ""
-        por_que = (f"{n_src} fonte(s) independente(s) apontaram pro mesmo target "
-                   f"— confidence {top.confidence_pct}% "
+        por_que = (f"{n_src} fonte(s) independente(s) apontaram pro mesmo target. "
+                   f"Confidence {top.confidence_pct}%. "
                    f"[{first_srcs}{more}]")
     elif suspect:
         top = suspect[0]
-        por_que = (f"Fonte única ou evidência fraca — confidence {top.confidence_pct}% "
+        por_que = (f"Fonte unica ou evidencia fraca. Confidence {top.confidence_pct}%. "
                    f"(precisa cruzamento pra virar DETECTADO)")
     elif is_inconclusive:
         # inconclusive_reason vem como "; "-joined; pega só o primeiro (mais
@@ -1335,28 +1335,28 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
         if first_reason:
             extra_suffix = f" (+{n_extra} outra{'s' if n_extra != 1 else ''})" if n_extra else ""
             # Corta primeira razão em 140 chars pra caber no console sem quebrar
-            trimmed = first_reason if len(first_reason) <= 140 else first_reason[:137] + "…"
+            trimmed = first_reason if len(first_reason) <= 140 else first_reason[:137] + "..."
             por_que = f"{trimmed}{extra_suffix}"
         else:
             por_que = ("Fontes forenses fortes (Prefetch/Amcache/BAM/Defender) "
-                       "não puderam ser lidas — provavelmente sem admin")
+                       "nao puderam ser lidas. Provavelmente sem admin.")
     else:
         blind = (coverage or {}).get("blind_strong", 0)
         if blind:
-            por_que = (f"Nenhum hit real + {blind} fonte(s) forte(s) cega(s) — "
-                       f"resultado é 'sem evidência', não 'inocente'")
+            por_que = (f"Nenhum hit real + {blind} fonte(s) forte(s) cega(s). "
+                       f"Resultado e 'sem evidencia', nao 'inocente'.")
         else:
-            por_que = "Nenhum artefato de executor em nenhuma das fontes cruzadas"
+            por_que = "Nenhum artefato de executor em nenhuma das fontes cruzadas."
 
     # --- O QUE FAZER agora? ---
     if is_inconclusive:
-        o_que_fazer = "Rode de novo como admin (UAC) antes de fechar a SS — sem admin o veredito não vale"
+        o_que_fazer = "Rode de novo como admin (UAC) antes de fechar a SS. Sem admin o veredito nao vale."
     elif confirmed or detected:
-        o_que_fazer = "Não deixa formatar/reiniciar. Copie o resumo (botão no hero) e cole no Discord da liga"
+        o_que_fazer = "Nao deixa formatar/reiniciar. Copie o resumo (botao no hero) e cole no Discord da liga."
     elif suspect:
         o_que_fazer = "Abra as seções HIGH/MEDIUM abaixo, cruze com SS visual (Task Manager + pasta Downloads)"
     else:
-        o_que_fazer = "Sessão OK — libere o suspeito. Ainda vale um SS visual rápido do task manager"
+        o_que_fazer = "Sessao OK. Libere o suspeito. Ainda vale um SS visual rapido do task manager"
 
     return o_que, por_que, o_que_fazer
 
