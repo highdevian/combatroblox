@@ -70,6 +70,14 @@ def test_verdict_style_unknown_falls_to_dash():
     assert s["label"] == "-"
 
 
+def test_verdict_style_possiveis_pistas():
+    """A1: POSSIVEIS PISTAS nao cai no fallback '-'."""
+    import gui
+    s = gui._verdict_style("POSSÍVEIS PISTAS")
+    assert "PISTA" in s["label"].upper()
+    assert s["label"] != "-"
+
+
 def test_brand_colors_defined():
     """v3.55: cores de marca alinhadas com CLI (ambar/gold)."""
     import gui
@@ -78,6 +86,72 @@ def test_brand_colors_defined():
     assert "green" in gui.BRAND
     assert "red" in gui.BRAND
     assert "yellow" in gui.BRAND
+
+
+def test_human_scanner_name():
+    import gui
+    assert gui._human_scanner_name("scan_prefetch_executables") == "Prefetch executables"
+    assert "Preparando" in gui._human_scanner_name("iniciando")
+
+
+def test_format_eta():
+    import gui
+    assert "s" in gui._format_eta(12)
+    assert "min" in gui._format_eta(90) or "m" in gui._format_eta(90)
+
+
+def test_staff_next_step_limpo():
+    import gui
+    text, key = gui._staff_next_step("LIMPO", has_admin=True)
+    assert "liberar" in text.lower()
+    assert key == "green"
+
+
+def test_staff_next_step_inconclusivo_sem_admin():
+    import gui
+    text, key = gui._staff_next_step("INCONCLUSIVO", has_admin=False)
+    assert "administrador" in text.lower()
+    assert key == "yellow"
+
+
+def test_top_target_labels():
+    import gui
+
+    class C:
+        def __init__(self, label, verdict, conf=50):
+            self.label = label
+            self.verdict = verdict
+            self.confidence_pct = conf
+
+    labs = gui._top_target_labels([
+        C("WeakThing", "WEAK", 10),
+        C("Solara", "CONFIRMED", 95),
+        C("Wave", "DETECTED", 70),
+    ])
+    assert labs[0] == "Solara"
+    assert "Wave" in labs
+
+
+def test_collect_hits_by_severity_includes_lows():
+    """GUI deve conseguir listar detects LOW (nao so HIGH)."""
+    import gui
+    findings = [{
+        "name": "Prefetch",
+        "items": [
+            {"label": "kms.exe", "matched": "kmsauto", "severity": "low"},
+            {"label": "cheat.exe", "matched": "solara", "severity": "high"},
+            {"label": "meta", "matched": "x", "severity": "low", "meta_only": True},
+            {"label": "ghub", "matched": "logitech", "severity": "medium"},
+        ],
+    }]
+    lows = gui._collect_hits_by_severity(findings, ("low",))
+    assert len(lows) == 1
+    assert lows[0]["matched"] == "kmsauto"
+    assert lows[0]["scanner"] == "Prefetch"
+    meds = gui._collect_hits_by_severity(findings, ("medium",))
+    assert len(meds) == 1
+    highs = gui._collect_hits_by_severity(findings, ("high",))
+    assert len(highs) == 1
 
 
 def test_no_em_dashes_in_gui():
@@ -101,6 +175,34 @@ def test_minimal_sys_info_schema():
         f"faltando: {expected - set(info.keys())}"
     assert isinstance(info["admin"], bool)
     assert info["telador_version"].startswith("v3.")
+
+
+def test_sys_info_session_code_and_stable_id():
+    """session_id nao muda no mesmo dict; session_code respeita o argumento."""
+    import gui
+    info = gui._build_sys_info("ABC123")
+    sid = info["session_id"]
+    assert info["session_code"] == "ABC123"
+    assert len(sid) == 8
+    # reuso do mesmo dict (HTML + Discord) preserva id
+    info["scan_time"] = info["scan_time"]
+    assert info["session_id"] == sid
+    other = gui._build_sys_info("ABC123")
+    assert other["session_id"] != sid  # novo scan = novo id
+
+
+def test_run_scan_thread_uses_cli_parallel():
+    """GUI deve reusar telador.run_scanners_parallel / _run_one (nao fork)."""
+    import gui, inspect
+    src = inspect.getsource(gui._run_scan_thread)
+    assert "run_scanners_parallel" in src
+    assert "ThreadPoolExecutor" not in src
+    # crash path da CLI
+    import telador
+    crashed = telador._run_one(lambda: (_ for _ in ()).throw(RuntimeError("x")))
+    # nome humanizado, nao scan_*
+    assert crashed["status"] == "error"
+    assert not str(crashed.get("name", "")).startswith("scan_")
 
 
 def test_is_admin_returns_bool():

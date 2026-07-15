@@ -1280,12 +1280,39 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
 
     Usadas tanto no HTML quanto no console - mesma mensagem, dois canais.
     Regra: cada bullet responde uma pergunta que o staff faz na call de SS.
+
+    IMPORTANTE: clusters WEAK / score POSSIVEIS PISTAS NUNCA viram "LIMPO /
+    libere". O score de compute_verdict e coverage tem voz propria.
     """
     confirmed = [c for c in (clusters or []) if getattr(c, "verdict", "") == "CONFIRMED"]
     detected = [c for c in (clusters or []) if getattr(c, "verdict", "") == "DETECTED"]
     suspect = [c for c in (clusters or []) if getattr(c, "verdict", "") == "SUSPECT"]
+    weak = [c for c in (clusters or []) if getattr(c, "verdict", "") == "WEAK"]
 
-    is_inconclusive = bool(verdict and verdict.get("inconclusive"))
+    v = verdict or {}
+    is_inconclusive = bool(v.get("inconclusive") or str(v.get("verdict", "")).upper() == "INCONCLUSIVO")
+    v_label = str(v.get("verdict") or "")
+    v_up = v_label.upper()
+    try:
+        score = float(v.get("score", 0) or 0)
+    except (TypeError, ValueError):
+        score = 0.0
+    n_low = int(v.get("low", 0) or 0)
+    n_med = int(v.get("medium", 0) or 0)
+    n_high = int(v.get("high", 0) or 0)
+    n_crit = int(v.get("critical", 0) or 0)
+    n_hits = n_low + n_med + n_high + n_crit
+
+    # Score-engine labels (fp_filter.compute_verdict) sem cluster acionavel
+    score_dirty = (
+        "PISTA" in v_up
+        or "POSS" in v_up
+        or ("SUSPEITO" in v_up and "INCONCLUSIVO" not in v_up)
+        or "ALTAMENTE" in v_up
+        or "CHEATER" in v_up
+        or score >= 4.0
+        or (n_hits > 0 and score > 0 and "LIMPO" not in v_up)
+    )
 
     # --- O QUE encontrei? ---
     if confirmed:
@@ -1301,6 +1328,22 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
         o_que = f"SUSPEITO. {n} alvo(s) com evidencia parcial (sem confirmacao cruzada)"
     elif is_inconclusive:
         o_que = "INCONCLUSIVO. Cobertura forense incompleta"
+    elif score_dirty or weak:
+        # NUNCA "LIMPO" se ha pistas de score ou clusters WEAK
+        if "ALTAMENTE" in v_up or "CHEATER" in v_up:
+            o_que = (f"{v_label or 'SUSPEITO'}. Score {score} "
+                     f"(crit={n_crit} high={n_high} med={n_med} low={n_low}).")
+        elif "SUSPEITO" in v_up:
+            o_que = (f"SUSPEITO. Score {score} · {n_hits} hit(s) "
+                     f"(sem cluster DETECTED/CONFIRMED).")
+        elif weak and not score_dirty:
+            labs = ", ".join(sorted({c.label for c in weak[:3]}))
+            extra = f" (+{len(weak) - 3})" if len(weak) > 3 else ""
+            o_que = f"PISTAS FRACAS. Cluster(s) WEAK: {labs}{extra}. Score {score}."
+        else:
+            o_que = (f"PISTAS. Score {score} · {n_hits} hit(s) "
+                     f"(low={n_low} med={n_med} high={n_high} crit={n_crit}). "
+                     f"Nao e limpo.")
     else:
         o_que = "LIMPO. Nenhum target acima do limite de FP"
 
@@ -1321,7 +1364,7 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
     elif is_inconclusive:
         # inconclusive_reason vem como "; "-joined; pega só o primeiro (mais
         # relevante - coverage.reasons ordena por importância).
-        reason = (verdict or {}).get("inconclusive_reason", "")
+        reason = v.get("inconclusive_reason", "")
         first_reason = reason.split(";")[0].strip() if reason else ""
         cov_reasons = (coverage or {}).get("reasons") or []
         n_extra = 0
@@ -1339,6 +1382,18 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
         else:
             por_que = ("Fontes forenses fortes (Prefetch/Amcache/BAM/Defender) "
                        "nao puderam ser lidas. Provavelmente sem admin.")
+    elif score_dirty or weak:
+        parts = []
+        if n_hits:
+            parts.append(
+                f"{n_hits} hit(s) no score engine "
+                f"(crit={n_crit}/high={n_high}/med={n_med}/low={n_low})"
+            )
+        if weak:
+            parts.append(f"{len(weak)} cluster(s) WEAK (abaixo do limiar SUSPECT)")
+        if not parts:
+            parts.append(f"score {score} acima do limiar de limpo")
+        por_que = ". ".join(parts) + ". Precisa revisao antes de liberar."
     else:
         blind = (coverage or {}).get("blind_strong", 0)
         if blind:
@@ -1349,11 +1404,52 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
 
     # --- O QUE FAZER agora? ---
     if is_inconclusive:
-        o_que_fazer = "Rode de novo como admin (UAC) antes de fechar a SS. Sem admin o veredito nao vale."
+        cov = coverage or {}
+        reasons_blob = " ".join([
+            str(v.get("inconclusive_reason") or ""),
+            *[str(r) for r in (cov.get("reasons") or [])],
+        ]).lower()
+        needs_admin = (
+            cov.get("is_admin") is False
+            or "admin" in reasons_blob
+            or "administrador" in reasons_blob
+        )
+        partial_mode = bool(
+            cov.get("skipped_groups") or cov.get("quick") or cov.get("only")
+        )
+        strong_fail = bool(cov.get("strong_errored") or cov.get("blind_strong"))
+        if needs_admin and partial_mode:
+            o_que_fazer = (
+                "Rode como admin (UAC) E em modo Completo antes de fechar a SS. "
+                "Nao inocente com cobertura parcial."
+            )
+        elif needs_admin:
+            o_que_fazer = (
+                "Rode de novo como admin (UAC) antes de fechar a SS. "
+                "Sem admin o veredito nao vale."
+            )
+        elif partial_mode:
+            o_que_fazer = (
+                "Cobertura parcial (modo Rapido/ss-live). "
+                "Rode modo Completo antes de inocentar."
+            )
+        elif strong_fail:
+            o_que_fazer = (
+                "Fonte forense forte falhou. Repita com admin e modo Completo. "
+                "Nao inocente."
+            )
+        else:
+            o_que_fazer = (
+                "Cobertura incompleta. Nao inocente. "
+                "Repita a SS com admin e modo Completo."
+            )
     elif confirmed or detected:
         o_que_fazer = "Nao deixa formatar/reiniciar. Copie o resumo (botao no hero) e cole no Discord da liga."
-    elif suspect:
-        o_que_fazer = "Abra as seções HIGH/MEDIUM abaixo, cruze com SS visual (Task Manager + pasta Downloads)"
+    elif suspect or score_dirty or weak:
+        o_que_fazer = (
+            "NAO liberar ainda. Abra o relatorio HTML, revise HIGH/MEDIUM/LOW "
+            "e cruze com SS visual (Task Manager + Downloads)."
+        )
     else:
         o_que_fazer = "Sessao OK. Libere o suspeito. Ainda vale um SS visual rapido do task manager"
 

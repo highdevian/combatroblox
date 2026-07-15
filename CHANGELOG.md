@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.55.2] - 2026-07-15
+
+**GUI premium + fixes criticos de confidence/cobertura (SS real).**
+
+### GUI (Fluent / Windows Security)
+
+- Redesign visual: tipografia, status com Fluent icons, segmented Completo/Rapido,
+  CTA com sombra discreta, janela fixa (sem maximizar), fade-in.
+- Campo opcional **Codigo da SS** (paridade com CLI `--codigo`).
+- `sys_info` congelado por scan (mesmo `session_id` no HTML e no Discord).
+- Pipeline alinhado a CLI: `run_scanners_parallel` + `_run_one`.
+- Tela de veredito lista hits **LOW/MEDIUM** + contadores crit/high/med/low.
+- Logo/icon embutidos no build (`logo.png`, `logo_256.png`, `icon.ico`).
+
+### Criticos (forense)
+
+- **C1**: Amcache/Prefetch/BAM (fontes fortes) NUNCA sao soft-skip por
+  "nao encontrado" - hive apagado força INCONCLUSIVO no LIMPO.
+- **C2**: bullets do staff nao dizem mais "LIMPO / libere" com score
+  POSSIVEIS PISTAS ou clusters WEAK.
+- **A1**: GUI mapeia `POSSÍVEIS PISTAS` (nao mais label `-`).
+- **A2**: INCONCLUSIVO diferencia UAC vs modo Completo (ss-live/Rapido).
+- **A3**: Markdown Discord inclui `ID sessao` + codigo + versao.
+
+### Testes
+
+- Cobertura Amcache hard, bullets pistas, GUI POSS, session freeze.
+- Suite: **885+** verdes.
+
 ## [3.55.1] - 2026-07-15
 
 **Patch de fechamento da v3.55.0** (em-dashes + CI).

@@ -67,10 +67,15 @@ def generate_markdown_report(
     lines.append(f"- **OS:** {sys_info.get('os', '?')}")
     lines.append(f"- **Scan:** {sys_info.get('scan_time', '?')}")
     lines.append(
-        f"- **Admin:** {'sim' if sys_info.get('admin') else '**NÃO**'}"
+        f"- **Admin:** {'sim' if sys_info.get('admin') else '**NAO**'}"
     )
+    # Prova de sessao: HTML e Discord DEVEM carregar o mesmo session_id
+    if sys_info.get("session_id"):
+        lines.append(f"- **ID sessao:** `{sys_info.get('session_id')}`")
     if sys_info.get("session_code"):
-        lines.append(f"- **Código SS:** `{sys_info.get('session_code')}`")
+        lines.append(f"- **Codigo SS:** `{sys_info.get('session_code')}`")
+    if sys_info.get("telador_version"):
+        lines.append(f"- **Telador:** `{sys_info.get('telador_version')}`")
     if verdict and verdict.get("most_recent_hit"):
         lines.append(f"- **Hit mais recente:** `{verdict['most_recent_hit']}`")
     lines.append("")

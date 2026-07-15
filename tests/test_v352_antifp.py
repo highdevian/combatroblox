@@ -477,6 +477,35 @@ class TestStaffVerdictBullets:
         assert "45%" in p or "confidence" in p.lower()
         assert "high" in a.lower() or "medium" in a.lower() or "visual" in a.lower()
 
+    def test_pistas_score_never_says_limpo_or_libere(self):
+        """C2: POSSIVEIS PISTAS + WEAK nunca vira LIMPO/libere."""
+        import report
+        clusters = [self._fake_cluster("noise", "WEAK", 30, ("prefetch",))]
+        o, p, a = report.build_staff_verdict_bullets(
+            clusters,
+            {"verdict": "POSSÍVEIS PISTAS", "score": 4.0,
+             "low": 4, "medium": 1, "high": 0, "critical": 0},
+            {"blind_strong": 0, "is_admin": True},
+        )
+        # Nao pode ser o bullet de limpo (prefixo "LIMPO."), mas "nao e limpo" ok
+        assert not o.upper().startswith("LIMPO")
+        assert "PISTA" in o.upper() or "SUSPEITO" in o.upper()
+        assert "libere" not in a.lower()
+        assert "nao liberar" in a.lower() or "não liberar" in a.lower() or "revis" in a.lower()
+
+    def test_inconclusive_ss_live_tells_completo_not_only_admin(self):
+        """A2: modo Rapido com admin -> Fazer pede Completo, nao so UAC."""
+        import report
+        o, p, a = report.build_staff_verdict_bullets(
+            [],
+            {"verdict": "INCONCLUSIVO", "inconclusive": True,
+             "inconclusive_reason": "Grupo desligado: yara."},
+            {"is_admin": True, "skipped_groups": ["yara", "winevent"],
+             "blind_strong": False},
+        )
+        assert "INCONCLUSIVO" in o
+        assert "completo" in a.lower() or "rapido" in a.lower() or "ss-live" in a.lower()
+
     def test_operator_tldr_html_has_3_dts(self):
         """HTML deve ter os 3 <dt>: O quê / Por quê / O que fazer."""
         import report

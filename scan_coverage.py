@@ -42,7 +42,20 @@ _SOFT_ERROR_HINTS = (
 )
 
 
-def _is_soft_error(error: str) -> bool:
+def _is_strong_source(name: str = "", error: str = "") -> bool:
+    """True se o scanner (ou a mensagem de erro) e fonte forense forte.
+
+    Usado pra NUNCA classificar Amcache/Prefetch/BAM/etc como soft-skip
+    so porque a mensagem contem "nao encontrado".
+    """
+    blob = f"{name or ''} {error or ''}".lower()
+    return any(h in blob for h in STRONG_SOURCES_HINTS)
+
+
+def _is_soft_error(error: str, scanner_name: str = "") -> bool:
+    """Soft = opcional ausente / canal vazio. Nunca soft se fonte forte."""
+    if _is_strong_source(scanner_name, error):
+        return False
     e = (error or "").lower()
     return any(h in e for h in _SOFT_ERROR_HINTS)
 
@@ -75,7 +88,7 @@ def build_coverage(
             "n_items": len([i for i in f.get("items", []) if not i.get("meta_only")]),
         }
         if status == "error":
-            if _is_soft_error(err):
+            if _is_soft_error(err, name):
                 soft_errored.append(entry)
             else:
                 errored.append(entry)

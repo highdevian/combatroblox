@@ -111,6 +111,39 @@ def test_hard_error_still_incomplete():
     assert v["verdict"] == "INCONCLUSIVO"
 
 
+def test_amcache_not_found_is_hard_not_soft():
+    """C1: hive apagado NAO e soft-skip - deve forcar INCONCLUSIVO no LIMPO."""
+    findings = [
+        _finding("Amcache", "error", error="Amcache.hve não encontrado"),
+        _finding("prefetch", "clean"),
+    ]
+    cov = coverage_mod.build_coverage(findings, is_admin=True)
+    assert cov["n_soft_skip"] == 0, cov
+    assert cov["n_error"] == 1
+    assert cov["strong_errored"]
+    assert cov["blind_strong"] is True
+    v = coverage_mod.apply_coverage_to_verdict(
+        {"verdict": "LIMPO", "score": 0, "color": "green"}, cov)
+    assert v["verdict"] == "INCONCLUSIVO"
+    assert v.get("inconclusive") is True
+
+
+def test_soft_nao_encontrado_still_soft_on_weak_scanner():
+    """'nao encontrado' em scanner fraco (opcional) continua soft."""
+    findings = [
+        _finding("Mouse software XYZ", "error",
+                 error="perfil XYZ nao encontrado"),
+        _finding("prefetch", "clean"),
+        _finding("Amcache (forense)", "clean"),
+    ]
+    cov = coverage_mod.build_coverage(findings, is_admin=True)
+    assert cov["n_soft_skip"] == 1
+    assert cov["n_error"] == 0
+    v = coverage_mod.apply_coverage_to_verdict(
+        {"verdict": "LIMPO", "score": 0}, cov)
+    assert v["verdict"] == "LIMPO"
+
+
 def test_pca_empty_is_soft_and_keeps_limpo():
     """PCA/TaskScheduler canal vazio ≠ cegueira forense."""
     findings = [

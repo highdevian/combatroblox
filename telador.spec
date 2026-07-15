@@ -46,12 +46,20 @@ try:
 except Exception:
     pass
 
+# Icone + logo embutidos pra GUI (barra de titulo ja usa icon= no EXE).
+_icon_datas = []
+for _asset in ("icon.ico", "logo.png", "logo_256.png"):
+    if os.path.isfile(_asset):
+        _icon_datas.append((_asset, "."))
+
+_all_datas = _ctk_datas + _icon_datas
+
 # ---- Analysis compartilhado (telador.py como entry principal) ----
 a_cli = Analysis(
     ['telador.py'],
     pathex=['.'],
     binaries=[],
-    datas=_ctk_datas,
+    datas=_all_datas,
     hiddenimports=_STDLIB_HIDDEN + _ROOT_MODULES + _ctk_hidden + ['gui'],
     hookspath=[],
     hooksconfig={},
@@ -66,7 +74,7 @@ a_gui = Analysis(
     ['gui.py'],
     pathex=['.'],
     binaries=[],
-    datas=_ctk_datas,
+    datas=_all_datas,
     hiddenimports=_STDLIB_HIDDEN + _ROOT_MODULES + _ctk_hidden + ['telador'],
     hookspath=[],
     hooksconfig={},
