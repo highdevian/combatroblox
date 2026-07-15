@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class TestHwidSpoofers2026:
 
     def _match(self, text):
-        from matching import invalidate, match_keyword
+        from telador.matching import invalidate, match_keyword
         invalidate()
         return match_keyword(text)
 
@@ -72,7 +72,7 @@ class TestHwidSpoofers2026:
 class TestKmsActivators:
 
     def _match(self, text):
-        from matching import invalidate, match_keyword
+        from telador.matching import invalidate, match_keyword
         invalidate()
         return match_keyword(text)
 
@@ -97,7 +97,7 @@ class TestKmsActivators:
 
     def test_process_names_have_kms(self):
         """Regressao: processos KMS estao em EXECUTOR_PROCESS_NAMES."""
-        import database
+        from telador import database
         assert database.EXECUTOR_PROCESS_NAMES.get("kmsauto.exe") == "low"
         assert database.EXECUTOR_PROCESS_NAMES.get("kmspico.exe") == "low"
         assert database.EXECUTOR_PROCESS_NAMES.get("hwidgen.exe") == "low"
@@ -112,7 +112,7 @@ class TestPeripheralsAntiFP:
 
     def _run_isolated(self, mouse_dict):
         """Roda scan_mouse_software_installed com MOUSE_SOFTWARE substituido."""
-        import peripherals
+        from telador import peripherals
         from unittest.mock import patch
         # peripherals faz `from database import MOUSE_SOFTWARE` — precisa
         # patchar no namespace do peripherals, nao no database.

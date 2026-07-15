@@ -21,11 +21,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import evidence as ev   # noqa: E402
-import fp_filter        # noqa: E402
-import report           # noqa: E402
-
-
+from telador import evidence as ev   # noqa: E402
+from telador import fp_filter        # noqa: E402
+from telador import report           # noqa: E402
 SYS_INFO = {"host": "TEST-PC", "user": "bob", "scan_time": "2026-06-03 14:30:00",
             "os": "Windows 11", "arch": "AMD64", "session_id": "ABCD1234"}
 

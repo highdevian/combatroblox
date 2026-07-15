@@ -16,9 +16,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import removable_media as rm  # noqa: E402
-
-
+from telador import removable_media as rm  # noqa: E402
 def test_friendly_usb_name():
     assert (rm._friendly_usb_name("Disk&Ven_SanDisk&Prod_Cruzer_Blade&Rev_1.00")
             == "SanDisk Cruzer Blade 1.00")
@@ -107,13 +105,13 @@ def test_real_machine_no_crash():
 # ---------------- integração com o Confidence Engine ----------------
 
 def test_slug_maps_to_removable_media():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name("Mídia removível plugada") == "removable_media"
     assert ev._source_slug_from_name("Histórico de USB") == "removable_media"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Mídia removível plugada",
         "status": "suspicious",

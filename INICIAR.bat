@@ -32,7 +32,7 @@ if errorlevel 1 (
 )
 
 echo Iniciando via Python...
-python telador.py
+python -m telador
 
 if errorlevel 1 (
     echo.

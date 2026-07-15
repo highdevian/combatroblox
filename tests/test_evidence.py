@@ -15,9 +15,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import evidence as ev  # noqa: E402
-
-
+from telador import evidence as ev  # noqa: E402
 # ============================== Helpers ==============================
 
 def _item(label="", matched="", severity="high", timestamp="", confidence=80, pe_info=None):
@@ -361,7 +359,7 @@ def test_regression_critical_severity_contributes_to_score():
     """REGRESSÃO: scan_kernel_drivers e futuros podem emitir critical.
     Antes do fix: SEVERITY_WEIGHT não tinha 'critical' → peso 0 → score zero.
     Depois do fix: critical pesa 25 → score forte mesmo com 1 evidência."""
-    from fp_filter import compute_verdict, SEVERITY_WEIGHT, SEVERITY_ORDER
+    from telador.fp_filter import compute_verdict, SEVERITY_WEIGHT, SEVERITY_ORDER
 
     assert "critical" in SEVERITY_WEIGHT, "critical foi removido de SEVERITY_WEIGHT"
     assert SEVERITY_WEIGHT["critical"] >= SEVERITY_WEIGHT["high"], \
@@ -390,7 +388,7 @@ def test_regression_critical_severity_contributes_to_score():
 
 def test_regression_two_criticals_confirm_immediately():
     """2+ críticos cravam veredito sem cross-correlation."""
-    from fp_filter import compute_verdict
+    from telador.fp_filter import compute_verdict
     findings = [{
         "name": "Kernel Drivers",
         "status": "suspicious",

@@ -11,9 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import seam_scanner as ss  # noqa: E402
-
-
+from telador import seam_scanner as ss  # noqa: E402
 # ----------------------------- núcleo estatístico -----------------------------
 
 def test_num_rejeita_bool_e_lixo():
@@ -222,7 +220,7 @@ def test_scan_jogo_isolado_com_ip_distinto_flagga():
 def test_fp_costura_antiga_mantem_critical():
     # série de +90 dias atrás: o time-decay do fp_filter NÃO pode rebaixar a
     # costura (o timestamp é a data da partida, não idade de artefato).
-    import fp_filter
+    from telador import fp_filter
     velho_cheater = [
         {"match_id": "r1", "timestamp": "2025-01-05T20:00:00", "kd": 4.1,
          "accuracy": 0.74, "hs_pct": 0.61, "reaction_ms": 128, "login_ip": "201.55.10.7"},
@@ -258,7 +256,7 @@ def test_scan_partidas_identicas_nao_confunde_indice():
 def test_evidence_costura_vira_cluster_operator_swap():
     # integração com o Confidence Engine: a costura tem que virar um cluster
     # de kind 'operator_swap', critical (corroborado) e verdict DETECTED.
-    import evidence as ev
+    from telador import evidence as ev
     res = ss.scan_operator_seam(_cheater_block() + _clean_block())
     evs = ev.findings_to_evidences([res])
     assert evs, "deveria gerar evidência (item real, não meta_only)"

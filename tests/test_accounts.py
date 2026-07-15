@@ -12,9 +12,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import user_accounts as ua  # noqa: E402
-
-
+from telador import user_accounts as ua  # noqa: E402
 def test_is_system_profile_by_sid():
     assert ua._is_system_profile("S-1-5-18", r"C:\Windows\system32\config\systemprofile")
     assert ua._is_system_profile("S-1-5-80-3139157870-2983391045", r"C:\qualquer")
@@ -65,12 +63,12 @@ def test_real_machine_no_crash():
 
 
 def test_slug_maps_to_user_accounts():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name("Contas de usuário do Windows") == "user_accounts"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Contas de usuário do Windows",
         "status": "suspicious",

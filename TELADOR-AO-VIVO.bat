@@ -35,7 +35,7 @@ echo Instalando/atualizando dependencias...
 python -m pip install --disable-pip-version-check -q -r requirements.txt
 
 echo Iniciando dashboard ao vivo via Python...
-python telador.py --watch
+python -m telador --watch
 
 if errorlevel 1 (
     echo.

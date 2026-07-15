@@ -15,9 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import service_state_scanner as ss  # noqa: E402
-
-
+from telador import service_state_scanner as ss  # noqa: E402
 # ----------------------------- _classify (núcleo puro) -----------------------------
 
 def test_classify_empty_is_no_items():
@@ -147,8 +145,8 @@ def test_registered_in_chain():
 def test_slug_label_and_weight():
     """Slug 'service_state' tem peso em evidence.SOURCE_WEIGHTS e label em
     report_assets.SOURCE_LABELS, e o mapper de nome→slug acerta."""
-    import evidence as ev
-    import report_assets
+    from telador import evidence as ev
+    from telador import report_assets
     assert "service_state" in ev.SOURCE_WEIGHTS
     assert ev.SOURCE_WEIGHTS["service_state"] >= 0.80
     assert "service_state" in report_assets.SOURCE_LABELS

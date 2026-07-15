@@ -1,8 +1,6 @@
 """Anti-FP em PC de desenvolvimento."""
 
-import fp_filter
-
-
+from telador import fp_filter
 def test_dev_env_downgrades_cheat_engine(monkeypatch):
     monkeypatch.setattr(
         fp_filter,
@@ -97,7 +95,7 @@ def test_dev_indicators_include_cursor_and_python314():
 
 
 def test_scanner_registry_counts():
-    import scanner_registry
+    from telador import scanner_registry
     counts = scanner_registry.count_scanners()
     assert counts["total"] >= 70
     assert counts["quick"] >= 10

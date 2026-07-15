@@ -17,9 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import external_scanner as es  # noqa: E402
-
-
+from telador import external_scanner as es  # noqa: E402
 # ============================ Helpers puros ============================
 
 def test_private_ipv4_is_not_external():
@@ -306,7 +304,7 @@ def test_all_scanners_registered():
 def test_slug_routing():
     """Nome do finding → slug do SOURCE_WEIGHTS. Se quebrar isso, o Confidence
     Engine cai no default e o peso da fonte fica errado."""
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name(
         "Handles pro Roblox (external memory reader)") == "external_reader"
     assert ev._source_slug_from_name(
@@ -332,7 +330,7 @@ def test_slug_routing():
 
 
 def test_labels_present_in_report_assets():
-    import report_assets as ra
+    from telador import report_assets as ra
     for slug in ("external_reader", "external_footprint",
                  "remote_thread", "kernel_only_egress",
                  "external_cheat", "external_correlation"):
@@ -340,7 +338,7 @@ def test_labels_present_in_report_assets():
 
 
 def test_scanner_registry_includes_external_group():
-    import scanner_registry as sr
+    from telador import scanner_registry as sr
     reg = sr.build_registry()
     ext = [m for m in reg if m.group == "external"]
     assert len(ext) == 13
@@ -440,7 +438,7 @@ def _stub_correlation_sources(monkeypatch, overrides: dict):
     monkeypatch.setattr(es, "HAS_PSUTIL", True)
     for name, fn in defaults.items():
         monkeypatch.setattr(es, name, fn)
-    import live_analysis as la
+    from telador import live_analysis as la
     monkeypatch.setattr(la, "scan_overlay_windows", overlay_fn)
 
 
@@ -633,7 +631,7 @@ def test_correlation_uses_popup_overlay_signal(monkeypatch):
 # ============================ Slug routing pros novos ============================
 
 def test_slug_routing_new_scanners():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name(
         "Overlay D3D/DComp (janela POPUP+TOPMOST)") == "popup_overlay"
     assert ev._source_slug_from_name(
@@ -647,7 +645,7 @@ def test_slug_routing_new_scanners():
                  "suspicious_pipe", "random_name_exe"):
         assert slug in ev.SOURCE_WEIGHTS
 
-    import report_assets as ra
+    from telador import report_assets as ra
     for slug in ("popup_overlay", "post_roblox_proc",
                  "suspicious_pipe", "random_name_exe"):
         assert slug in ra.SOURCE_LABELS
@@ -655,8 +653,8 @@ def test_slug_routing_new_scanners():
 
 def test_scanner_count_matches_chain():
     """SCANNER_COUNT tem que refletir o total real."""
-    import telador as t
-    import version
+    from telador import cli as t
+    from telador import version
     chain = t.assemble_scanners(
         skip_forensics=False, skip_antievasion=False, skip_persistence=False,
         skip_live=False, skip_history=False, skip_peripherals=False,
@@ -668,7 +666,7 @@ def test_feeds_cluster_engine_as_confirmed_when_strong():
     """kernel_only_egress (peso 0.95) + severity high com corroboração de outra
     fonte tem que subir pra DETECTED/CONFIRMED. Sem corroboração, no máximo
     SUSPECT (1 fonte só não crava)."""
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Rede: processo do sistema com egress externo",
         "status": "suspicious",
@@ -775,7 +773,7 @@ def test_autopsy_lol_domain_in_suspicious():
     """v3.45.4: autopsy.lol e brand do external cheat (title de MessageBox
     "Open Roblox first." + class name). Browser history / hosts pra este
     dominio = cheater."""
-    from database import SUSPICIOUS_DOMAINS
+    from telador.database import SUSPICIOUS_DOMAINS
     assert SUSPICIOUS_DOMAINS.get("autopsy.lol") == "high"
 
 
@@ -819,7 +817,7 @@ def test_nocturnal_with_context_flags():
 def test_keyauth_domains_in_suspicious():
     """KeyAuth SaaS de DRM usado por ~todo external pago (Layuh etc).
     Deteccao via DNS cache / network / browser history."""
-    from database import SUSPICIOUS_DOMAINS
+    from telador.database import SUSPICIOUS_DOMAINS
     for d in ("keyauth.win", "keyauth.cc", "keyauth.pro",
               "keyauth.gg", "keyauth.to", "keyauth.us"):
         assert SUSPICIOUS_DOMAINS.get(d) == "high", d
@@ -827,6 +825,6 @@ def test_keyauth_domains_in_suspicious():
 
 def test_offset_feed_domains_in_suspicious():
     """Sites de dump de offsets — ninguem legitimo visita."""
-    from database import SUSPICIOUS_DOMAINS
+    from telador.database import SUSPICIOUS_DOMAINS
     for d in ("imtheo.lol", "rbxoffsets.com", "robloxoffsets.com"):
         assert SUSPICIOUS_DOMAINS.get(d) == "high", d

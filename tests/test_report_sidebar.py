@@ -1,7 +1,5 @@
 """Sidebar HTML ignora meta_only nos badges."""
-import report
-
-
+from telador import report
 def test_sidebar_badge_ignores_meta_only():
     findings = [
         {

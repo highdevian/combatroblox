@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import live_analysis as la  # noqa: E402
+from telador import live_analysis as la  # noqa: E402
 import psutil  # noqa: E402
 
 
@@ -188,7 +188,7 @@ def test_real_machine_no_crash_no_noise():
 def test_feeds_cluster_engine():
     """Processo suspenso de executor vira evidência clusterizável — SUSPECT/
     DETECTED no máximo sozinho, nunca CONFIRMED sem corroboração."""
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Processos suspensos (anti-bypass)",
         "status": "suspicious",

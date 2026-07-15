@@ -12,8 +12,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import database  # noqa: E402
-from matching import match_keyword  # noqa: E402
+from telador import database  # noqa: E402
+from telador.matching import match_keyword  # noqa: E402
 
 
 # --------------------------- Executores reais devem casar ---------------------------
@@ -136,7 +136,7 @@ def test_aimbot_script_full_pattern_matches():
 # --------------------------- Verdict ignora meta_only ---------------------------
 
 def test_verdict_ignores_meta_only():
-    import fp_filter
+    from telador import fp_filter
     findings = [{
         "name": "DLL Injection (Roblox)", "status": "clean",
         "items": [{
@@ -154,7 +154,7 @@ def test_verdict_ignores_meta_only():
 # --------------------------- Prova de SS ao vivo (#1) ---------------------------
 
 def test_session_render_with_code():
-    import report
+    from telador import report
     info = {"session_id": "A1B2C3D4", "session_code": "SUP-9988", "scan_time": "2026-05-30 12:00:00"}
     html = report._render_session(info, "deadbeef" * 8)
     assert "SUP-9988" in html and "A1B2C3D4" in html
@@ -162,14 +162,14 @@ def test_session_render_with_code():
 
 
 def test_session_render_without_code_warns():
-    import report
+    from telador import report
     info = {"session_id": "A1B2C3D4", "session_code": "", "scan_time": "x"}
     html = report._render_session(info, "")
     assert "NÃO verificada" in html  # avisa que faltou código
 
 
 def test_session_not_shown_in_sysinfo_table():
-    import report
+    from telador import report
     info = {"host": "pc", "session_id": "X", "session_code": "Y"}
     sys_html = report._render_system(info)
     # session_* têm card próprio, não devem poluir a tabela de sistema
@@ -179,14 +179,14 @@ def test_session_not_shown_in_sysinfo_table():
 # --------------------------- Overlay / ESP externo (#4) ---------------------------
 
 def test_overlay_scanner_runs():
-    import live_analysis
+    from telador import live_analysis
     r = live_analysis.scan_overlay_windows()
     assert r["status"] in ("clean", "suspicious", "error")
     assert "name" in r and "items" in r
 
 
 def test_overlay_whitelist_covers_common_apps():
-    import live_analysis
+    from telador import live_analysis
     for app in ("discord.exe", "steam.exe", "obs64.exe", "nvcontainer.exe", "explorer.exe"):
         assert app in live_analysis.OVERLAY_WHITELIST, f"{app} deveria estar na whitelist de overlay"
 
@@ -194,7 +194,8 @@ def test_overlay_whitelist_covers_common_apps():
 # --------------------------- Assinaturas externas (signatures.json) ---------------------------
 
 def test_external_signatures_merge(tmp_path):
-    import json, database
+    import json
+    from telador import database
     p = tmp_path / "signatures.json"
     p.write_text(json.dumps({
         "executor_keywords": {"zzznovoexec": "high", "ignorar_sev": "banana"},
@@ -215,13 +216,13 @@ def test_external_signatures_merge(tmp_path):
 
 
 def test_external_signatures_missing_is_safe(tmp_path):
-    import database
+    from telador import database
     added, err = database.load_external_signatures(str(tmp_path / "naoexiste.json"))
     assert added == 0 and err is None
 
 
 def test_external_signatures_invalid_json_degrades(tmp_path):
-    import database
+    from telador import database
     p = tmp_path / "signatures.json"
     p.write_text("{ isto nao e json valido ", encoding="utf-8")
     added, err = database.load_external_signatures(str(p))
@@ -232,7 +233,7 @@ def test_external_signatures_invalid_json_degrades(tmp_path):
 
 def test_extra_forensic_scanners_run():
     """Cada scanner novo retorna o contrato esperado, sem crashar."""
-    import extra_forensics
+    from telador import extra_forensics
     for fn in extra_forensics.ALL_EXTRA_FORENSIC_SCANNERS:
         r = fn()
         assert isinstance(r, dict), f"{fn.__name__} não retornou dict"
@@ -243,7 +244,7 @@ def test_extra_forensic_scanners_run():
 
 def test_extra_forensics_registered():
     """Os scanners do Tier 1 estão na lista."""
-    import extra_forensics
+    from telador import extra_forensics
     names = {fn.__name__ for fn in extra_forensics.ALL_EXTRA_FORENSIC_SCANNERS}
     assert names == {"scan_shimcache", "scan_srum", "scan_script_hashes",
                      "scan_anti_forensics", "scan_usn_journal",
@@ -256,7 +257,7 @@ def test_extra_forensics_registered():
 
 def test_prefetch_disabled_both_off_is_high(monkeypatch):
     """EnablePrefetcher=0 + SysMain.Start=4 = high (bypass deliberado)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     def fake_read(_h, key, _v):
         if "PrefetchParameters" in key:
             return 0
@@ -273,7 +274,7 @@ def test_prefetch_disabled_both_off_is_high(monkeypatch):
 
 def test_prefetch_disabled_only_one_is_medium(monkeypatch):
     """Só Prefetch=0 (ou só SysMain=4) é média — comum em guias antigas de SSD."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     def fake_read(_h, key, _v):
         if "PrefetchParameters" in key:
             return 0
@@ -289,7 +290,7 @@ def test_prefetch_disabled_only_one_is_medium(monkeypatch):
 
 def test_prefetch_default_win11_is_clean(monkeypatch):
     """EnablePrefetcher=3 + SysMain.Start=2: padrão Win11, zero achado."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     def fake_read(_h, key, _v):
         if "PrefetchParameters" in key:
             return 3
@@ -304,7 +305,7 @@ def test_prefetch_default_win11_is_clean(monkeypatch):
 
 def test_prefetch_partial_value_1_is_clean(monkeypatch):
     """EnablePrefetcher=1 (só apps) também é legítimo — não dispara."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     def fake_read(_h, key, _v):
         return 1 if "PrefetchParameters" in key else 2
     monkeypatch.setattr(ef, "_read_dword", fake_read)
@@ -316,7 +317,7 @@ def test_prefetch_partial_value_1_is_clean(monkeypatch):
 
 def test_event_log_gap_fresh_pc_is_clean(monkeypatch):
     """PC fresh (Prefetch<80) NÃO dispara mesmo com log curto — anti-FP crítico."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     monkeypatch.setattr(ef, "_count_dir", lambda *a, **kw: 30)  # PC fresh
     monkeypatch.setattr(ef, "_oldest_event_age_hours", lambda log: 2.0)  # log curto
     r = ef.scan_event_log_gap()
@@ -325,7 +326,7 @@ def test_event_log_gap_fresh_pc_is_clean(monkeypatch):
 
 def test_event_log_gap_historic_pc_short_log_flags(monkeypatch):
     """PC com Prefetch volumoso + log < 6h = gap suspeito (média)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     monkeypatch.setattr(ef, "_count_dir", lambda *a, **kw: 150)  # PC histórico
     def fake_age(log):
         return 1.5 if log == "System" else 50.0  # System foi limpo, App ok
@@ -338,7 +339,7 @@ def test_event_log_gap_historic_pc_short_log_flags(monkeypatch):
 
 def test_event_log_gap_long_history_is_clean(monkeypatch):
     """PC histórico com logs longos (>6h): nada a flagar."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     monkeypatch.setattr(ef, "_count_dir", lambda *a, **kw: 150)
     monkeypatch.setattr(ef, "_oldest_event_age_hours", lambda log: 720.0)  # 30 dias
     r = ef.scan_event_log_gap()
@@ -350,7 +351,7 @@ def test_event_log_gap_long_history_is_clean(monkeypatch):
 def test_shadow_copy_single_event_is_clean(monkeypatch):
     """1 evento 8224 isolado = limpeza automática do Windows, NÃO dispara
     (esse é o estado normal — FP no PC do dev se disparasse)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     fake_out = b"""Event[0]
   Date: 2026-06-02T14:48:49.000Z
   Event ID: 8224
@@ -365,7 +366,7 @@ def test_shadow_copy_single_event_is_clean(monkeypatch):
 
 def test_shadow_copy_burst_flags(monkeypatch):
     """4 eventos 8224 em <60s = vssadmin delete shadows /all (média)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     fake_out = b"""Event[0]
   Date: 2026-06-01T10:00:30.000Z
   Event ID: 8224
@@ -393,7 +394,7 @@ Event[3]
 
 def test_driver_path_normalization():
     """Resolve \\SystemRoot\\ e \\??\\ pra path real."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     assert ef._normalize_driver_path(r"\SystemRoot\System32\drivers\foo.sys").lower() \
         == r"c:\windows\system32\drivers\foo.sys"
     # ImagePath quoteado com argumentos é comum em userspace services; aqui o
@@ -404,7 +405,7 @@ def test_driver_path_normalization():
 
 def test_driver_whitelist_covers_system32_root():
     """cdd.dll em System32 raiz é whitelistado (não disparou bug do FP)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     assert ef._is_driver_path_whitelisted(r"c:\windows\system32\cdd.dll")
     assert ef._is_driver_path_whitelisted(r"c:\windows\system32\drivers\tcpip.sys")
     assert ef._is_driver_path_whitelisted(r"c:\windows\system32\driverstore\filerepository\foo\bar.sys")
@@ -415,7 +416,7 @@ def test_driver_whitelist_covers_system32_root():
 
 def test_driver_user_path_token():
     """Pasta de usuário é flagada."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     assert ef._has_user_path_token(r"c:\users\bob\appdata\local\temp\foo.sys")
     assert ef._has_user_path_token(r"c:\users\bob\downloads\rwdrv.sys")
     assert ef._has_user_path_token(r"c:\users\bob\desktop\evil.sys")
@@ -425,7 +426,7 @@ def test_driver_user_path_token():
 
 def test_scan_kernel_drivers_flags_byovd_name(monkeypatch):
     """Driver com nome conhecido de BYOVD vira high mesmo se path parece OK."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     # Simula registry retornando um driver "rwdrv" plantado em path normal
     monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
                         lambda: iter([("rwdrv", r"C:\Windows\System32\drivers\rwdrv.sys")]))
@@ -437,7 +438,7 @@ def test_scan_kernel_drivers_flags_byovd_name(monkeypatch):
 
 def test_scan_kernel_drivers_flags_user_path(monkeypatch):
     """Driver fora da whitelist em path de usuário = high."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
                         lambda: iter([("evilthing", r"C:\Users\bob\Desktop\evil.sys")]))
     r = ef.scan_kernel_drivers()
@@ -449,7 +450,7 @@ def test_scan_kernel_drivers_flags_user_path(monkeypatch):
 def test_scan_kernel_drivers_unsigned_flag(monkeypatch):
     """Driver fora da whitelist, em path COMUM (não user folder), sem assinatura = high.
     Usa path mockado em C:\\ProgramData (path neutro: não-system, não-user)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     fake_path = r"C:\ProgramData\custom\driver.sys"
     monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
                         lambda: iter([("custom", fake_path)]))
@@ -464,7 +465,7 @@ def test_scan_kernel_drivers_unsigned_flag(monkeypatch):
 
 def test_scan_kernel_drivers_signed_is_clean(monkeypatch):
     """Driver fora da whitelist, mas ASSINADO = não dispara (FP control)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     fake_path = r"C:\ProgramData\custom\driver.sys"
     monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
                         lambda: iter([("custom", fake_path)]))
@@ -477,7 +478,7 @@ def test_scan_kernel_drivers_signed_is_clean(monkeypatch):
 
 def test_scan_kernel_drivers_orphan_is_low(monkeypatch):
     """Driver registrado mas arquivo sumiu (CPU-Z, HWInfo) = low (FP comum)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
                         lambda: iter([("cpuz162", r"C:\inexistente\foo.sys")]))
     r = ef.scan_kernel_drivers()
@@ -489,7 +490,7 @@ def test_scan_kernel_drivers_orphan_is_low(monkeypatch):
 def test_scan_kernel_drivers_signing_check_failure_is_silent(monkeypatch):
     """_check_driver_signed retornando None (não conseguiu checar) NÃO dispara
     high — protege contra FP em sistema com WinVerifyTrust quebrado."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     fake_path = r"C:\ProgramData\custom\driver.sys"
     monkeypatch.setattr(ef, "_enumerate_kernel_drivers",
                         lambda: iter([("custom", fake_path)]))
@@ -504,14 +505,14 @@ def test_scan_kernel_drivers_signing_check_failure_is_silent(monkeypatch):
 
 def test_filter_items_for_display_off_keeps_everything():
     """Sem --high-only, lista intocada."""
-    import telador
+    from telador import cli as telador
     items = [{"severity": "low"}, {"severity": "medium"}, {"severity": "high"}]
     assert telador._filter_items_for_display(items, False) == items
 
 
 def test_filter_items_for_display_on_keeps_only_high_and_critical():
     """Com --high-only, só passam high e critical. Items originais preservados."""
-    import telador
+    from telador import cli as telador
     items = [
         {"severity": "low", "label": "A"},
         {"severity": "medium", "label": "B"},
@@ -527,7 +528,7 @@ def test_filter_items_for_display_on_keeps_only_high_and_critical():
 
 def test_filter_items_for_display_missing_severity_defaults_to_low():
     """Item sem campo 'severity' é tratado como low (não passa no --high-only)."""
-    import telador
+    from telador import cli as telador
     items = [{"label": "X"}]
     assert telador._filter_items_for_display(items, True) == []
 
@@ -536,7 +537,7 @@ def test_filter_items_for_display_missing_severity_defaults_to_low():
 
 def _patch_psreadline(monkeypatch, tmp_path, content_bytes, pf_count):
     """Aponta o scanner pra um arquivo temporário e fixa o Prefetch."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     f = tmp_path / "ConsoleHost_history.txt"
     if content_bytes is not None:
         f.write_bytes(content_bytes)
@@ -547,7 +548,7 @@ def _patch_psreadline(monkeypatch, tmp_path, content_bytes, pf_count):
 
 def test_ps_history_zero_bytes_is_high(monkeypatch, tmp_path):
     """Arquivo existe mas tem 0 bytes = alguém esvaziou (high)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     _patch_psreadline(monkeypatch, tmp_path, b"", pf_count=150)
     r = ef.scan_powershell_history_cleared()
     assert r["status"] == "suspicious"
@@ -557,7 +558,7 @@ def test_ps_history_zero_bytes_is_high(monkeypatch, tmp_path):
 
 def test_ps_history_near_empty_on_historic_pc_is_medium(monkeypatch, tmp_path):
     """< 50 bytes + PC histórico = média (limpeza recente seguida de uso mínimo)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     _patch_psreadline(monkeypatch, tmp_path, b"ls\ncd\n", pf_count=150)
     r = ef.scan_powershell_history_cleared()
     assert r["status"] == "suspicious"
@@ -566,7 +567,7 @@ def test_ps_history_near_empty_on_historic_pc_is_medium(monkeypatch, tmp_path):
 
 def test_ps_history_near_empty_on_fresh_pc_is_clean(monkeypatch, tmp_path):
     """< 50 bytes em PC fresh (Prefetch < 80) NÃO dispara — anti-FP."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     _patch_psreadline(monkeypatch, tmp_path, b"ls\ncd\n", pf_count=30)
     r = ef.scan_powershell_history_cleared()
     assert r["status"] == "clean"
@@ -574,7 +575,7 @@ def test_ps_history_near_empty_on_fresh_pc_is_clean(monkeypatch, tmp_path):
 
 def test_ps_history_normal_size_is_clean(monkeypatch, tmp_path):
     """Arquivo com tamanho normal (>= 50 bytes) não dispara."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     _patch_psreadline(monkeypatch, tmp_path, b"x" * 1000, pf_count=150)
     r = ef.scan_powershell_history_cleared()
     assert r["status"] == "clean"
@@ -582,7 +583,7 @@ def test_ps_history_normal_size_is_clean(monkeypatch, tmp_path):
 
 def test_ps_history_missing_on_historic_pc_is_low(monkeypatch, tmp_path):
     """Arquivo ausente + PC histórico = low (FP possível: usuário de CMD/bash)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     _patch_psreadline(monkeypatch, tmp_path, None, pf_count=150)
     r = ef.scan_powershell_history_cleared()
     assert r["status"] == "suspicious"
@@ -592,7 +593,7 @@ def test_ps_history_missing_on_historic_pc_is_low(monkeypatch, tmp_path):
 
 def test_ps_history_missing_on_fresh_pc_is_clean(monkeypatch, tmp_path):
     """Arquivo ausente em PC fresh = normal (clean)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     _patch_psreadline(monkeypatch, tmp_path, None, pf_count=20)
     r = ef.scan_powershell_history_cleared()
     assert r["status"] == "clean"
@@ -600,7 +601,7 @@ def test_ps_history_missing_on_fresh_pc_is_clean(monkeypatch, tmp_path):
 
 def test_shadow_copy_spread_over_days_is_clean(monkeypatch):
     """3 eventos 8224 mas espalhados em dias = automático, sem flag."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     fake_out = b"""Event[0]
   Date: 2026-06-02T14:48:49.000Z
   Event ID: 8224
@@ -622,7 +623,7 @@ Event[2]
 def test_usn_reason_bits_language_independent():
     """O motivo do USN é lido pelos bits do código hex, não pelo rótulo (PT-BR
     traduz 'Reason'). Cada bit estrutural mapeia pra severidade certa."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     assert ef._usn_classify(ef._usn_reason_from_line("x 0x80000200: excluir")) == ("excluído", "high")
     assert ef._usn_classify(ef._usn_reason_from_line("x 0x00000100: criar")) == ("criado", "medium")
     assert ef._usn_classify(ef._usn_reason_from_line("x 0x00001000: rename")) == ("renomeado", "high")
@@ -634,7 +635,7 @@ def test_usn_reason_bits_language_independent():
 
 def test_usn_parse_line_flags_deleted_executor():
     """Linha do readjournal com exec EXCLUÍDO vira item high; arquivo comum é ignorado."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     # nome de executor conhecido + bit de delete -> high
     it = ef._usn_parse_line("5028431440,krnl.exe,0x80000200,2024-12-02 14:03:11")
     assert it is not None
@@ -652,7 +653,7 @@ def test_usn_reason_ignores_hex_inside_filename():
     """FP: um hex dentro do nome (0x200.krnl.exe) não pode injetar o bit de
     DELETE. O motivo real (0x100 = criado) é lido sem o trecho do nome.
     (Sem a excisão, o 0x200 do nome seria lido como 'excluído'.)"""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     it = ef._usn_parse_line("100,0x200.krnl.exe,0x00000100,...")
     assert it is not None
     assert "criado" in it["label"]   # não "excluído"
@@ -662,7 +663,7 @@ def test_usn_reason_ignores_hex_inside_filename():
 def test_usn_degraded_format_still_flags():
     """Se o motivo vier em texto (não 0x hex), o exec ainda é sinalizado como
     média 'atividade' — robustez contra formato de CSV diferente do esperado."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     it = ef._usn_parse_line("5028431440,krnl.exe,FILE_DELETE|CLOSE")
     assert it is not None
     assert it["severity"] == "medium"
@@ -675,7 +676,7 @@ def test_usn_transient_create_delete_merged():
     """Par CREATE+DELETE do mesmo arquivo com gap ≤120s é fundido numa
     única entrada LOW com label explicativo. Pega o FP clássico:
     teste/AV/download cancelado que gera create+delete rápidos."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     c = ef._usn_parse_line("100,solara.exe,0x00000100,2026-06-03 14:34:48")
     d = ef._usn_parse_line("200,solara.exe,0x80000200,2026-06-03 14:34:58")
     assert c is not None and d is not None
@@ -694,7 +695,7 @@ def test_usn_transient_create_delete_merged():
 def test_usn_real_delete_outside_window():
     """DELETE com CREATE distante (>120s) mantém severidade HIGH intacta.
     Cenário real: cheater roda executor por horas e deleta antes da SS."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     c = ef._usn_parse_line("100,krnl.exe,0x00000100,2026-06-03 10:00:00")
     d = ef._usn_parse_line("200,krnl.exe,0x80000200,2026-06-03 14:34:58")
     assert c is not None and d is not None
@@ -709,7 +710,7 @@ def test_usn_real_delete_outside_window():
 def test_usn_delete_only_preserved():
     """Só DELETE, sem CREATE correspondente — merge_transient mantém HIGH,
     mas downgrade_orphan rebaixa pra MEDIUM (evidência parcial)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     d = ef._usn_parse_line("200,solara.exe,0x80000200,2026-06-03 14:34:58")
     assert d is not None
 
@@ -729,7 +730,7 @@ def test_usn_delete_only_preserved():
 def test_usn_delete_with_create_stays_high():
     """DELETE com CREATE fora da janela transitória mantém HIGH
     mesmo após downgrade_orphan (o CREATE existe no lote)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     c = ef._usn_parse_line("100,krnl.exe,0x00000100,2026-06-03 10:00:00")
     d = ef._usn_parse_line("200,krnl.exe,0x80000200,2026-06-03 14:34:58")
     assert c is not None and d is not None
@@ -745,7 +746,7 @@ def test_usn_delete_with_create_stays_high():
 def test_usn_create_only_preserved():
     """Só CREATE, sem DELETE — mantém MEDIUM.
     Executor pode ainda estar no disco, ou delete não foi gravado."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     c = ef._usn_parse_line("100,fluxus.exe,0x00000100,2026-06-03 14:34:48")
     assert c is not None
 
@@ -756,7 +757,7 @@ def test_usn_create_only_preserved():
 
 def test_usn_no_timestamp_items_preserved():
     """Items sem timestamp parseável não devem ser fundidos (sem como medir gap)."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     c = ef._usn_parse_line("100,krnl.exe,0x00000100,SEM_DATA")
     d = ef._usn_parse_line("200,krnl.exe,0x80000200,SEM_DATA")
     assert c is not None and d is not None
@@ -767,7 +768,7 @@ def test_usn_no_timestamp_items_preserved():
 
 def test_usn_parse_ts_formats():
     """_usn_parse_ts cobre os formatos de data que o fsutil emite."""
-    import extra_forensics as ef
+    from telador import extra_forensics as ef
     # ISO
     ts = ef._usn_parse_ts("2026-06-03 14:34:48")
     assert ts is not None and ts.hour == 14 and ts.second == 48
@@ -784,7 +785,8 @@ def test_usn_parse_ts_formats():
 
 def test_script_hash_match_logic(tmp_path, monkeypatch):
     """Plantando um hash conhecido, um arquivo com aquele conteúdo é pego."""
-    import extra_forensics, hashlib
+    import hashlib
+    from telador import extra_forensics
     conteudo = b"-- script qualquer renomeado\nlocal x = 1\n" * 5
     sha1 = hashlib.sha1(conteudo).hexdigest()
     f = tmp_path / "anotacoes.lua"
@@ -819,7 +821,7 @@ def _build_minimal_pe(path, machine=0x8664, sections=(".text",), timestamp=17000
 
 
 def test_parse_pe_x64_basic(tmp_path):
-    import pe_analysis
+    from telador import pe_analysis
     p = _build_minimal_pe(tmp_path / "fake.exe", machine=0x8664, sections=(".text", ".data"))
     pe = pe_analysis.parse_pe_header(p)
     assert pe["is_pe"] is True
@@ -830,13 +832,13 @@ def test_parse_pe_x64_basic(tmp_path):
 
 
 def test_parse_pe_x86(tmp_path):
-    import pe_analysis
+    from telador import pe_analysis
     p = _build_minimal_pe(tmp_path / "x86.exe", machine=0x14C)
     assert pe_analysis.parse_pe_header(p)["machine"] == "x86"
 
 
 def test_parse_pe_detects_packer(tmp_path):
-    import pe_analysis
+    from telador import pe_analysis
     p = _build_minimal_pe(tmp_path / "packed.exe", sections=(".vmp0",))
     pe = pe_analysis.parse_pe_header(p)
     assert pe["is_packed"] is True
@@ -844,14 +846,15 @@ def test_parse_pe_detects_packer(tmp_path):
 
 
 def test_parse_pe_rejects_non_pe(tmp_path):
-    import pe_analysis
+    from telador import pe_analysis
     p = tmp_path / "nao.txt"
     p.write_bytes(b"isto nao e um executavel " * 20)
     assert pe_analysis.parse_pe_header(str(p))["is_pe"] is False
 
 
 def test_compute_sha256(tmp_path):
-    import pe_analysis, hashlib
+    import hashlib
+    from telador import pe_analysis
     p = tmp_path / "f.bin"
     p.write_bytes(b"conteudo de teste")
     assert pe_analysis.compute_sha256(str(p)) == hashlib.sha256(b"conteudo de teste").hexdigest()
@@ -862,31 +865,31 @@ def test_compute_sha256(tmp_path):
 def test_extract_pe_path_amcache_with_sha1():
     """Amcache reporta 'path SHA1=...' — o path tem que ser extraído mesmo com
     o hash depois da extensão (o .endswith() antigo cegava nesse caso)."""
-    import pe_analysis
+    from telador import pe_analysis
     d = r"C:\Users\x\Downloads\cheat.exe SHA1=da39a3ee5e6b4b0d3255bfef95601890afd80709"
     assert pe_analysis._extract_pe_path(d) == r"C:\Users\x\Downloads\cheat.exe"
 
 
 def test_extract_pe_path_plain_and_quoted():
-    import pe_analysis
+    from telador import pe_analysis
     assert pe_analysis._extract_pe_path(r"C:\tmp\solara.exe") == r"C:\tmp\solara.exe"
     assert pe_analysis._extract_pe_path('"C:\\tmp\\a.dll"') == r"C:\tmp\a.dll"
 
 
 def test_extract_pe_path_with_spaces_and_suffix():
-    import pe_analysis
+    from telador import pe_analysis
     d = r"C:\Program Files\app\win ring0.sys carregado (não-assinado)"
     assert pe_analysis._extract_pe_path(d) == r"C:\Program Files\app\win ring0.sys"
 
 
 def test_extract_pe_path_multiline_picks_first_path():
-    import pe_analysis
+    from telador import pe_analysis
     d = "Driver BYOVD detectado\nC:\\Windows\\Temp\\winring0.sys reason=create"
     assert pe_analysis._extract_pe_path(d) == r"C:\Windows\Temp\winring0.sys"
 
 
 def test_extract_pe_path_none_when_no_pe():
-    import pe_analysis
+    from telador import pe_analysis
     assert pe_analysis._extract_pe_path("nenhum arquivo aqui, só texto") is None
 
 
@@ -911,7 +914,7 @@ def test_all_scanners_honor_contract():
     import importlib
     falhas = []
     for mod_name in SCANNER_MODULES:
-        mod = importlib.import_module(mod_name)
+        mod = importlib.import_module(f"telador.{mod_name}")
         listas = [getattr(mod, a) for a in dir(mod)
                   if a.startswith("ALL_") and a.endswith("SCANNERS")]
         assert listas, f"{mod_name} não expõe ALL_*_SCANNERS"

@@ -15,9 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import sigupdate  # noqa: E402
-
-
+from telador import sigupdate  # noqa: E402
 # --------------------------- mini servidor de teste ---------------------------
 
 def _serve(body: bytes, content_type="application/json"):

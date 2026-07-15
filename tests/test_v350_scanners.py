@@ -19,13 +19,13 @@ from unittest.mock import patch, MagicMock
 class TestSessionManager:
 
     def test_no_winreg_returns_error(self):
-        import os_integrity_scanner
+        from telador import os_integrity_scanner
         with patch.object(os_integrity_scanner, "HAS_WINREG", False):
             r = os_integrity_scanner.scan_session_manager_abuse()
         assert r["status"] == "error"
 
     def test_no_key_returns_error(self):
-        import os_integrity_scanner
+        from telador import os_integrity_scanner
         with patch.object(os_integrity_scanner, "HAS_WINREG", True), \
              patch("winreg.OpenKey", side_effect=OSError("no key")):
             r = os_integrity_scanner.scan_session_manager_abuse()
@@ -34,8 +34,7 @@ class TestSessionManager:
     def _run_with_values(self, boot_execute=None, setup_execute=None,
                          knowndlls_values=None, pending_rename=None):
         """Helper: mocka winreg calls e retorna resultado."""
-        import os_integrity_scanner
-
+        from telador import os_integrity_scanner
         root_mock = MagicMock()
         kdll_mock = MagicMock()
 
@@ -123,7 +122,7 @@ class TestSessionManager:
 class TestLsaPackages:
 
     def _run_with_values(self, auth=None, security=None, notification=None):
-        import os_integrity_scanner
+        from telador import os_integrity_scanner
         root_mock = MagicMock()
         def qv(sub, name):
             if name == "Authentication Packages":
@@ -172,7 +171,7 @@ class TestLsaPackages:
 class TestTaskExeclog:
 
     def _run(self, ps_stdout: str, returncode=0):
-        import task_execlog_scanner
+        from telador import task_execlog_scanner
         result = MagicMock()
         result.returncode = returncode
         result.stdout = ps_stdout
@@ -219,7 +218,7 @@ class TestTaskExeclog:
 class TestCertStore:
 
     def _run(self, ps_stdout: str, returncode=0):
-        import cert_store_scanner
+        from telador import cert_store_scanner
         result = MagicMock()
         result.returncode = returncode
         result.stdout = ps_stdout
@@ -279,7 +278,7 @@ class TestCertStore:
 class TestChain:
 
     def test_all_new_scanners_registered(self):
-        import scanner_registry
+        from telador import scanner_registry
         reg = scanner_registry.build_registry()
         names = {m.fn_name for m in reg}
         assert "scan_session_manager_abuse" in names
@@ -288,7 +287,7 @@ class TestChain:
         assert "scan_certificate_store" in names
 
     def test_scanner_count_bumped(self):
-        import version
+        from telador import version
         assert version.SCANNER_COUNT >= 112
         # Aceita 3.50.x (feat) e patches/minors posteriores.
         assert version.VERSION.startswith("3.5")

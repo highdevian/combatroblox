@@ -1,8 +1,6 @@
 """Regressão de redação (webhooks, JWT, telegram)."""
 
-import redaction
-
-
+from telador import redaction
 def test_discord_webhook_redacted():
     s = "curl https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyzABCDEF"
     out = redaction.redact(s)

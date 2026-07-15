@@ -13,9 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import live_analysis as la  # noqa: E402
-
-
+from telador import live_analysis as la  # noqa: E402
 def _setup_roblox(tmp_path, files, monkeypatch):
     """Cria uma árvore Roblox/Versions/<ver>/ com os arquivos dados e aponta
     o scanner pra ela."""
@@ -102,13 +100,13 @@ def test_real_machine_no_crash_no_fp():
 
 
 def test_slug_maps_to_live_dll_injection():
-    import evidence as ev
+    from telador import evidence as ev
     slug = ev._source_slug_from_name("DLL sideloading no Roblox (anti-bypass)")
     assert slug == "live_dll_injection"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "DLL sideloading no Roblox (anti-bypass)",
         "status": "suspicious",

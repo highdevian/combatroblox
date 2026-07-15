@@ -20,7 +20,7 @@ e entrega um **veredito de cheat com % de confiança**.
 [**Baixar telador-gui.exe**](https://github.com/highdevian/combatroblox/releases/latest/download/telador-gui.exe) ·
 [**Zip completo**](https://github.com/highdevian/combatroblox/releases/latest) ·
 [**telador.exe (CLI)**](https://github.com/highdevian/combatroblox/releases/latest/download/telador.exe) ·
-[**Playbook**](PLAYBOOK.md)
+[**Playbook**](docs/PLAYBOOK.md)
 
 </div>
 

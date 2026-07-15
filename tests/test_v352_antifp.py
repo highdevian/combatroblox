@@ -26,7 +26,7 @@ class TestFirewallAntiFP:
                 f"App={app}|Name={name}|")
 
     def _run_with_rule(self, raw: str):
-        import firewall_scanner
+        from telador import firewall_scanner
         key_mock = MagicMock()
 
         def enum_side(_key, idx):
@@ -89,7 +89,7 @@ class TestFirewallAntiFP:
 class TestStreamproofAntiFP:
 
     def _run_with_hit(self, proc_name: str, title: str = "Widgets"):
-        import streamproof_scanner
+        from telador import streamproof_scanner
         if not streamproof_scanner._HAS_USER32:
             return {"items": []}  # pular em CI Linux
 
@@ -153,7 +153,7 @@ class TestStreamproofAntiFP:
 class TestCertStoreAntiFP:
 
     def _run(self, ps_stdout: str):
-        import cert_store_scanner
+        from telador import cert_store_scanner
         result = MagicMock()
         result.returncode = 0
         result.stdout = ps_stdout
@@ -218,7 +218,7 @@ class TestCertStoreAntiFP:
 class TestTaskExeclogAntiFP:
 
     def _run(self, ps_stdout: str):
-        import task_execlog_scanner
+        from telador import task_execlog_scanner
         result = MagicMock()
         result.returncode = 0
         result.stdout = ps_stdout
@@ -266,7 +266,7 @@ class TestTaskExeclogAntiFP:
 class TestPcaAntiFP:
 
     def _run(self, ps_stdout: str):
-        import pca_scanner
+        from telador import pca_scanner
         result = MagicMock()
         result.returncode = 0
         result.stdout = ps_stdout
@@ -315,7 +315,7 @@ class TestPcaAntiFP:
 class TestBitsAntiFP:
 
     def _run(self, ps_stdout: str):
-        import bits_scanner
+        from telador import bits_scanner
         result = MagicMock()
         result.returncode = 0
         result.stdout = ps_stdout
@@ -357,7 +357,7 @@ class TestBitsAntiFP:
 class TestSSLiveAssembly:
 
     def test_ss_live_chain_smaller_than_full(self):
-        import telador
+        from telador import cli as telador
         ss_live = telador.assemble_ss_live_scanners()
         full = telador.assemble_scanners(
             skip_forensics=False, skip_antievasion=False,
@@ -369,7 +369,7 @@ class TestSSLiveAssembly:
 
     def test_ss_live_excludes_slow_scanners(self):
         """Scanners que fazem parse de log grande ficam FORA do ss-live."""
-        import telador
+        from telador import cli as telador
         ss_live_names = {f.__name__ for f in telador.assemble_ss_live_scanners()}
         excluded_slow = {
             "scan_pca_appcompat_events",       # Get-WinEvent 500 items
@@ -387,7 +387,7 @@ class TestSSLiveAssembly:
 
     def test_ss_live_includes_critical_live_signals(self):
         """Sinais AO VIVO essenciais devem estar no ss-live."""
-        import telador
+        from telador import cli as telador
         ss_live_names = {f.__name__ for f in telador.assemble_ss_live_scanners()}
         must_have = {
             "scan_streamproof_windows",   # Winter/Solara
@@ -425,14 +425,14 @@ class TestStaffVerdictBullets:
         return c
 
     def test_clean_bullets(self):
-        import report
+        from telador import report
         o, p, a = report.build_staff_verdict_bullets(
             [], {"verdict": "LIMPO"}, {"blind_strong": 0})
         assert "LIMPO" in o
         assert "sess" in a.lower() or "libere" in a.lower()
 
     def test_confirmed_bullets_have_target(self):
-        import report
+        from telador import report
         clusters = [self._fake_cluster("Solara", "CONFIRMED", 95,
                                         ("prefetch", "amcache", "bam"))]
         o, p, a = report.build_staff_verdict_bullets(
@@ -443,7 +443,7 @@ class TestStaffVerdictBullets:
         assert "formatar" in a.lower() or "discord" in a.lower()
 
     def test_inconclusive_bullets(self):
-        import report
+        from telador import report
         o, p, a = report.build_staff_verdict_bullets(
             [], {"verdict": "INCONCLUSIVO", "inconclusive": True,
                  "inconclusive_reason": "Prefetch inacessível"},
@@ -454,7 +454,7 @@ class TestStaffVerdictBullets:
 
     def test_inconclusive_multiple_reasons_truncated(self):
         """Quando ha varias razoes de cobertura, mostra so a 1a + '(+N outras)'."""
-        import report
+        from telador import report
         multi_reason = ("Scan sem administrador — Prefetch/Amcache/BAM falham.; "
                         "Grupo desligado: yara.; Grupo desligado: winevent.; "
                         "Grupo desligado: pca.; 10 checagens com erro real.")
@@ -468,7 +468,7 @@ class TestStaffVerdictBullets:
         assert "+4" in p or "outra" in p.lower()
 
     def test_suspect_bullets(self):
-        import report
+        from telador import report
         clusters = [self._fake_cluster("dubiousExec", "SUSPECT", 45,
                                         ("shellbag",))]
         o, p, a = report.build_staff_verdict_bullets(
@@ -479,7 +479,7 @@ class TestStaffVerdictBullets:
 
     def test_pistas_score_never_says_limpo_or_libere(self):
         """C2: POSSIVEIS PISTAS + WEAK nunca vira LIMPO/libere."""
-        import report
+        from telador import report
         clusters = [self._fake_cluster("noise", "WEAK", 30, ("prefetch",))]
         o, p, a = report.build_staff_verdict_bullets(
             clusters,
@@ -495,7 +495,7 @@ class TestStaffVerdictBullets:
 
     def test_inconclusive_ss_live_tells_completo_not_only_admin(self):
         """A2: modo Rapido com admin -> Fazer pede Completo, nao so UAC."""
-        import report
+        from telador import report
         o, p, a = report.build_staff_verdict_bullets(
             [],
             {"verdict": "INCONCLUSIVO", "inconclusive": True,
@@ -508,7 +508,7 @@ class TestStaffVerdictBullets:
 
     def test_operator_tldr_html_has_3_dts(self):
         """HTML deve ter os 3 <dt>: O quê / Por quê / O que fazer."""
-        import report
+        from telador import report
         html = report._render_operator_tldr(
             [], {"verdict": "LIMPO"}, None)
         assert html.count("<dt>") == 3
@@ -518,8 +518,7 @@ class TestStaffVerdictBullets:
 
     def test_copy_button_summary_includes_bullets(self):
         """Botao 'Copiar resumo' deve incluir os 3 bullets no data-summary."""
-        import report
-
+        from telador import report
         class FakeCluster:
             def __init__(self):
                 self.label = "Solara"
@@ -552,7 +551,7 @@ class TestDropperAntiFP:
 
     def _run_with_task(self, task_name="Update", task_path="\\Discord\\",
                        exec_path=r"C:\Users\u\AppData\Local\Discord\Update.exe"):
-        import behavioral_tier_a as bt
+        from telador import behavioral_tier_a as bt
         from datetime import datetime, timezone, timedelta
         import json, types
         recent = datetime.now(timezone.utc) - timedelta(hours=1)
@@ -630,7 +629,7 @@ class TestRobloxCrashHandlerMasqueradePath:
         NÃO deve escapar do post_roblox scan — path check no source."""
         import os
         src_path = os.path.join(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__))), "external_scanner.py")
+            os.path.abspath(__file__))), "telador", "external_scanner.py")
         with open(src_path, "r", encoding="utf-8") as fh:
             content = fh.read()
         # Path check especifico: RobloxCrashHandler so escapa se path REAL Roblox
@@ -647,7 +646,7 @@ class TestWinterBypassEcosystem:
 
     def test_winter_family_in_catalog(self):
         """Winter Bypass deve estar em _FAMILY_CATALOG (contexto rico)."""
-        import external_scanner as es
+        from telador import external_scanner as es
         assert "winter" in es._FAMILY_CATALOG
         fam = es._FAMILY_CATALOG["winter"]
         assert fam["severity"] == "high"
@@ -657,7 +656,7 @@ class TestWinterBypassEcosystem:
 
     def test_fishstrap_in_core_database(self):
         """Fishstrap tem que estar embutido no .exe (nao so signatures.dist)."""
-        import database
+        from telador import database
         assert "fishstrap.exe" in database.EXECUTOR_PROCESS_NAMES
         assert database.EXECUTOR_PROCESS_NAMES["fishstrap.exe"] == "high"
         assert database.EXECUTOR_KEYWORDS.get("fishstrap") == "high"
@@ -666,25 +665,25 @@ class TestWinterBypassEcosystem:
 
     def test_fishstrap_not_in_handle_whitelist(self):
         """Regressao: fishstrap NUNCA pode estar em _HANDLE_WHITELIST."""
-        import external_scanner as es
+        from telador import external_scanner as es
         assert "fishstrap.exe" not in es._HANDLE_WHITELIST, \
             "Fishstrap na _HANDLE_WHITELIST = Winter Bypass invisível"
 
     def test_fishstrap_not_in_footprint_whitelist(self):
         """Regressao: fishstrap NUNCA pode estar em _FOOTPRINT_WHITELIST."""
-        import external_scanner as es
+        from telador import external_scanner as es
         assert "fishstrap.exe" not in es._FOOTPRINT_WHITELIST, \
             "Fishstrap na _FOOTPRINT_WHITELIST = Winter escapava"
 
     def test_fishstrap_not_in_legit_parents(self):
         """Regressao: fishstrap NUNCA pode estar em _LEGIT_PARENTS."""
-        import external_scanner as es
+        from telador import external_scanner as es
         assert "fishstrap.exe" not in es._LEGIT_PARENTS, \
             "Fishstrap na _LEGIT_PARENTS = spawn cheat invisível"
 
     def test_fishstrap_not_in_legit_bits_names(self):
         """Regressao: fishstrap NUNCA em _LEGIT_BITS_DISPLAY_NAMES."""
-        import bits_scanner as bs
+        from telador import bits_scanner as bs
         assert "fishstrap" not in bs._LEGIT_BITS_DISPLAY_NAMES, \
             "Fishstrap na BITS whitelist = download silencioso ignorado"
 
@@ -710,7 +709,8 @@ class TestJsonExportSchema:
         return c
 
     def _load(self, **kwargs):
-        import telador, json
+        import json
+        from telador import cli as telador
         path = telador.save_json(
             findings=kwargs.get("findings", []),
             sys_info=kwargs.get("sys_info", {"host": "t"}),

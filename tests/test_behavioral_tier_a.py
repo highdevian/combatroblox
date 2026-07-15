@@ -9,9 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import behavioral_tier_a as bt  # noqa: E402
-
-
+from telador import behavioral_tier_a as bt  # noqa: E402
 def _fake_run(stdout: str, returncode: int = 0):
     def _fn(*args, **kwargs):
         return types.SimpleNamespace(
@@ -241,7 +239,7 @@ def test_all_scanners_exist():
 
 
 def test_registry_has_behavioral_tier_a_group():
-    import scanner_registry
+    from telador import scanner_registry
     reg = scanner_registry.build_registry()
     groups = {m.group for m in reg}
     assert "behavioral_tier_a" in groups

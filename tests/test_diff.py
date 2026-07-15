@@ -14,9 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import diff_tool  # noqa: E402
-
-
+from telador import diff_tool  # noqa: E402
 def _finding(name, items):
     return {"name": name, "status": "suspicious" if items else "clean", "items": items}
 

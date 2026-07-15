@@ -16,13 +16,13 @@ from unittest.mock import patch, MagicMock
 class TestScanShellbag:
 
     def test_no_winreg_returns_error(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         with patch.object(shellbag_scanner, "HAS_WINREG", False):
             r = shellbag_scanner.scan_shellbag()
         assert r["status"] == "error"
 
     def test_no_registry_keys_returns_clean(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         with patch.object(shellbag_scanner, "HAS_WINREG", True), \
              patch.object(shellbag_scanner, "_walk_bagmru", return_value=[]):
             r = shellbag_scanner.scan_shellbag()
@@ -30,7 +30,7 @@ class TestScanShellbag:
         assert r["items"] == []
 
     def test_executor_folder_flagged(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         with patch.object(shellbag_scanner, "HAS_WINREG", True), \
              patch.object(shellbag_scanner, "_walk_bagmru",
                           return_value=["solara", "Documents", "Downloads"]):
@@ -40,7 +40,7 @@ class TestScanShellbag:
         assert any("solara" in l.lower() for l in labels)
 
     def test_benign_folders_not_flagged(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         with patch.object(shellbag_scanner, "HAS_WINREG", True), \
              patch.object(shellbag_scanner, "_walk_bagmru",
                           return_value=["Documents", "Pictures", "Downloads", "Music"]):
@@ -48,20 +48,20 @@ class TestScanShellbag:
         assert r["items"] == []
 
     def test_extract_strings_from_pidl_utf16(self):
-        from shellbag_scanner import _extract_strings_from_pidl
+        from telador.shellbag_scanner import _extract_strings_from_pidl
         # Codifica "solara" em UTF-16 LE
         blob = "solara".encode("utf-16-le")
         found = _extract_strings_from_pidl(blob)
         assert any("solara" in s.lower() for s in found)
 
     def test_extract_strings_ignores_short(self):
-        from shellbag_scanner import _extract_strings_from_pidl
+        from telador.shellbag_scanner import _extract_strings_from_pidl
         blob = "ab".encode("utf-16-le")
         found = _extract_strings_from_pidl(blob)
         assert not any(len(s) >= 4 for s in found)
 
     def test_deduplication(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         # Mesma pasta duplicada na saída do walk — deve virar 1 item
         with patch.object(shellbag_scanner, "HAS_WINREG", True), \
              patch.object(shellbag_scanner, "_walk_bagmru",
@@ -77,13 +77,13 @@ class TestScanShellbag:
 class TestScanAppCompatFlags:
 
     def test_no_winreg_returns_error(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         with patch.object(shellbag_scanner, "HAS_WINREG", False):
             r = shellbag_scanner.scan_appcompat_flags()
         assert r["status"] == "error"
 
     def test_no_key_returns_clean(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         with patch.object(shellbag_scanner, "HAS_WINREG", True), \
              patch("winreg.OpenKey", side_effect=OSError("key not found")):
             r = shellbag_scanner.scan_appcompat_flags()
@@ -91,7 +91,7 @@ class TestScanAppCompatFlags:
         assert r["items"] == []
 
     def test_executor_in_compat_key_flagged(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         import winreg
 
         mock_key = MagicMock()
@@ -115,7 +115,7 @@ class TestScanAppCompatFlags:
         assert any("solara" in i["label"].lower() for i in r["items"])
 
     def test_system_exe_not_flagged(self):
-        import shellbag_scanner
+        from telador import shellbag_scanner
         import winreg
 
         mock_key = MagicMock()
@@ -145,13 +145,13 @@ class TestScanAppCompatFlags:
 class TestScanFirewallRules:
 
     def test_no_winreg_returns_error(self):
-        import firewall_scanner
+        from telador import firewall_scanner
         with patch.object(firewall_scanner, "HAS_WINREG", False):
             r = firewall_scanner.scan_firewall_rules()
         assert r["status"] == "error"
 
     def test_empty_keys_returns_clean(self):
-        import firewall_scanner
+        from telador import firewall_scanner
         with patch.object(firewall_scanner, "HAS_WINREG", True), \
              patch("winreg.OpenKey", side_effect=OSError("no key")), \
              patch("winreg.CloseKey"):
@@ -159,7 +159,7 @@ class TestScanFirewallRules:
         assert r["items"] == []
 
     def test_executor_in_rule_name_flagged(self):
-        import firewall_scanner
+        from telador import firewall_scanner
         import winreg
 
         rule_str = ("v2.30|Action=Allow|Active=TRUE|Dir=Out|"
@@ -186,7 +186,7 @@ class TestScanFirewallRules:
                    for i in r["items"])
 
     def test_user_path_allow_outbound_medium(self):
-        import firewall_scanner
+        from telador import firewall_scanner
         import winreg
 
         rule_str = ("v2.30|Action=Allow|Active=TRUE|Dir=Out|"
@@ -210,7 +210,7 @@ class TestScanFirewallRules:
         assert items[0]["severity"] == "medium"
 
     def test_block_roblox_flagged_high(self):
-        import firewall_scanner
+        from telador import firewall_scanner
         import winreg
 
         rule_str = ("v2.30|Action=Block|Active=TRUE|Dir=Out|"
@@ -234,7 +234,7 @@ class TestScanFirewallRules:
         assert items[0]["severity"] == "high"
 
     def test_legitimate_windows_app_not_flagged(self):
-        import firewall_scanner
+        from telador import firewall_scanner
         import winreg
 
         rule_str = ("v2.30|Action=Allow|Active=TRUE|Dir=Out|"
@@ -262,8 +262,7 @@ class TestScanFirewallRules:
 class TestScanWmiPersistence:
 
     def _run_with_stdout(self, stdout_text, returncode=0):
-        import persistence
-
+        from telador import persistence
         mock_result = MagicMock()
         mock_result.returncode = returncode
         mock_result.stdout = stdout_text
@@ -305,7 +304,7 @@ class TestScanWmiPersistence:
         assert r["items"] == []
 
     def test_subprocess_error_returns_error(self):
-        import persistence
+        from telador import persistence
         with patch("subprocess.run", side_effect=OSError("no powershell")):
             r = persistence.scan_wmi_persistence()
         assert r["status"] == "error"
@@ -318,20 +317,20 @@ class TestScanWmiPersistence:
 class TestScanEtwAutologgerTamper:
 
     def test_no_winreg_returns_error(self):
-        import system_hardening
+        from telador import system_hardening
         with patch.object(system_hardening, "_HAS_WINREG_SH", False):
             r = system_hardening.scan_etw_autologger_tamper()
         assert r["status"] == "error"
 
     def test_no_key_returns_error(self):
-        import system_hardening
+        from telador import system_hardening
         with patch.object(system_hardening, "_HAS_WINREG_SH", True), \
              patch("winreg.OpenKey", side_effect=OSError("no key")):
             r = system_hardening.scan_etw_autologger_tamper()
         assert r["status"] == "error"
 
     def test_enabled_logger_no_flag(self):
-        import system_hardening
+        from telador import system_hardening
         import winreg
 
         root_mock = MagicMock()
@@ -352,7 +351,7 @@ class TestScanEtwAutologgerTamper:
         assert r["items"] == []
 
     def test_disabled_logger_flagged(self):
-        import system_hardening
+        from telador import system_hardening
         import winreg
 
         root_mock = MagicMock()
@@ -375,7 +374,7 @@ class TestScanEtwAutologgerTamper:
         assert r["items"][0]["severity"] == "high"
 
     def test_unknown_logger_not_flagged(self):
-        import system_hardening
+        from telador import system_hardening
         import winreg
 
         root_mock = MagicMock()

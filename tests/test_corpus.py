@@ -20,10 +20,8 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import evidence as ev      # noqa: E402
-import fp_filter           # noqa: E402
-
-
+from telador import evidence as ev      # noqa: E402
+from telador import fp_filter           # noqa: E402
 def _finding(name, items):
     return {"name": name, "status": "suspicious" if items else "clean",
             "description": "", "summary": "", "items": items}
@@ -106,7 +104,7 @@ def test_clean_pc_verdict_not_accusation():
 def test_single_signed_webview_app_not_flagged_behaviorally():
     """Reforço: a detecção comportamental nunca dispara em app assinado
     (já coberto em test_behavioral, repetido aqui como invariante de corpus)."""
-    import live_analysis as la
+    from telador import live_analysis as la
     # Sem estrutura de executor no corpus limpo → 0 hits estruturais.
     r = la.scan_executor_structure()
     # Na máquina de teste tem que ser limpo (mesma trava do behavioral).
@@ -219,7 +217,7 @@ def test_old_isolated_hit_still_decays():
 def test_cross_correlate_ignores_all_low_dualuse():
     """Dual-use LOW em 6 fontes (Process Hacker num PC de dev) NÃO pode virar
     'ALTA CONFIANÇA' — LOW é ambíguo por definição. Reproduz o FP do owner."""
-    import telador
+    from telador import cli as telador
     findings = [
         _finding(src, [_it("ProcessHacker.exe", "process hacker", "low")])
         for src in ("MuiCache", "UserAssist", "BAM", "ShimCache", "Lixeira", "Pastas")
@@ -231,7 +229,7 @@ def test_cross_correlate_ignores_all_low_dualuse():
 def test_cross_correlate_flags_real_medium_multi_source():
     """Mas alvo com severidade real (>= medium) em 3+ fontes continua alta
     confiança — o cheater que esqueceu de limpar alguns rastros."""
-    import telador
+    from telador import cli as telador
     findings = [
         _finding("Prefetch", [_it("solara.exe", "solara", "high")]),
         _finding("Amcache", [_it("solara.exe", "solara", "high")]),

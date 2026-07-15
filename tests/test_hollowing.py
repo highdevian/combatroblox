@@ -16,9 +16,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import live_analysis as la  # noqa: E402
-
-
+from telador import live_analysis as la  # noqa: E402
 class _FakeProc:
     def __init__(self, pid, name, exe, create_time=0):
         self.info = {"pid": pid, "name": name, "exe": exe,
@@ -157,13 +155,13 @@ def test_registered_in_scanner_list():
 
 
 def test_slug_maps_to_live_processes():
-    import evidence as ev
+    from telador import evidence as ev
     slug = ev._source_slug_from_name("Processo oco (process hollowing / RunPE)")
     assert slug == "live_processes"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Processo oco (process hollowing / RunPE)",
         "status": "suspicious",

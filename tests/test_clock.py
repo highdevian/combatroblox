@@ -10,9 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import clock_tampering as ct  # noqa: E402
-
-
+from telador import clock_tampering as ct  # noqa: E402
 def test_parse_iso_variants():
     assert ct._parse_iso("2026-06-08T17:00:00Z") is not None
     assert ct._parse_iso("2026-06-08T17:00:00.000000000Z") is not None
@@ -221,7 +219,7 @@ def test_roundtrip_forward_only_not_counted_in_main_loop():
 
 
 def test_slug_and_cluster():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name("Manipulação do relógio do sistema") == "clock_tampering"
     findings = [{
         "name": "Manipulação do relógio do sistema", "status": "suspicious",

@@ -12,9 +12,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import timestomp_scanner as ts  # noqa: E402
-
-
+from telador import timestomp_scanner as ts  # noqa: E402
 _NOW = datetime(2026, 6, 20, 12, 0, 0)
 
 
@@ -98,12 +96,12 @@ def test_file_times_returns_datetimes(tmp_path):
 # ----------------------------- engine -----------------------------
 
 def test_slug_maps_to_anti_forense():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name("Anomalia de timestamp (time-stomping)") == "anti_forense"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Anomalia de timestamp (time-stomping)", "status": "suspicious",
         "items": [{

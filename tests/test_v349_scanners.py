@@ -21,7 +21,7 @@ from unittest.mock import patch, MagicMock
 class TestBitsScanner:
 
     def _run(self, ps_stdout: str, returncode=0):
-        import bits_scanner
+        from telador import bits_scanner
         result = MagicMock()
         result.returncode = returncode
         result.stdout = ps_stdout
@@ -103,20 +103,20 @@ class TestBitsScanner:
 class TestIfeoHijack:
 
     def test_no_winreg_returns_error(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         with patch.object(hijack_scanner, "HAS_WINREG", False):
             r = hijack_scanner.scan_ifeo_hijack()
         assert r["status"] == "error"
 
     def test_no_key_error(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         with patch.object(hijack_scanner, "HAS_WINREG", True), \
              patch("winreg.OpenKey", side_effect=OSError("no key")):
             r = hijack_scanner.scan_ifeo_hijack()
         assert r["status"] == "error"
 
     def test_legit_vsjit_debugger_ignored(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         root_mock = MagicMock()
         sub_mock = MagicMock()
         # 1 entry: chrome.exe → vsjitdebugger.exe (legit)
@@ -141,7 +141,7 @@ class TestIfeoHijack:
         assert r["items"] == []
 
     def test_roblox_hijack_critical(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         root_mock = MagicMock()
         sub_mock = MagicMock()
         enum_key_side = ["RobloxPlayerBeta.exe", OSError("done")]
@@ -167,7 +167,7 @@ class TestIfeoHijack:
         assert any("RobloxPlayerBeta" in i["label"] for i in r["items"])
 
     def test_generic_hijack_high(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         root_mock = MagicMock()
         sub_mock = MagicMock()
         enum_key_side = ["someapp.exe", OSError("done")]
@@ -199,20 +199,20 @@ class TestIfeoHijack:
 class TestComUserHijack:
 
     def test_no_winreg_returns_error(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         with patch.object(hijack_scanner, "HAS_WINREG", False):
             r = hijack_scanner.scan_com_user_hijack()
         assert r["status"] == "error"
 
     def test_no_key_returns_clean(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         with patch.object(hijack_scanner, "HAS_WINREG", True), \
              patch("winreg.OpenKey", side_effect=OSError("no key")):
             r = hijack_scanner.scan_com_user_hijack()
         assert r["status"] == "clean"
 
     def test_windows_path_ignored(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         root_mock = MagicMock()
         inproc_mock = MagicMock()
         clsid = "{00000000-0000-0000-0000-000000000001}"
@@ -242,7 +242,7 @@ class TestComUserHijack:
         assert r["items"] == []
 
     def test_user_path_dll_flagged(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         root_mock = MagicMock()
         inproc_mock = MagicMock()
         clsid = "{11111111-1111-1111-1111-111111111111}"
@@ -278,7 +278,7 @@ class TestComUserHijack:
         assert r["items"][0]["severity"] == "high"
 
     def test_trusted_appdata_ignored(self):
-        import hijack_scanner
+        from telador import hijack_scanner
         root_mock = MagicMock()
         inproc_mock = MagicMock()
         clsid = "{22222222-2222-2222-2222-222222222222}"
@@ -312,7 +312,7 @@ class TestComUserHijack:
 
     def test_vscode_localserver_ignored(self):
         """LocalServer32 Code.exe (toast) = legítimo, não hijack de DLL."""
-        import hijack_scanner
+        from telador import hijack_scanner
         root_mock = MagicMock()
         local_mock = MagicMock()
         clsid = "{33333333-3333-3333-3333-333333333333}"
@@ -359,7 +359,7 @@ class TestComUserHijack:
 class TestPcaAppcompat:
 
     def _run(self, ps_stdout: str, returncode=0):
-        import pca_scanner
+        from telador import pca_scanner
         result = MagicMock()
         result.returncode = returncode
         result.stdout = ps_stdout
@@ -399,20 +399,20 @@ class TestPcaAppcompat:
 class TestDefenderMplog:
 
     def test_no_dir_returns_error(self):
-        import defender_mplog_scanner
+        from telador import defender_mplog_scanner
         with patch("os.path.isdir", return_value=False):
             r = defender_mplog_scanner.scan_defender_mplog()
         assert r["status"] == "error"
 
     def test_empty_dir_clean(self):
-        import defender_mplog_scanner
+        from telador import defender_mplog_scanner
         with patch("os.path.isdir", return_value=True), \
              patch("os.listdir", return_value=[]):
             r = defender_mplog_scanner.scan_defender_mplog()
         assert r["items"] == []
 
     def test_hacktool_detection_flagged_critical(self):
-        import defender_mplog_scanner
+        from telador import defender_mplog_scanner
         from unittest.mock import mock_open
         # Data recente pra passar o cutoff de 90 dias
         content = (
@@ -431,7 +431,7 @@ class TestDefenderMplog:
         assert len(items) >= 1
 
     def test_benign_pua_ignored(self):
-        import defender_mplog_scanner
+        from telador import defender_mplog_scanner
         from unittest.mock import mock_open
         content = (
             "2026-07-13T10:00:00 DETECTION_ADD "
@@ -454,13 +454,13 @@ class TestDefenderMplog:
 class TestStreamproofScanner:
 
     def test_no_user32_returns_error(self):
-        import streamproof_scanner
+        from telador import streamproof_scanner
         with patch.object(streamproof_scanner, "_HAS_USER32", False):
             r = streamproof_scanner.scan_streamproof_windows()
         assert r["status"] == "error"
 
     def test_returns_clean_when_no_hits(self):
-        import streamproof_scanner
+        from telador import streamproof_scanner
         # Mocka EnumWindows pra não visitar nada
         with patch.object(streamproof_scanner, "_HAS_USER32", True), \
              patch.object(streamproof_scanner, "_EnumWindows", return_value=True):
@@ -475,7 +475,7 @@ class TestStreamproofScanner:
 class TestRobloxCrashHandlerMasquerade:
 
     def test_robloxcrashhandler_in_masquerade_names(self):
-        import live_analysis
+        from telador import live_analysis
         assert "robloxcrashhandler.exe" in live_analysis._ROBLOX_MASQUERADE_NAMES
 
 
@@ -486,7 +486,7 @@ class TestRobloxCrashHandlerMasquerade:
 class TestScannerChain:
 
     def test_all_new_scanners_registered(self):
-        import scanner_registry
+        from telador import scanner_registry
         reg = scanner_registry.build_registry()
         names = {m.fn_name for m in reg}
         assert "scan_bits_jobs" in names
@@ -498,5 +498,5 @@ class TestScannerChain:
 
     def test_scanner_count_at_least_108(self):
         # v3.49.0 requer >= 108; futuras versões só sobem.
-        import version
+        from telador import version
         assert version.SCANNER_COUNT >= 108

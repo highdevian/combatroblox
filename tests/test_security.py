@@ -14,10 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import redaction        # noqa: E402
-import report_signing   # noqa: E402
-
-
+from telador import redaction        # noqa: E402
+from telador import report_signing   # noqa: E402
 # ============================ Redação ============================
 
 def test_redacts_bearer_and_basic():

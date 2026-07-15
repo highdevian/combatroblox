@@ -14,9 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import anti_forensic_deep as af  # noqa: E402
-
-
+from telador import anti_forensic_deep as af  # noqa: E402
 # ============================ Defender string extraction ============================
 
 def test_extract_defender_strings_finds_ascii_path():
@@ -222,7 +220,7 @@ def test_all_4_registered():
 
 
 def test_slug_routing():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name(
         "Defender: histórico de detecções (persistente)") == "defender_history"
     assert ev._source_slug_from_name(
@@ -236,14 +234,14 @@ def test_slug_routing():
 
 
 def test_labels_present_in_report_assets():
-    import report_assets as ra
+    from telador import report_assets as ra
     for slug in ("defender_history", "dxshader_burst", "wer_crash", "reliability_monitor"):
         assert slug in ra.SOURCE_LABELS
 
 
 def test_chain_and_scanner_count():
     """Chain integrada bate SCANNER_COUNT."""
-    import telador, version
+    from telador import cli as telador, version
     chain = telador.assemble_scanners(
         skip_forensics=False, skip_antievasion=False, skip_persistence=False,
         skip_live=False, skip_history=False, skip_peripherals=False,
@@ -253,7 +251,7 @@ def test_chain_and_scanner_count():
 
 def test_skip_forensics_removes_anti_forensic_deep():
     """--no-forensics respeita e pula os 4 scanners pós-mortem."""
-    import telador
+    from telador import cli as telador
     chain = telador.assemble_scanners(
         skip_forensics=True, skip_antievasion=False, skip_persistence=False,
         skip_live=False, skip_history=False, skip_peripherals=False,
@@ -263,7 +261,7 @@ def test_skip_forensics_removes_anti_forensic_deep():
 
 
 def test_registry_group_present():
-    import scanner_registry as sr
+    from telador import scanner_registry as sr
     reg = sr.build_registry()
     ext = [m for m in reg if m.group == "anti_forensic_deep"]
     assert len(ext) == 4

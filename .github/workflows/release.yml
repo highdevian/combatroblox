@@ -28,10 +28,10 @@ jobs:
           pip install psutil pyinstaller customtkinter
 
       - name: Verify modules load locally (pre-build sanity)
-        run: python -c "import telador; print('all imports OK')"
+        run: python -c "from telador import cli, gui, version; print('all imports OK', version.VERSION_DISPLAY)"
 
       - name: Build telador.exe + telador-gui.exe (via spec)
-        # Spec agora define 2 EXE(): CLI (console=True) + GUI (console=False).
+        # Spec: 2 EXE() no pacote telador/ (CLI console + GUI windowed).
         run: python -m PyInstaller telador.spec
 
       - name: Smoke test CLI (--help)
@@ -62,7 +62,7 @@ jobs:
         id: zip
         shell: pwsh
         run: |
-          python pack.py --exe dist/telador.exe --gui-exe dist/telador-gui.exe --output dist
+          python scripts/pack.py --exe dist/telador.exe --gui-exe dist/telador-gui.exe --output dist
           $zipPath = Get-ChildItem dist/Telador-v*.zip | Select-Object -First 1
           if (-not $zipPath) { Write-Error "zip nao foi criado"; exit 1 }
           $zh = (Get-FileHash $zipPath.FullName -Algorithm SHA256).Hash.ToLower()

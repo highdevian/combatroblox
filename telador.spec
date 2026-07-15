@@ -22,13 +22,8 @@ import glob
 import os
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-# Enumera todo .py na raiz do projeto (excluindo testes e scripts)
-_ROOT_MODULES = sorted({
-    os.path.splitext(os.path.basename(p))[0]
-    for p in glob.glob("*.py")
-    if not os.path.basename(p).startswith(("_", "test_", "build_"))
-    and os.path.basename(p) not in {"telador.py", "conftest.py", "gui.py"}
-})
+# Pacote telador/ + submodulos (hiddenimports via collect_submodules)
+_PKG_HIDDEN = collect_submodules("telador")
 
 _STDLIB_HIDDEN = [
     "psutil", "winreg", "sqlite3", "zlib", "ctypes.wintypes",
@@ -48,19 +43,22 @@ except Exception:
 
 # Icone + logo embutidos pra GUI (barra de titulo ja usa icon= no EXE).
 _icon_datas = []
-for _asset in ("icon.ico", "logo.png", "logo_256.png"):
+for _asset in ("assets/icon.ico", "assets/logo.png", "assets/logo_256.png",
+               "icon.ico", "logo.png", "logo_256.png"):
     if os.path.isfile(_asset):
+        # dest '.' = raiz do MEIPASS (gui._resource_path procura la no frozen)
         _icon_datas.append((_asset, "."))
 
 _all_datas = _ctk_datas + _icon_datas
+_hidden = _STDLIB_HIDDEN + _PKG_HIDDEN + _ctk_hidden
 
-# ---- Analysis compartilhado (telador.py como entry principal) ----
+# ---- Analysis CLI (entry = telador/__main__.py via -m pattern) ----
 a_cli = Analysis(
-    ['telador.py'],
+    ['telador/__main__.py'],
     pathex=['.'],
     binaries=[],
     datas=_all_datas,
-    hiddenimports=_STDLIB_HIDDEN + _ROOT_MODULES + _ctk_hidden + ['gui'],
+    hiddenimports=_hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -69,13 +67,13 @@ a_cli = Analysis(
     optimize=0,
 )
 
-# ---- Analysis pra GUI (gui.py como entry — sem console) ----
+# ---- Analysis GUI (entry = telador/gui.py, windowed) ----
 a_gui = Analysis(
-    ['gui.py'],
+    ['telador/gui.py'],
     pathex=['.'],
     binaries=[],
     datas=_all_datas,
-    hiddenimports=_STDLIB_HIDDEN + _ROOT_MODULES + _ctk_hidden + ['telador'],
+    hiddenimports=_hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -96,7 +94,8 @@ exe_cli = EXE(
     console=True,
     disable_windowed_traceback=False, argv_emulation=False,
     target_arch=None, codesign_identity=None, entitlements_file=None,
-    icon='icon.ico', version='version_info.txt',
+    icon='assets/icon.ico' if os.path.isfile('assets/icon.ico') else None,
+    version='version_info.txt',
 )
 
 # telador-gui.exe — GUI (console=False, janela sem terminal)
@@ -108,5 +107,6 @@ exe_gui = EXE(
     console=False,  # windowed — SEM console flashing
     disable_windowed_traceback=False, argv_emulation=False,
     target_arch=None, codesign_identity=None, entitlements_file=None,
-    icon='icon.ico', version='version_info.txt',
+    icon='assets/icon.ico' if os.path.isfile('assets/icon.ico') else None,
+    version='version_info.txt',
 )

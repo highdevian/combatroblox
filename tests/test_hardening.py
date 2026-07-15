@@ -8,13 +8,11 @@ import contextlib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import database  # noqa: E402
-import debug  # noqa: E402
+from telador import database  # noqa: E402
+from telador import debug  # noqa: E402
 import pytest  # noqa: E402
-import telador  # noqa: E402
-import win_tools  # noqa: E402
-
-
+from telador import cli as telador  # noqa: E402
+from telador import win_tools  # noqa: E402
 def _reset_debug():
     debug._ENABLED = False
 

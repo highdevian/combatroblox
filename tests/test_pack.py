@@ -12,10 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pack
-import version
-
-
+from scripts import pack
+from telador import version
 def test_sha256_stable():
     """_sha256 é determinístico e retorna hex de 64 chars."""
     with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -148,8 +146,8 @@ def test_leia_me_without_gui_sha():
 def test_playbook_md_exists_in_project():
     """Regressão: PLAYBOOK.md tem que existir na raiz do repo (senão zip fica sem)."""
     project = Path(__file__).parent.parent
-    playbook = project / "PLAYBOOK.md"
-    assert playbook.is_file(), "PLAYBOOK.md faltando na raiz — zip do CI vai omitir"
+    playbook = project / "docs" / "PLAYBOOK.md"
+    assert playbook.is_file(), "PLAYBOOK.md faltando em docs/ — zip do CI vai omitir"
     content = playbook.read_text(encoding="utf-8")
     # Sanity check do conteúdo mínimo
     assert "Telador" in content

@@ -12,10 +12,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import matching   # noqa: E402
-import database   # noqa: E402
-
-
+from telador import matching   # noqa: E402
+from telador import database   # noqa: E402
 def setup_module(_):
     # garante que as keywords novas estão compiladas
     matching.invalidate()

@@ -12,9 +12,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import live_analysis as la  # noqa: E402
-
-
+from telador import live_analysis as la  # noqa: E402
 def _make_exe(path):
     with open(path, "wb") as f:
         f.write(b"MZ" + b"\x00" * 64)
@@ -115,7 +113,7 @@ def test_real_clean_machine_zero_hits():
 
 def test_feeds_cluster_engine_as_launcher_source():
     """A evidência deve mapear pra fonte launcher_integrity no Confidence Engine."""
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Integridade do launcher do Roblox",
         "status": "suspicious",

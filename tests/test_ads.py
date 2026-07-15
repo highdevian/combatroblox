@@ -10,9 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import ads_scanner as ads  # noqa: E402
-
-
+from telador import ads_scanner as ads  # noqa: E402
 # ----------------------------- núcleo testável -----------------------------
 
 def test_parse_stream_name():
@@ -94,13 +92,13 @@ def test_scan_clean_when_only_benign(tmp_path, monkeypatch):
 # ----------------------------- integração com o engine -----------------------------
 
 def test_slug_maps_to_anti_forense():
-    import evidence as ev
+    from telador import evidence as ev
     slug = ev._source_slug_from_name("Alternate Data Streams (ADS)")
     assert slug == "anti_forense"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Alternate Data Streams (ADS)", "status": "suspicious",
         "items": [{

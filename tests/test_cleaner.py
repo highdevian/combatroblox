@@ -7,9 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import cleaner_tools as cl  # noqa: E402
-
-
+from telador import cleaner_tools as cl  # noqa: E402
 def test_match_secure_delete_high():
     assert cl._match_cleaner("SDELETE64.EXE-A1B2.pf") == ("high", "SDelete (secure delete)")
     assert cl._match_cleaner("ERASER.EXE-C3.pf")[0] == "high"
@@ -110,12 +108,12 @@ def test_real_machine_no_crash():
 
 
 def test_slug_maps_to_anti_forense():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name("Ferramentas de limpeza / anti-forense") == "anti_forense"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Ferramentas de limpeza / anti-forense", "status": "suspicious",
         "items": [{"label": "Ferramenta de limpeza executada: SDelete",

@@ -53,12 +53,12 @@ jobs:
 
       - name: Import smoke test
         run: |
-          python -c "import antievasion, capture, command_history, database, diff_tool, discord_cache, evidence, extra_forensics, forensics, fp_filter, fresh_install, live_analysis, matching, network_scanners, pe_analysis, peripherals, persistence, redaction, report, report_md, report_signing, scanners, sigupdate, telador, watch_server; print('Smoke imports OK')"
+          python -c "from telador import cli, gui, database, evidence, fp_filter, forensics, matching, report, sigupdate, watch_server; print('Smoke imports OK', cli.__name__, gui.HAS_CTK)"
 
       - name: Validate signature files
         run: |
-          python -c "import json; json.load(open('signatures.example.json', encoding='utf-8')); print('signatures.example.json valido')"
-          python -c "import json, sigupdate; d = json.load(open('signatures.dist.json', encoding='utf-8')); assert sigupdate._looks_like_valid_signatures(d), 'estrutura invalida'; assert isinstance(d.get('version'), str), 'sem version'; print('signatures.dist.json valido (versao', d['version'], ')')"
+          python -c "import json; json.load(open('config/signatures.example.json', encoding='utf-8')); print('signatures.example.json valido')"
+          python -c "import json; from telador import sigupdate; d = json.load(open('config/signatures.dist.json', encoding='utf-8')); assert sigupdate._looks_like_valid_signatures(d), 'estrutura invalida'; assert isinstance(d.get('version'), str), 'sem version'; print('signatures.dist.json valido (versao', d['version'], ')')"
 
       - name: Unit tests (detection + anti-false-positive + engine + watch + sigupdate)
         run: |

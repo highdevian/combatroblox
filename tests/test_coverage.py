@@ -1,9 +1,7 @@
 """Cobertura + promoção LIMPO → INCONCLUSIVO."""
 
-import scan_coverage as coverage_mod
-import fp_filter
-
-
+from telador import scan_coverage as coverage_mod
+from telador import fp_filter
 def _finding(name, status="clean", items=None, error=None):
     return {
         "name": name,

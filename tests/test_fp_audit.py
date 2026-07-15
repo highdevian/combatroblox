@@ -18,9 +18,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import matching  # noqa: E402
-
-
+from telador import matching  # noqa: E402
 def setup_module(_):
     matching.invalidate()
 
@@ -110,7 +108,7 @@ def test_word_in_text_boundary():
 def test_command_history_uses_central_matching():
     """command_history fazia substring de EXECUTOR_KEYWORDS/SUSPICIOUS_DOMAINS,
     bypassando word-boundary. Agora usa o matching central — sem FP."""
-    import command_history as ch
+    from telador import command_history as ch
     # FPs que o substring causava:
     assert ch._match_in_line("cd C:/solarapanel/docs")[0] is None
     assert ch._match_in_line("visited soundwave.gg yesterday")[0] is None
@@ -126,7 +124,7 @@ def test_powershell_search_regex_not_flagged():
     """REGRESSÃO FP: `Where-Object -match 'winring0|kdmapper|gmer'` é AUDITORIA
     procurando esses tokens. Os tokens estão dentro de uma string de busca —
     não estão sendo executados."""
-    import command_history as ch
+    from telador import command_history as ch
     line = ("Get-CimInstance Win32_SystemDriver | Where-Object PathName "
             "-match 'winring0|mhyprot|capcom|gdrv|iqvw64|kdmapper|gmer' "
             "| Select-Object Name, State, PathName")
@@ -136,21 +134,21 @@ def test_powershell_search_regex_not_flagged():
 
 def test_powershell_select_string_not_flagged():
     """Select-String 'kdmapper' = procurar log por kdmapper, não rodar kdmapper."""
-    import command_history as ch
+    from telador import command_history as ch
     kw, _ = ch._match_in_line("Get-Content log.txt | Select-String 'kdmapper'")
     assert kw is None
 
 
 def test_powershell_findstr_not_flagged():
     """findstr "solara" arquivo.txt = grep, não execução."""
-    import command_history as ch
+    from telador import command_history as ch
     kw, _ = ch._match_in_line('findstr /c:"solara" suspeitos.txt')
     assert kw is None
 
 
 def test_powershell_real_execution_still_flagged():
     """Não pode regredir: rodar de fato continua sendo detectado."""
-    import command_history as ch
+    from telador import command_history as ch
     # Sem verbo de busca, kdmapper na CLI = execução real
     assert ch._match_in_line(".\\kdmapper.exe driver.sys")[0] is not None
     assert ch._match_in_line("Start-Process kdmapper")[0] is not None
@@ -160,7 +158,7 @@ def test_powershell_real_execution_still_flagged():
 
 def test_powershell_search_pattern_helper():
     """Núcleo da heurística — testes mínimos."""
-    import command_history as ch
+    from telador import command_history as ch
     # Regex enumeration ao redor do keyword
     assert ch._is_search_pattern(
         "Where-Object -match 'a|kdmapper|b'", "kdmapper") is True
@@ -179,7 +177,7 @@ def test_signature_list_assignment_not_flagged():
     """REGRESSÃO FP: `$cheat = 'solara|xeno|...'` é a WORDLIST de um script de
     screenshare/anti-cheat (ou do próprio Telador) caindo no PS history — não
     é cheat rodando. Sem verbo de busca, o _is_search_pattern não pegava."""
-    import command_history as ch
+    from telador import command_history as ch
     line = ("$cheat = 'solara|xeno|wave|krnl|fluxus|velocity|ronix|synapse|"
             "swift|celery|hydrogen|delta|arceus|codex|seliware|comet|trigon|"
             "awp|macsploit|exploit|injector|executor|loader|bootstrap'")
@@ -189,7 +187,7 @@ def test_signature_list_assignment_not_flagged():
 
 def test_signature_list_helper():
     """Núcleo: precisa de ALTERNÂNCIA real (≥2 pipes) E ≥3 executores distintos."""
-    import command_history as ch
+    from telador import command_history as ch
     assert ch._is_signature_list("'solara|krnl|fluxus'") is True
     # Um executor só, mesmo com pipe (pipeline real), NÃO é lista
     assert ch._is_signature_list("krnl | tee log.txt") is False
@@ -203,13 +201,13 @@ def test_signature_list_helper():
 def test_multiple_executors_semicolon_still_flagged():
     """Não pode regredir: rodar vários executores (;) com 1 pipe solto é execução
     real, tem que acender."""
-    import command_history as ch
+    from telador import command_history as ch
     assert ch._match_in_line("solara.exe; krnl.exe; fluxus.exe | tee log")[0] is not None
 
 
 def test_single_executor_still_flagged_despite_pipe():
     """Não pode regredir: rodar UM executor com pipe continua detectado."""
-    import command_history as ch
+    from telador import command_history as ch
     assert ch._match_in_line("solara.exe | tee log.txt")[0] is not None
     assert ch._match_in_line(".\\krnl.exe")[0] is not None
 
@@ -224,7 +222,7 @@ _TRUSTED_TEST_DOMAIN = "allowlisted.test"
 
 def _with_trusted(fn):
     """Roda fn() com _TRUSTED_TEST_DOMAIN na allowlist e limpa no fim."""
-    import database
+    from telador import database
     database.TRUSTED_DOMAINS.add(_TRUSTED_TEST_DOMAIN)
     try:
         fn()
@@ -236,7 +234,7 @@ def test_trusted_domain_irm_iex_not_flagged():
     """REGRESSÃO FP: `irm "https://<confiável>/..." | iex` é instalador legítimo
     do dono (steamtools). irm/iex são HIGH sozinhos, mas vindo de domínio
     confiável não é flag."""
-    import command_history as ch
+    from telador import command_history as ch
     def check():
         assert ch._match_in_line(
             f'irm "https://{_TRUSTED_TEST_DOMAIN}/install-plugin.ps1" | iex')[0] is None
@@ -248,7 +246,7 @@ def test_trusted_domain_irm_iex_not_flagged():
 def test_trusted_domain_does_not_clear_independent_redflag():
     """Domínio confiável só limpa download/exec — red flag INDEPENDENTE (bypass
     de Defender) na mesma linha continua acendendo."""
-    import command_history as ch
+    from telador import command_history as ch
     def check():
         kw, sev = ch._match_in_line(
             f'irm https://{_TRUSTED_TEST_DOMAIN}/x | iex; '
@@ -259,7 +257,7 @@ def test_trusted_domain_does_not_clear_independent_redflag():
 
 def test_untrusted_domain_irm_iex_still_flagged():
     """Não pode regredir: irm|iex de domínio qualquer (não-allowlist) continua HIGH."""
-    import command_history as ch
+    from telador import command_history as ch
     kw, sev = ch._match_in_line('irm "https://rando.example/x.ps1" | iex')
     assert kw is not None and sev == "high"
 
@@ -267,7 +265,7 @@ def test_untrusted_domain_irm_iex_still_flagged():
 def test_trusted_domains_disclosed_in_report(monkeypatch):
     """SEGURANÇA: allowlist ativa tem que aparecer no report (meta_only) — senão
     um trusted_domains.json plantado pelo suspeito suprimiria em silêncio."""
-    import command_history as ch, database
+    from telador import command_history as ch, database
     # Hermético: força candidates sem arquivo existente (o sidecar de dev pode
     # estar no disco da máquina de quem roda o teste, contaminaria o cenário)
     monkeypatch.setattr(database, "_trusted_domains_candidates", lambda: [])
@@ -296,7 +294,7 @@ def test_trusted_domains_localappdata_fallback(tmp_path, monkeypatch):
     """LOCALAPPDATA é candidato de fallback (mesmo padrão do signatures.json):
     permite o dono dropar o arquivo UMA vez e funcionar de qualquer exe.
     Esperado APÓS env e sidecar — não substitui os canais primários."""
-    import database as db
+    from telador import database as db
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     monkeypatch.delenv("TELADOR_TRUSTED_DOMAINS", raising=False)
     cands = db._trusted_domains_candidates()
@@ -309,7 +307,7 @@ def test_trusted_domains_localappdata_fallback(tmp_path, monkeypatch):
 def test_load_trusted_domains_strips_bom_and_skips_broken(tmp_path, monkeypatch):
     """REGRESSÃO FP: PowerShell Set-Content -Encoding utf8 grava BOM.
     utf-8-sig engole; JSON quebrado no 1º candidato NÃO impede o 2º."""
-    import database as db
+    from telador import database as db
     bad = tmp_path / "bad.json"
     good_dir = tmp_path / "Telador"
     good_dir.mkdir()
@@ -341,7 +339,7 @@ def test_load_trusted_domains_strips_bom_and_skips_broken(tmp_path, monkeypatch)
 def test_trusted_domains_userprofile_fallback(tmp_path, monkeypatch):
     """USERPROFILE\\AppData\\Local é fallback redundante pro caso de LOCALAPPDATA
     unset (contexto de exe elevado anomalo, env truncado etc)."""
-    import database as db
+    from telador import database as db
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
     monkeypatch.delenv("APPDATA", raising=False)
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
@@ -355,7 +353,7 @@ def test_disclosure_diagnoses_broken_config(tmp_path, monkeypatch):
     """Se trusted_domains.json existe mas TRUSTED_DOMAINS está vazio (JSON
     malformado etc), o disclosure scanner tem que GRITAR — não ficar 'ok'
     silencioso. Senão o dono dropa o arquivo, não vê efeito e fica adivinhando."""
-    import command_history as ch, database
+    from telador import command_history as ch, database
     saved = set(database.TRUSTED_DOMAINS)
     database.TRUSTED_DOMAINS.clear()
     # Cria um arquivo malformado no LOCALAPPDATA simulado
@@ -379,7 +377,7 @@ def test_disclosure_diagnoses_broken_config(tmp_path, monkeypatch):
 def test_disclosure_silent_when_truly_empty(monkeypatch):
     """Quando NÃO HÁ arquivo em LUGAR nenhum, disclosure fica silencioso (o caso
     normal do user que nem configurou). Sem ruído pra quem não usa a feature."""
-    import command_history as ch, database
+    from telador import command_history as ch, database
     monkeypatch.setattr(database, "_trusted_domains_candidates", lambda: [])
     saved = set(database.TRUSTED_DOMAINS)
     database.TRUSTED_DOMAINS.clear()
@@ -397,7 +395,7 @@ def test_result_summary_ignores_meta_only_items():
     (não-meta), senão um scanner que só emite header de contexto mente dizendo
     "N item(s) suspeito(s)" quando o status é clean. Também afeta scanners
     pré-existentes (live_analysis usa header [PROCESSO] meta_only)."""
-    from models import _result, _item
+    from telador.models import _result, _item
     # Só meta_only -> clean + "Nenhum vestígio"
     only_meta = [_item("[CTX]", "ctx", "low", "x", meta_only=True)]
     r = _result("X", "d", only_meta)
@@ -424,7 +422,7 @@ def test_generic_folder_names_dont_match():
       codex → OpenAI Codex · argon → Argon (Rojo) · electron → Electron
       hydrogen → Hydrogen (sequencer) · sentinel → Sentinel · cryptic → Cryptic Studios
     Visto na máquina do dev: pasta 'Codex' flaggava HIGH como executor."""
-    from database import SUSPICIOUS_FOLDER_NAMES as S
+    from telador.database import SUSPICIOUS_FOLDER_NAMES as S
     for name in ("codex", "argon", "electron", "hydrogen", "sentinel", "cryptic"):
         assert S.get(name) is None, f"'{name}' não devia estar em SUSPICIOUS_FOLDER_NAMES (FP)"
 
@@ -432,8 +430,8 @@ def test_generic_folder_names_dont_match():
 def test_removed_executors_still_covered():
     """Os executores removidos da lista de pastas continuam pegos por variantes
     específicas (process name / domínio / 'X executor')."""
-    import matching
-    from database import EXECUTOR_PROCESS_NAMES
+    from telador import matching
+    from telador.database import EXECUTOR_PROCESS_NAMES
     assert matching.match_keyword("codex.lol")[0] is not None
     assert matching.match_keyword("Codex Executor")[0] is not None
     assert EXECUTOR_PROCESS_NAMES.get("codex.exe") == "high"

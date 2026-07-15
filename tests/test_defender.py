@@ -10,10 +10,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import defender_tampering as dt  # noqa: E402
-import fp_filter as fp  # noqa: E402
-
-
+from telador import defender_tampering as dt  # noqa: E402
+from telador import fp_filter as fp  # noqa: E402
 def test_classify_executor_name_high():
     sev, m = dt._classify_exclusion(r"C:\Users\x\Downloads\solara.exe", "path")
     assert sev == "high"
@@ -129,12 +127,12 @@ def test_real_machine_no_crash():
 
 
 def test_slug_maps_to_defender():
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._source_slug_from_name("Adulteração do Windows Defender") == "defender_tampering"
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Adulteração do Windows Defender",
         "status": "suspicious",

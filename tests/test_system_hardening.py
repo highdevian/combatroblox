@@ -13,9 +13,7 @@ import types
 
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import system_hardening as sh  # noqa: E402
-
-
+from telador import system_hardening as sh  # noqa: E402
 # ------------------------------ DSE / Test Mode ------------------------------
 
 def _fake_run_ok(stdout: str, returncode: int = 0):
@@ -250,7 +248,7 @@ def test_all_scanners_exist():
 
 
 def test_registry_has_system_hardening_group():
-    import scanner_registry
+    from telador import scanner_registry
     reg = scanner_registry.build_registry()
     groups = {m.group for m in reg}
     assert "system_hardening" in groups

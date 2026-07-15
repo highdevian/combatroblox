@@ -51,7 +51,7 @@ if errorlevel 1 (
 )
 
 python -m pip install --disable-pip-version-check -q -r requirements.txt
-python telador.py --gui
+python -m telador --gui
 
 if errorlevel 1 (
     echo.

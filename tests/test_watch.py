@@ -18,8 +18,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import watch_server  # noqa: E402
-
+from telador import watch_server  # noqa: E402
 import pytest  # noqa: E402
 
 
@@ -133,7 +132,7 @@ def test_clusters_form_live_preview():
 
 
 def test_finalize_locks_state():
-    import evidence as ev
+    from telador import evidence as ev
     url = watch_server.start(1, open_browser=False)
     findings = [_finding("Kernel Drivers", [
         _hit(r"C:\Windows\System32\drivers\winring0.sys", "driver-byovd:winring0", "critical")])]

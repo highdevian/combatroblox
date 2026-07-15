@@ -14,14 +14,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_gui_imports():
     """Módulo carrega sem crash — mesmo sem CTk instalado, HAS_CTK avisa."""
-    import gui
+    from telador import gui
     assert hasattr(gui, "HAS_CTK")
     assert hasattr(gui, "main")
     assert hasattr(gui, "VERDICT_STYLES")
 
 
 def test_verdict_style_limpo():
-    import gui
+    from telador import gui
     s = gui._verdict_style("LIMPO")
     assert s["label"] == "LIMPO"
     assert s["color"] == gui.BRAND["green"]
@@ -30,7 +30,7 @@ def test_verdict_style_limpo():
 
 
 def test_verdict_style_cheater():
-    import gui
+    from telador import gui
     s = gui._verdict_style("CHEATER")
     assert s["label"] == "CHEATER"
     assert s["color"] == gui.BRAND["red"]
@@ -38,41 +38,41 @@ def test_verdict_style_cheater():
 
 
 def test_verdict_style_confirmed_via_cluster():
-    import gui
+    from telador import gui
     s = gui._verdict_style("CONFIRMED")
     assert s["label"] == "CONFIRMADO"
     assert s["color"] == gui.BRAND["red_hi"]
 
 
 def test_verdict_style_inconclusivo():
-    import gui
+    from telador import gui
     s = gui._verdict_style("INCONCLUSIVO")
     assert s["label"] == "INCONCLUSIVO"
     assert s["emoji"] == "?"
 
 
 def test_verdict_style_suspeito_pt_and_en():
-    import gui
+    from telador import gui
     assert gui._verdict_style("SUSPECT")["label"] == "SUSPEITO"
     assert gui._verdict_style("SUSPEITO")["label"] == "SUSPEITO"
 
 
 def test_verdict_style_altamente():
     """'ALTAMENTE SUSPEITO' agora tem label proprio (v3.55)."""
-    import gui
+    from telador import gui
     s = gui._verdict_style("ALTAMENTE SUSPEITO")
     assert s["label"] == "ALTAMENTE SUSPEITO"
 
 
 def test_verdict_style_unknown_falls_to_dash():
-    import gui
+    from telador import gui
     s = gui._verdict_style("random_nonsense")
     assert s["label"] == "-"
 
 
 def test_verdict_style_possiveis_pistas():
     """A1: POSSIVEIS PISTAS nao cai no fallback '-'."""
-    import gui
+    from telador import gui
     s = gui._verdict_style("POSSÍVEIS PISTAS")
     assert "PISTA" in s["label"].upper()
     assert s["label"] != "-"
@@ -80,7 +80,7 @@ def test_verdict_style_possiveis_pistas():
 
 def test_brand_colors_defined():
     """v3.55: cores de marca alinhadas com CLI (ambar/gold)."""
-    import gui
+    from telador import gui
     assert "amber" in gui.BRAND
     assert gui.BRAND["amber"].startswith("#")
     assert "green" in gui.BRAND
@@ -89,34 +89,33 @@ def test_brand_colors_defined():
 
 
 def test_human_scanner_name():
-    import gui
+    from telador import gui
     assert gui._human_scanner_name("scan_prefetch_executables") == "Prefetch executables"
     assert "Preparando" in gui._human_scanner_name("iniciando")
 
 
 def test_format_eta():
-    import gui
+    from telador import gui
     assert "s" in gui._format_eta(12)
     assert "min" in gui._format_eta(90) or "m" in gui._format_eta(90)
 
 
 def test_staff_next_step_limpo():
-    import gui
+    from telador import gui
     text, key = gui._staff_next_step("LIMPO", has_admin=True)
     assert "liberar" in text.lower()
     assert key == "green"
 
 
 def test_staff_next_step_inconclusivo_sem_admin():
-    import gui
+    from telador import gui
     text, key = gui._staff_next_step("INCONCLUSIVO", has_admin=False)
     assert "administrador" in text.lower()
     assert key == "yellow"
 
 
 def test_top_target_labels():
-    import gui
-
+    from telador import gui
     class C:
         def __init__(self, label, verdict, conf=50):
             self.label = label
@@ -134,7 +133,7 @@ def test_top_target_labels():
 
 def test_collect_hits_by_severity_includes_lows():
     """GUI deve conseguir listar detects LOW (nao so HIGH)."""
-    import gui
+    from telador import gui
     findings = [{
         "name": "Prefetch",
         "items": [
@@ -158,7 +157,7 @@ def test_no_em_dashes_in_gui():
     """Regressao: usuario nao quer em-dashes."""
     import os
     src_path = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "gui.py")
+        os.path.abspath(__file__))), "telador", "gui.py")
     with open(src_path, "r", encoding="utf-8") as fh:
         content = fh.read()
     # Ignora em-dashes em strings de docstring/comentario de codigo Python
@@ -167,7 +166,7 @@ def test_no_em_dashes_in_gui():
 
 
 def test_minimal_sys_info_schema():
-    import gui
+    from telador import gui
     info = gui._minimal_sys_info()
     expected = {"host", "user", "os", "scan_time",
                 "admin", "session_id", "session_code", "telador_version"}
@@ -179,7 +178,7 @@ def test_minimal_sys_info_schema():
 
 def test_sys_info_session_code_and_stable_id():
     """session_id nao muda no mesmo dict; session_code respeita o argumento."""
-    import gui
+    from telador import gui
     info = gui._build_sys_info("ABC123")
     sid = info["session_id"]
     assert info["session_code"] == "ABC123"
@@ -193,12 +192,13 @@ def test_sys_info_session_code_and_stable_id():
 
 def test_run_scan_thread_uses_cli_parallel():
     """GUI deve reusar telador.run_scanners_parallel / _run_one (nao fork)."""
-    import gui, inspect
+    import inspect
+    from telador import gui
     src = inspect.getsource(gui._run_scan_thread)
     assert "run_scanners_parallel" in src
     assert "ThreadPoolExecutor" not in src
     # crash path da CLI
-    import telador
+    from telador import cli as telador
     crashed = telador._run_one(lambda: (_ for _ in ()).throw(RuntimeError("x")))
     # nome humanizado, nao scan_*
     assert crashed["status"] == "error"
@@ -206,14 +206,14 @@ def test_run_scan_thread_uses_cli_parallel():
 
 
 def test_is_admin_returns_bool():
-    import gui
+    from telador import gui
     result = gui._is_admin()
     assert isinstance(result, bool)
 
 
 def test_try_elevate_no_op_if_admin(monkeypatch):
     """Se já é admin, _try_elevate não faz nada (retorna False, não sai)."""
-    import gui
+    from telador import gui
     monkeypatch.setattr(gui, "_is_admin", lambda: True)
     result = gui._try_elevate()
     assert result is False
@@ -222,7 +222,7 @@ def test_try_elevate_no_op_if_admin(monkeypatch):
 def test_gui_state_machine_transitions():
     """State machine: initial → scanning → verdict → error → initial (voltar).
     Roda em janela real (sem mainloop) — headless CI precisa de display."""
-    import gui
+    from telador import gui
     if not gui.HAS_CTK:
         return  # skip se CTk não instalado
     try:
@@ -279,7 +279,8 @@ def test_gui_state_machine_transitions():
 
 def test_ss_live_flag_still_available():
     """Regressão: --ss-live continua funcionando (GUI não substitui CLI)."""
-    import telador, inspect
+    import inspect
+    from telador import cli as telador
     src = inspect.getsource(telador.main)
     assert "--ss-live" in src
     assert "--gui" in src
@@ -287,7 +288,8 @@ def test_ss_live_flag_still_available():
 
 def test_gui_main_uses_ss_live_chain():
     """GUI deve rodar chain de --ss-live (< 45s target), não full scan."""
-    import gui, inspect
+    import inspect
+    from telador import gui
     src = inspect.getsource(gui._run_scan_thread)
     assert "assemble_ss_live_scanners" in src
 

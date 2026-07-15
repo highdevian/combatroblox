@@ -17,9 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import winevent_scanner as we  # noqa: E402
-
-
+from telador import winevent_scanner as we  # noqa: E402
 _XML_7045 = (
     '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">'
     '<System><EventID>7045</EventID>'
@@ -217,7 +215,7 @@ _TRUSTED_TEST_DOMAIN = "allowlisted.test"
 
 
 def _with_trusted(fn):
-    import database
+    from telador import database
     database.TRUSTED_DOMAINS.add(_TRUSTED_TEST_DOMAIN)
     try:
         fn()
@@ -377,8 +375,8 @@ def test_registered_in_scanner_list():
 
 
 def test_slug_weight_and_label():
-    import evidence as ev
-    import report_assets
+    from telador import evidence as ev
+    from telador import report_assets
     assert ev._source_slug_from_name("Event Log de execução (7045/4104)") == "event_log_exec"
     assert "event_log_exec" in ev.SOURCE_WEIGHTS
     assert "event_log_exec" in report_assets.SOURCE_LABELS
@@ -386,14 +384,14 @@ def test_slug_weight_and_label():
 
 def test_scriptblock_categorized_as_intent():
     """matched ps-scriptblock: deve cair como anti_forense (intent), não executor."""
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._infer_kind("PowerShell script block", "ps-scriptblock:iwr") == "anti_forense"
 
 
 def test_byovd_event_merges_with_kernel_driver():
     """7045 de winring0 e o scan_kernel_drivers usam o MESMO matched -> mesmo
     kind byovd (fundem no cluster)."""
-    import evidence as ev
+    from telador import evidence as ev
     assert ev._infer_kind("Serviço/driver instalado: winring0.sys",
                           "driver-byovd:winring0") == "byovd"
 
@@ -465,8 +463,8 @@ def test_scanner_defender_error_when_no_access(monkeypatch):
 
 
 def test_defender_registered_and_routed():
-    import evidence as ev
-    import report_assets
+    from telador import evidence as ev
+    from telador import report_assets
     assert we.scan_defender_events in we.ALL_WINEVENT_SCANNERS
     assert ev._source_slug_from_name(
         "Defender: detecção de ameaça (Event Log 1116/1117)") == "defender_detection"
@@ -626,8 +624,8 @@ def test_query_events_provider_in_query():
 
 
 def test_clearance_registered_and_routed():
-    import evidence as ev
-    import report_assets
+    from telador import evidence as ev
+    from telador import report_assets
     assert we.scan_log_clearance in we.ALL_WINEVENT_SCANNERS
     # nome do scanner casa o slug anti_forense pelo mapper (contém "event log")
     slug = ev._source_slug_from_name("Event Log: limpeza (104/501/3079)")

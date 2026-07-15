@@ -16,9 +16,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import yara_scan as ys  # noqa: E402
-
-
+from telador import yara_scan as ys  # noqa: E402
 def _exploit_blob(n=8):
     """PE falso com N símbolos da regra de exploit Luau."""
     syms = ys.BUILTIN_RULES[0]["strings"][:n]
@@ -130,8 +128,8 @@ def test_registered_in_scanner_list():
 
 
 def test_slug_maps_to_yara_signature():
-    import evidence as ev
-    import report_assets
+    from telador import evidence as ev
+    from telador import report_assets
     assert ev._source_slug_from_name("Assinatura binária (YARA)") == "yara_signature"
     assert "yara_signature" in ev.SOURCE_WEIGHTS
     # label próprio no relatório (senão cai no fallback feio "Yara Signature")
@@ -139,7 +137,7 @@ def test_slug_maps_to_yara_signature():
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Assinatura binária (YARA)",
         "status": "suspicious",

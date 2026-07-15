@@ -12,9 +12,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import live_analysis as la  # noqa: E402
-
-
+from telador import live_analysis as la  # noqa: E402
 def _make_fake_exe(path):
     # Um "exe" qualquer — não é PE válido, então WinVerifyTrust devolve
     # não-assinado (False/None), que é o que queremos testar.
@@ -116,7 +114,7 @@ def test_real_clean_machine_zero_hits():
 def test_behavioral_feeds_cluster_engine():
     """A evidência comportamental deve formar cluster (SUSPECT sozinha,
     nunca CONFIRMED sem corroboração)."""
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Estrutura de executor (comportamental)",
         "status": "suspicious",

@@ -14,9 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import dma_scanner as dma  # noqa: E402
-
-
+from telador import dma_scanner as dma  # noqa: E402
 # ----------------------------- classificadores puros -----------------------------
 
 def test_pci_xilinx_is_high():
@@ -123,8 +121,8 @@ def test_registered_in_scanner_list():
 
 
 def test_slug_maps_to_dma_hardware():
-    import evidence as ev
-    import report_assets
+    from telador import evidence as ev
+    from telador import report_assets
     assert ev._source_slug_from_name("Hardware DMA (placa FPGA / fuser)") == "dma_hardware"
     assert "dma_hardware" in ev.SOURCE_WEIGHTS
     # label próprio no relatório (senão cai no fallback feio "Dma Hardware")
@@ -132,7 +130,7 @@ def test_slug_maps_to_dma_hardware():
 
 
 def test_feeds_cluster_engine():
-    import evidence as ev
+    from telador import evidence as ev
     findings = [{
         "name": "Hardware DMA (placa FPGA / fuser)",
         "status": "suspicious",

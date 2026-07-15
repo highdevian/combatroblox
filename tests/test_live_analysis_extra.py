@@ -9,9 +9,7 @@ from ctypes import wintypes
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import live_analysis as la  # noqa: E402
-
-
+from telador import live_analysis as la  # noqa: E402
 class FakeProcess:
     def __init__(self, pid, name):
         self.info = {"pid": pid, "name": name}
