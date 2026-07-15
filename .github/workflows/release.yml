@@ -46,17 +46,32 @@ jobs:
           "sha=$h" >> $env:GITHUB_OUTPUT
           Write-Host "SHA256: $h"
 
+      - name: Build zip de distribuição (Telador-vX.X.X.zip)
+        id: zip
+        shell: pwsh
+        run: |
+          python pack.py --exe dist/telador.exe --output dist
+          $zipPath = Get-ChildItem dist/Telador-v*.zip | Select-Object -First 1
+          if (-not $zipPath) { Write-Error "zip nao foi criado"; exit 1 }
+          $zh = (Get-FileHash $zipPath.FullName -Algorithm SHA256).Hash.ToLower()
+          "path=$($zipPath.FullName)" >> $env:GITHUB_OUTPUT
+          "sha=$zh" >> $env:GITHUB_OUTPUT
+          Write-Host "ZIP: $($zipPath.Name) ($([math]::Round($zipPath.Length/1MB, 2)) MB)"
+          Write-Host "SHA256(zip): $zh"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
+          $notes = "Build automatico do telador.exe (CI).`n`nVeja o CHANGELOG.md para as mudancas desta versao.`n`n**Downloads:**`n- ``telador.exe`` (raw) - SHA256: ``${{ steps.sha.outputs.sha }}```n- ``Telador-${{ github.ref_name }}.zip`` (staff-ready: exe + bats + PLAYBOOK.md + SHA256.txt) - SHA256: ``${{ steps.zip.outputs.sha }}``"
           gh release view ${{ github.ref_name }} --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release already exists. Updating assets and metadata..."
             gh release upload ${{ github.ref_name }} dist/telador.exe --clobber
-            gh release edit ${{ github.ref_name }} --title "${{ github.ref_name }}" --notes "Build automático do telador.exe (CI).`n`nVeja o CHANGELOG.md para as mudanças desta versão.`n`nSHA256: ``${{ steps.sha.outputs.sha }}``"
+            gh release upload ${{ github.ref_name }} "${{ steps.zip.outputs.path }}" --clobber
+            gh release edit ${{ github.ref_name }} --title "${{ github.ref_name }}" --notes $notes
           } else {
             Write-Host "Creating new release..."
-            gh release create ${{ github.ref_name }} dist/telador.exe --title "${{ github.ref_name }}" --notes "Build automático do telador.exe (CI).`n`nVeja o CHANGELOG.md para as mudanças desta versão.`n`nSHA256: ``${{ steps.sha.outputs.sha }}``"
+            gh release create ${{ github.ref_name }} dist/telador.exe "${{ steps.zip.outputs.path }}" --title "${{ github.ref_name }}" --notes $notes
           }

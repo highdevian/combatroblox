@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.54.1] - 2026-07-14
+
+**Zip de distribuição + PLAYBOOK.md staff — PLANO_ECHO_TIER Semana 2 P1.**
+
+Fecha o marco de distribuição formal — staff cola 1 link do zip no Discord,
+suspeito baixa 1 arquivo, 2 cliques → veredito. Sem terminal, sem "onde
+tá esse .exe?".
+
+### Novo
+
+- **`PLAYBOOK.md`** (1 página, ~4.5 KB): ritual completo pro staff conduzir
+  SS em ~5 minutos. Cobre:
+  - Como pedir pro suspeito rodar (AnyDesk/Discord SS, download do zip)
+  - O que dizer se ele recusar admin ("2× = REPORTA")
+  - Tabela dos 4 verdicts (LIMPO / SUSPEITO / CHEATER / INCONCLUSIVO)
+    com ação concreta pra cada
+  - Red flags que travam SS (streamproof, kill-switch, formatação recente,
+    Event Log vazio, recusa UAC 2×)
+  - O que Telador NÃO pega (DMA firmware spoof, cheat só-RAM, Hyperion
+    blocking, PC formatado na hora)
+  - Discord message template pronto pra copy/paste
+- **`pack.py`** (~140 linhas): script que monta `Telador-vX.X.X.zip`. Roda
+  no CI e localmente. Zip inclui:
+  - `telador.exe`
+  - `INICIAR-GUI.bat` (2 cliques → GUI)
+  - `INICIAR.bat` (fallback CLI)
+  - `TELADOR-AO-VIVO.bat` (dashboard `--watch`)
+  - `PLAYBOOK.md`
+  - `SHA256.txt` (hash do exe pra verificação)
+  - `LEIA-ME.txt` (instrução mínima em .txt)
+- **`.github/workflows/release.yml`**: passo novo `Build zip de distribuição`
+  roda `pack.py` após buildar o `.exe` e faz upload do zip como asset
+  adicional na release do GitHub. Notes da release agora listam AMBOS os
+  downloads (exe cru + zip staff-ready) com SHA256 de cada.
+
+### Testes
+
+- `tests/test_pack.py` (+7 testes): `_sha256` estável/hex, `build_zip` gera
+  estrutura esperada (7 arquivos, prefixo `Telador-vX.X.X/`), missing exe
+  → SystemExit, missing optional files ainda funciona, `_leia_me` usa
+  versão atual, regressão de `PLAYBOOK.md` + `INICIAR-GUI.bat` existirem.
+- Suite: **868 verdes** (+7 vs 3.54.0).
+
+### Motivação
+
+GUI (v3.54.0) sozinha não distribui produto — usuário ainda precisa achar
+o `.exe`, baixar o `INICIAR-GUI.bat`, entender que os 2 andam juntos. Zip
+elimina essa fricção. Staff cola um link, acabou.
+
 ## [3.54.0] - 2026-07-14
 
 **GUI mínima — PLANO_ECHO_TIER Semana 2 P0.**
