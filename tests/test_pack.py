@@ -32,12 +32,12 @@ def test_sha256_stable():
 
 
 def test_build_zip_creates_expected_structure(tmp_path):
-    """Zip gerado tem os 7 arquivos esperados + tudo dentro de Telador-vX.X.X/."""
-    # Fake exe
+    """Zip gerado tem os 8 arquivos esperados (v3.55+: inclui telador-gui.exe)."""
     exe = tmp_path / "telador.exe"
     exe.write_bytes(b"fake exe binary content")
+    gui_exe = tmp_path / "telador-gui.exe"
+    gui_exe.write_bytes(b"fake gui exe (windowed)")
 
-    # Project root minimal com bats + playbook
     project = tmp_path / "project"
     project.mkdir()
     (project / "INICIAR-GUI.bat").write_text("@echo GUI\n")
@@ -46,7 +46,10 @@ def test_build_zip_creates_expected_structure(tmp_path):
     (project / "PLAYBOOK.md").write_text("# Playbook\n")
 
     output = tmp_path / "out"
-    zip_path = pack.build_zip(exe.resolve(), output.resolve(), project.resolve())
+    zip_path = pack.build_zip(
+        exe.resolve(), output.resolve(), project.resolve(),
+        gui_exe_path=gui_exe.resolve(),
+    )
 
     assert zip_path.is_file()
     assert zip_path.name == f"Telador-{version.VERSION_DISPLAY}.zip"
@@ -56,6 +59,7 @@ def test_build_zip_creates_expected_structure(tmp_path):
         prefix = f"Telador-{version.VERSION_DISPLAY}"
         expected = {
             f"{prefix}/telador.exe",
+            f"{prefix}/telador-gui.exe",  # v3.55+
             f"{prefix}/INICIAR-GUI.bat",
             f"{prefix}/INICIAR.bat",
             f"{prefix}/TELADOR-AO-VIVO.bat",
@@ -66,16 +70,36 @@ def test_build_zip_creates_expected_structure(tmp_path):
         assert set(names) == expected, \
             f"missing: {expected - set(names)}, extra: {set(names) - expected}"
 
-        # SHA256.txt contém o hash correto do exe
+        # SHA256.txt tem hash de AMBOS os exes
         sha_txt = zf.read(f"{prefix}/SHA256.txt").decode("utf-8")
-        expected_sha = pack._sha256(exe)
-        assert expected_sha in sha_txt
+        assert pack._sha256(exe) in sha_txt
+        assert pack._sha256(gui_exe) in sha_txt
+        assert "telador.exe" in sha_txt
+        assert "telador-gui.exe" in sha_txt
 
-        # LEIA-ME.txt tem instruções básicas
+        # LEIA-ME.txt tem instrucoes basicas
         leia = zf.read(f"{prefix}/LEIA-ME.txt").decode("utf-8")
-        assert "INICIAR-GUI.bat" in leia
+        assert "telador-gui.exe" in leia
         assert "SHA256" in leia
         assert version.VERSION_DISPLAY in leia
+        assert "SmartScreen" in leia  # workaround documentado
+
+
+def test_build_zip_without_gui_exe(tmp_path):
+    """Se gui_exe_path=None, zip ainda funciona (backward-compat)."""
+    exe = tmp_path / "telador.exe"
+    exe.write_bytes(b"fake")
+    project = tmp_path / "project"
+    project.mkdir()
+
+    zip_path = pack.build_zip(exe.resolve(), (tmp_path / "out").resolve(),
+                               project.resolve(), gui_exe_path=None)
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        names = zf.namelist()
+        prefix = f"Telador-{version.VERSION_DISPLAY}"
+        assert f"{prefix}/telador.exe" in names
+        # SEM telador-gui.exe (nao foi passado)
+        assert f"{prefix}/telador-gui.exe" not in names
 
 
 def test_build_zip_missing_exe_raises(tmp_path):
@@ -106,10 +130,19 @@ def test_build_zip_missing_optional_files_still_works(tmp_path):
 
 
 def test_leia_me_uses_current_version():
-    """_leia_me renderiza a versão atual."""
-    txt = pack._leia_me("abc123")
+    """_leia_me renderiza a versao atual + SHA(s)."""
+    txt = pack._leia_me("abc123", "def456")
     assert version.VERSION_DISPLAY in txt
+    assert "abc123" in txt  # cli sha
+    assert "def456" in txt  # gui sha
+    assert "SmartScreen" in txt  # workaround documentado
+
+
+def test_leia_me_without_gui_sha():
+    """Se gui_sha vazia, LEIA-ME omite a linha do gui exe."""
+    txt = pack._leia_me("abc123", "")
     assert "abc123" in txt
+    assert "def456" not in txt
 
 
 def test_playbook_md_exists_in_project():

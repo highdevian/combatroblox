@@ -16,13 +16,19 @@ ler antes de operar.
 
 ## 2. Rodar (2 cliques)
 
-Peça pro suspeito:
+**Opção A (recomendada, single-file):** peça pro suspeito baixar SÓ o arquivo
+`telador-gui.exe` da página do release, dar **duplo-clique** e aceitar UAC. A
+janela abre direto, sem terminal preto. Um arquivo, dois cliques, pronto.
 
-1. **Descompactar** o zip pra Desktop.
-2. **Duplo-clique em `INICIAR-GUI.bat`**.
-3. Aceitar UAC (**"Sim"** no popup do Windows).
+**Opção B (kit completo):** baixar `Telador-vX.X.X.zip`, extrair, duplo-clique
+em `telador-gui.exe` (ou `INICIAR-GUI.bat` como fallback). Aceitar UAC.
 
-A janela do Telador abre. Se ele recusar UAC:
+**SmartScreen** vai reclamar no primeiro run:
+> "Windows protegeu seu PC" → clique em "Mais informações" → "Executar assim mesmo"
+
+Isso é porque o exe não tem code-signing pago. Aviso normal, não é vírus.
+
+Se o suspeito recusar UAC:
 
 > Diga: **"Recusa de admin faz o resultado dar INCONCLUSIVO. Isso não
 > significa que você é culpado, mas eu não consigo fechar a SS sem admin.

@@ -13,13 +13,13 @@ e entrega um **veredito de cheat com % de confiança**.
 [![release](https://img.shields.io/github/v/tag/highdevian/combatroblox?sort=semver&label=release&color=ff4d4f)](https://github.com/highdevian/combatroblox/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/highdevian/combatroblox/ci.yml?branch=main&label=CI)](https://github.com/highdevian/combatroblox/actions)
 ![scanners](https://img.shields.io/badge/scanners-113-8b5cf6)
-![tests](https://img.shields.io/badge/tests-868%20passing-3fbf7f)
+![tests](https://img.shields.io/badge/tests-872%20passing-3fbf7f)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d6)](https://github.com/highdevian/combatroblox/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-3fbf7f)](LICENSE)
 
-[**Baixar zip staff-ready**](https://github.com/highdevian/combatroblox/releases/latest) ·
-[**telador.exe cru**](https://github.com/highdevian/combatroblox/releases/latest/download/telador.exe) ·
-[**Site**](https://combatroblox-forensics.vercel.app/) ·
+[**Baixar telador-gui.exe**](https://github.com/highdevian/combatroblox/releases/latest/download/telador-gui.exe) ·
+[**Zip completo**](https://github.com/highdevian/combatroblox/releases/latest) ·
+[**telador.exe (CLI)**](https://github.com/highdevian/combatroblox/releases/latest/download/telador.exe) ·
 [**Playbook**](PLAYBOOK.md)
 
 </div>
@@ -39,18 +39,22 @@ e entrega um **veredito de cheat com % de confiança**.
 
 ## Como usar
 
-Baixa o `telador.exe` e roda. Ele pede admin sozinho (UAC) — **aceita**, senão as fontes
-mais fortes (Prefetch, Amcache, BAM) não são lidas e o resultado fica incompleto. Em
-alguns segundos o relatório HTML abre no navegador.
+**Modo mais simples (recomendado, v3.55.0+):** baixa `telador-gui.exe`, dá 2 cliques, aceita
+o UAC. A janela abre direto (sem terminal preto), escolhe **Completo** ou **Rápido**,
+clica em **Iniciar SS**. Em 30s a 3min sai o veredito com semáforo e os 3 bullets do
+staff. Clica em **Copiar Discord** e cola na liga.
 
-**Sem terminal:**
-- `INICIAR-GUI.bat` — abre a janela do Telador (`telador.exe --gui`). Botão gigante
-  **Iniciar SS** → progresso ao vivo → veredito com semáforo grande + os 3 bullets
-  do staff → botões **Abrir HTML** / **Copiar Discord** / **Sair**. Novo em v3.54.0.
-- `INICIAR.bat` — scan clássico com console (sem janela).
-- `TELADOR-AO-VIVO.bat` — dashboard local (`--watch`) em `127.0.0.1`.
+Sem admin, os scanners forenses fortes (Prefetch, Amcache, BAM) falham e o
+veredito vira **INCONCLUSIVO** (não inocenta).
 
-Pra distribuir, zipa o `.exe` com os `.bat` e manda no Discord.
+**Outros formatos de download:**
+- **`telador-gui.exe`** — versão janela, sem console (recomendado pra staff/suspeito).
+- **`Telador-vX.X.X.zip`** — kit completo (2 exes + bats + `PLAYBOOK.md` + SHA256s).
+- **`telador.exe`** — CLI clássico com console. Suporta `--ss-live`, `--watch`, `--md`,
+  `--json`, `--save-tsr`, `--diff`, etc.
+
+**SmartScreen / antivírus** pode reclamar do exe no primeiro run (não temos code-signing
+pago). Solução: clicar em "Mais informações" → "Executar assim mesmo".
 
 > **Sem admin, "nada encontrado" não inocenta — é inconclusivo.** O programa avisa isso.
 

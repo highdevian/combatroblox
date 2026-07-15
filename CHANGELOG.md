@@ -2,6 +2,86 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.55.0] - 2026-07-15
+
+**GUI 2.0 — fixes dos 5 problemas reportados na v3.54.x.**
+
+Usuário reportou (justamente): GUI abre com console preto, só tem 71
+scanners (sem opção de full), design feio, em-dashes por toda parte,
+distribuição complicada. Rodada de fixes:
+
+### 1. Console flashing morto (`telador-gui.exe` windowed)
+
+- `telador.spec` agora builda **DOIS exes** na mesma spec, compartilhando
+  binário/data files:
+  - `telador.exe` (console=True, entry `telador.py`) — CLI clássico.
+  - `telador-gui.exe` (console=False, entry `gui.py`) — janela sem terminal.
+- Duplo-clique no `telador-gui.exe` abre a GUI direto, zero flash de console.
+- `INICIAR-GUI.bat` prioriza `telador-gui.exe`, cai pra `telador.exe --gui`
+  como fallback.
+
+### 2. Radio Rápido/Completo (não mais só 71 scanners)
+
+- Nova seção "PERFIL DE SCAN" na tela inicial com 2 radios:
+  - **Completo (113 scanners, ~2-3 min)** — default (recomendado pra SS real)
+  - **Rápido (71 scanners, ~30-45 s)** — antigo `--ss-live`, pula log parsers pesados
+- `_run_scan_thread(msg_queue, mode)` recebe `mode="full"|"fast"` e monta
+  a chain apropriada.
+
+### 3. Redesign completo da GUI
+
+- Cores de marca âmbar (`#d8a24f`) alinhadas com o banner CLI.
+- Layout com cards (`fg_color=BRAND["bg_card"]`, borders, corner_radius)
+  ao invés de widgets soltos.
+- Hero visual do veredito: card com borda colorida do status + badge
+  textual `[ OK ]` / `[ X ]` / `[ ! ]` / `[ ? ]` em Consolas monospace
+  (mais forense que emoji, evita bug de renderização Unicode em Windows).
+- Row de meta com 3 KPIs (score / confidence / targets) em Consolas.
+- 3 bullets do staff em cards com header ambar (`O QUE` / `POR QUE` /
+  `O QUE FAZER`), texto branco cremoso (`#e8e0d2`), wraplength adequado.
+- Botões principais em cor de marca (fundo ambar, texto escuro), botões
+  secundários com borda outline.
+- Progress bar em ambar, log rolante em Consolas 10pt.
+
+### 4. Zero em-dashes
+
+- Removidos todos os `—` do `gui.py` (usuário não gosta). Substituídos
+  por `:` ou `-` conforme contexto.
+- Teste `test_no_em_dashes_in_gui` garante regressão via regex no source.
+
+### 5. Distribuição single-file (`telador-gui.exe`)
+
+- README destaca `telador-gui.exe` como download primário. Usuário baixa
+  **1 arquivo**, dá duplo-clique, aceita UAC. **2 passos** end-to-end.
+- Zip completo (`Telador-vX.X.X.zip`) fica como "kit staff" opcional.
+- `pack.py` inclui `telador-gui.exe` no zip + SHA256 de ambos os exes.
+- `LEIA-ME.txt` documenta workaround pro SmartScreen ("Mais informações
+  → Executar assim mesmo").
+- Release notes do CI listam os 3 downloads em ordem de preferência
+  (`telador-gui.exe` primeiro, zip completo depois, `telador.exe` cru
+  por último).
+- `PLAYBOOK.md` atualizado com fluxo de 2 opções (single-file / kit) +
+  aviso do SmartScreen.
+
+### Testes
+
+- 4 novos: `test_brand_colors_defined`, `test_no_em_dashes_in_gui`,
+  `test_build_zip_without_gui_exe`, `test_leia_me_without_gui_sha`.
+- 6 atualizados: verdict style com badges textuais (OK/X/!/?), 
+  `_show_scanning` recebe `mode`, label unknown vira `-` (não `—`),
+  `ALTAMENTE SUSPEITO` tem label próprio, `build_zip` agora aceita
+  `gui_exe_path`.
+- Suite: **872 verdes** (+4 vs 3.54.1).
+
+### Tamanho dos assets
+
+- `telador.exe`: ~14.5 MB (inalterado)
+- `telador-gui.exe`: ~14.5 MB (novo — mesma dependência CTk)
+- `Telador-v3.55.0.zip`: ~28 MB (2 exes + docs)
+
+Trade-off: 2× o tamanho do zip pra oferecer as duas experiências
+(CLI + GUI). User de single-file pega só `telador-gui.exe` = 14.5 MB.
+
 ## [3.54.1] - 2026-07-14
 
 **Zip de distribuição + PLAYBOOK.md staff — PLANO_ECHO_TIER Semana 2 P1.**

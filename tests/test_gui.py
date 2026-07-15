@@ -24,50 +24,72 @@ def test_verdict_style_limpo():
     import gui
     s = gui._verdict_style("LIMPO")
     assert s["label"] == "LIMPO"
-    assert "🟢" in s["emoji"] or s["emoji"] == "🟢"
-    # Green-ish color
-    assert s["color"].startswith("#")
+    assert s["color"] == gui.BRAND["green"]
+    # v3.55: badge textual, nao emoji
+    assert s["emoji"] == "OK"
 
 
 def test_verdict_style_cheater():
     import gui
     s = gui._verdict_style("CHEATER")
     assert s["label"] == "CHEATER"
-    assert "🔴" in s["emoji"]
+    assert s["color"] == gui.BRAND["red"]
+    assert s["emoji"] == "X"
 
 
 def test_verdict_style_confirmed_via_cluster():
     import gui
-    # CONFIRMED tem style dedicado (vermelho mais forte)
     s = gui._verdict_style("CONFIRMED")
     assert s["label"] == "CONFIRMADO"
+    assert s["color"] == gui.BRAND["red_hi"]
 
 
 def test_verdict_style_inconclusivo():
     import gui
     s = gui._verdict_style("INCONCLUSIVO")
     assert s["label"] == "INCONCLUSIVO"
-    assert "⚫" in s["emoji"]
+    assert s["emoji"] == "?"
 
 
 def test_verdict_style_suspeito_pt_and_en():
-    """SUSPECT (EN) e SUSPEITO (PT) devem mapear pro mesmo label 'SUSPEITO'."""
     import gui
     assert gui._verdict_style("SUSPECT")["label"] == "SUSPEITO"
     assert gui._verdict_style("SUSPEITO")["label"] == "SUSPEITO"
 
 
 def test_verdict_style_altamente():
-    """'ALTAMENTE SUSPEITO' vira SUSPEITO (mapping por prefixo)."""
+    """'ALTAMENTE SUSPEITO' agora tem label proprio (v3.55)."""
     import gui
     s = gui._verdict_style("ALTAMENTE SUSPEITO")
-    assert s["label"] == "SUSPEITO"
+    assert s["label"] == "ALTAMENTE SUSPEITO"
 
 
 def test_verdict_style_unknown_falls_to_dash():
     import gui
     s = gui._verdict_style("random_nonsense")
-    assert s["label"] == "—"
+    assert s["label"] == "-"
+
+
+def test_brand_colors_defined():
+    """v3.55: cores de marca alinhadas com CLI (ambar/gold)."""
+    import gui
+    assert "amber" in gui.BRAND
+    assert gui.BRAND["amber"].startswith("#")
+    assert "green" in gui.BRAND
+    assert "red" in gui.BRAND
+    assert "yellow" in gui.BRAND
+
+
+def test_no_em_dashes_in_gui():
+    """Regressao: usuario nao quer em-dashes."""
+    import os
+    src_path = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "gui.py")
+    with open(src_path, "r", encoding="utf-8") as fh:
+        content = fh.read()
+    # Ignora em-dashes em strings de docstring/comentario de codigo Python
+    # que nao aparecem na UI — mas nao vale a pena distinguir, so tira tudo.
+    assert "—" not in content, "gui.py ainda tem em-dashes (—)"
 
 
 def test_minimal_sys_info_schema():
@@ -113,8 +135,8 @@ def test_gui_state_machine_transitions():
         # Initial state (rendered no __init__)
         assert len(app.container.winfo_children()) > 0
 
-        # Scanning state
-        app._show_scanning()
+        # Scanning state (v3.55: recebe mode)
+        app._show_scanning("fast")
         assert hasattr(app, "progress_bar")
         assert hasattr(app, "progress_lbl")
 

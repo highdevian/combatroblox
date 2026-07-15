@@ -39,34 +39,43 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _leia_me(exe_sha: str) -> str:
-    """LEIA-ME.txt curtinho — instrução mínima em .txt (roda em qualquer editor)."""
-    return f"""Telador {version.VERSION_DISPLAY} — SS forense pra Roblox
+def _leia_me(exe_sha: str, gui_sha: str = "") -> str:
+    """LEIA-ME.txt em .txt (roda em qualquer editor)."""
+    gui_line = f"\nSHA256 do telador-gui.exe:\n    {gui_sha}\n" if gui_sha else ""
+    return f"""Telador {version.VERSION_DISPLAY}: SS forense pra Roblox
 ========================================================
 
 COMO USAR (2 cliques):
     1. Descompacte este zip em qualquer pasta (ex: Desktop).
-    2. Duplo-clique em INICIAR-GUI.bat
+    2. Duplo-clique em telador-gui.exe (janela abre direto,
+       sem terminal preto).
     3. Aceite o UAC (Sim no popup do Windows).
-    4. Clique em "Iniciar SS" na janela do Telador.
-    5. Aguarde ~30-40s.
-    6. Leia o veredito e clique em "Copiar resumo Discord".
+    4. Escolha "Completo" ou "Rapido" e clique em INICIAR SS.
+    5. Aguarde 30 s (Rapido) ou 2-3 min (Completo).
+    6. Leia o veredito, clique em "Copiar resumo Discord".
 
 Alternativas:
+    INICIAR-GUI.bat        - abre a mesma GUI via .bat (equivalente)
     INICIAR.bat            - modo terminal (sem janela)
     TELADOR-AO-VIVO.bat    - dashboard local (--watch)
 
-Read the full ritual in PLAYBOOK.md.
+O ritual completo pra staff esta em PLAYBOOK.md.
 
-SHA256 do telador.exe:
+SHA256 do telador.exe (CLI):
     {exe_sha}
-
-Compare com o hash na página do release oficial:
+{gui_line}
+Compare com os hashes na pagina do release oficial:
     https://github.com/highdevian/combatroblox/releases/latest
+
+AVISO SmartScreen / Antivirus:
+    Windows pode mostrar "Windows protegeu seu PC" no primeiro run.
+    Isso e' porque o exe nao tem code-signing (custa 200 USD/ano).
+    Clique em "Mais informacoes" > "Executar assim mesmo".
+    Alternativa: rode via Python (github.com/highdevian/combatroblox).
 
 100% local. Nada sai do PC.
 Open source: github.com/highdevian/combatroblox
-Licença: MIT
+Licenca: MIT
 """
 
 
@@ -78,10 +87,20 @@ def build_zip(
     exe_path: Path,
     output_dir: Path,
     project_root: Path,
+    gui_exe_path: Path | None = None,
 ) -> Path:
-    """Monta o zip. Retorna caminho do zip criado."""
+    """Monta o zip. Retorna caminho do zip criado.
+
+    Args:
+        exe_path: telador.exe (CLI).
+        output_dir: onde salvar o zip.
+        project_root: raiz do projeto (pra achar bats/playbook).
+        gui_exe_path: telador-gui.exe (windowed, sem console). Opcional
+            no v3.55.0+ mas altamente recomendado — se ausente, o zip
+            fica só com CLI + INICIAR-GUI.bat cai pra `--gui` (console flash).
+    """
     if not exe_path.is_file():
-        raise SystemExit(f"exe não encontrado: {exe_path}")
+        raise SystemExit(f"exe nao encontrado: {exe_path}")
 
     exe_sha = _sha256(exe_path)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -94,7 +113,14 @@ def build_zip(
         f"{dist_root}/telador.exe": exe_path.read_bytes(),
     }
 
-    # Bats + docs — só adiciona se existirem no project_root
+    gui_sha = ""
+    if gui_exe_path and gui_exe_path.is_file():
+        files_to_include[f"{dist_root}/telador-gui.exe"] = gui_exe_path.read_bytes()
+        gui_sha = _sha256(gui_exe_path)
+    else:
+        print(f"[warn] telador-gui.exe ausente - zip so tem CLI + fallback --gui")
+
+    # Bats + docs
     for name in ("INICIAR-GUI.bat", "INICIAR.bat", "TELADOR-AO-VIVO.bat",
                  "PLAYBOOK.md"):
         content = _read_bytes_maybe(project_root / name)
@@ -103,16 +129,21 @@ def build_zip(
         else:
             print(f"[warn] arquivo opcional ausente: {name}")
 
-    # SHA256.txt
-    sha_txt = (f"# SHA256 do telador.exe\n"
-               f"# Compare com o hash na pagina do release oficial:\n"
-               f"# https://github.com/highdevian/combatroblox/releases/tag/{version.VERSION_DISPLAY}\n\n"
-               f"{exe_sha}  telador.exe\n").encode("utf-8")
-    files_to_include[f"{dist_root}/SHA256.txt"] = sha_txt
+    # SHA256.txt (agora com AMBOS os exes)
+    sha_lines = [
+        f"# SHA256 dos exes deste zip",
+        f"# Compare com os hashes na pagina do release oficial:",
+        f"# https://github.com/highdevian/combatroblox/releases/tag/{version.VERSION_DISPLAY}",
+        "",
+        f"{exe_sha}  telador.exe",
+    ]
+    if gui_sha:
+        sha_lines.append(f"{gui_sha}  telador-gui.exe")
+    files_to_include[f"{dist_root}/SHA256.txt"] = ("\n".join(sha_lines) + "\n").encode("utf-8")
 
     # LEIA-ME.txt
     files_to_include[f"{dist_root}/LEIA-ME.txt"] = \
-        _leia_me(exe_sha).encode("utf-8")
+        _leia_me(exe_sha, gui_sha).encode("utf-8")
 
     # Escreve o zip (deflate, sem compressão máxima pra ser rápido no CI)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED,
@@ -131,19 +162,25 @@ def build_zip(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Empacota Telador-vX.X.X.zip de distribuição.")
+        description="Empacota Telador-vX.X.X.zip de distribuicao.")
     parser.add_argument("--exe", default=None,
                         help="Path do telador.exe (default: dist/telador.exe)")
+    parser.add_argument("--gui-exe", default=None,
+                        help="Path do telador-gui.exe windowed (default: dist/telador-gui.exe)")
     parser.add_argument("--output", default=None,
-                        help="Diretório de saída (default: dist/)")
+                        help="Diretorio de saida (default: dist/)")
     args = parser.parse_args()
 
     project_root = Path(__file__).parent.resolve()
 
     exe_path = Path(args.exe) if args.exe else project_root / "dist" / "telador.exe"
+    gui_exe_path = Path(args.gui_exe) if args.gui_exe else project_root / "dist" / "telador-gui.exe"
     output_dir = Path(args.output) if args.output else project_root / "dist"
 
-    zip_path = build_zip(exe_path.resolve(), output_dir.resolve(), project_root)
+    zip_path = build_zip(
+        exe_path.resolve(), output_dir.resolve(), project_root,
+        gui_exe_path=gui_exe_path.resolve() if gui_exe_path.exists() else None,
+    )
 
     # Sobe também o SHA256 do próprio zip (às vezes útil pra ligas paranoicas)
     zip_sha = _sha256(zip_path)
