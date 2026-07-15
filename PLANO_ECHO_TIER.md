@@ -198,23 +198,24 @@ Alinha com a ideia de **13–25/07 detecção/bugs/FP/bypass** e **depois** cami
 - [x] Release 3.52.x (5 releases: 3.52.0 → 3.52.4)
 - [x] Bonus: Winter Bypass/Fishstrap no core (era só opt-in), sigs 2026.07.14 (+62)
 
-### Semana 2
-- [ ] GUI com 1 botão Iniciar  
-- [ ] Copiar resumo Discord  
-- [ ] Zip de distribuição  
-- [ ] Landing download + SHA256  
-- [ ] Release 3.53.0  
+### Semana 2 — ✅ fechada em 14/07 com v3.54.0 + v3.54.1
+- [x] GUI com 1 botão Iniciar (CustomTkinter, `--gui`, `INICIAR-GUI.bat`)
+- [x] Copiar resumo Discord (botão nativo no verdict screen + clipboard tkinter)
+- [x] Zip de distribuição (`pack.py` + CI upload de `Telador-vX.X.X.zip`)
+- [x] Playbook staff (adiantado da S4 — `PLAYBOOK.md` já vai no zip)
+- [x] Release 3.54.x (v3.54.0 GUI + v3.54.1 zip/playbook)
+- [ ] Landing download + SHA256 (site — externo/Vercel, não é código)
 
-### Semana 3
-- [ ] Dashboard ao vivo default  
-- [ ] Histórico local de scans  
-- [ ] Perfis Rápido/Completo/Paranóia  
-- [ ] Release 3.54.0  
+### Semana 3 — próxima parada
+- [ ] Dashboard ao vivo default (integrar `--watch` como default da GUI)
+- [ ] Histórico local de scans (`%LOCALAPPDATA%\Telador\history\*.tsr`)
+- [ ] Perfis Rápido/Completo/Paranoia (`--profile fast|full|strict`)
+- [ ] Release 3.55.0
 
 ### Semana 4
-- [ ] Playbook staff  
+- [x] Playbook staff — feito na v3.54.1 (adiantado)
 - [ ] 10 field tests documentados  
-- [ ] Release 3.55.0 “Echo-tier Roblox”  
+- [ ] Release "Echo-tier Roblox" (v3.56.0?)
 - [ ] Post de lançamento  
 
 ---
