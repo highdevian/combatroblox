@@ -22,9 +22,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import os
-import shutil
-import sys
 import zipfile
 from pathlib import Path
 
@@ -118,7 +115,7 @@ def build_zip(
         files_to_include[f"{dist_root}/telador-gui.exe"] = gui_exe_path.read_bytes()
         gui_sha = _sha256(gui_exe_path)
     else:
-        print(f"[warn] telador-gui.exe ausente - zip so tem CLI + fallback --gui")
+        print("[warn] telador-gui.exe ausente - zip so tem CLI + fallback --gui")
 
     # Bats + docs
     for name in ("INICIAR-GUI.bat", "INICIAR.bat", "TELADOR-AO-VIVO.bat",
@@ -131,8 +128,8 @@ def build_zip(
 
     # SHA256.txt (agora com AMBOS os exes)
     sha_lines = [
-        f"# SHA256 dos exes deste zip",
-        f"# Compare com os hashes na pagina do release oficial:",
+        "# SHA256 dos exes deste zip",
+        "# Compare com os hashes na pagina do release oficial:",
         f"# https://github.com/highdevian/combatroblox/releases/tag/{version.VERSION_DISPLAY}",
         "",
         f"{exe_sha}  telador.exe",

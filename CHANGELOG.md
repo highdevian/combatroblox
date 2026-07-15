@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.55.1] - 2026-07-15
+
+**Patch de fechamento da v3.55.0** (em-dashes + CI).
+
+O Claude Code parou no limite de sessao com o cleanup de em-dashes
+parcial no `report.py` e o CI da main vermelho por lint. Esta release
+fecha o pacote GUI 2.0 de verdade:
+
+- **report.py**: remove todos os `—` / `…` do HTML, copy-summary e
+  bullets do veredito staff (a GUI ja estava limpa na 3.55.0; o report
+  e o console ainda vazavam em-dash).
+- **CI**: ruff verde de novo — imports mortos em `pack.py`, f-strings
+  sem placeholder, var `v` nao usada em `build_staff_verdict_bullets`,
+  import morto no teste do RobloxCrashHandler, chaves duplicadas de
+  HWID spoofer em `database.py` (F601).
+- Binarios da 3.55.0 ficam obsoletos pra staff que se importam com
+  copy/paste limpo no Discord; use os assets desta tag.
+
 ## [3.55.0] - 2026-07-15
 
 **GUI 2.0 — fixes dos 5 problemas reportados na v3.54.x.**

@@ -591,8 +591,7 @@ class TestDropperAntiFP:
 class TestRobloxCrashHandlerMasqueradePath:
 
     def test_real_robloxcrashhandler_ignored(self):
-        """RobloxCrashHandler.exe em Roblox\\Versions\\ é oficial — ignora."""
-        import external_scanner as es
+        """RobloxCrashHandler.exe em Roblox\\Versions\\ e oficial - ignora."""
         assert "\\roblox\\versions\\" in (
             r"C:\Users\gabri\AppData\Local\Roblox\Versions\version-abc"
             r"\RobloxCrashHandler.exe").lower()

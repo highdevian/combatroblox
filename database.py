@@ -419,7 +419,7 @@ EXECUTOR_KEYWORDS = {
     "hwid changer":           "high",
     "hwid reset":             "high",
     "hwid bypass":            "high",
-    "hwid spoof":             "high",
+    # "hwid spoof" ja existe na secao HWID base
     "serial spoofer":         "high",
     "disk spoofer":           "high",
     "smbios spoofer":         "high",
@@ -444,8 +444,7 @@ EXECUTOR_KEYWORDS = {
     "hwid pro":               "high",
     "temp spoofer":           "high",
     "temporary spoofer":      "high",
-    "perm spoofer":           "high",
-    "permanent spoofer":      "high",
+    # "perm spoofer" / "permanent spoofer" ja existem na secao HWID base
 
     # ===== KMS activators (Windows pirata) — contexto, não veredito =====
     # Dual-use: usado por MUITOS pra ativar Windows pirata (não é cheat).
@@ -684,7 +683,7 @@ EXECUTOR_PROCESS_NAMES = {
     "hwspoof.exe":            "high",
     "hwidpro.exe":            "high",
     "tempspoofer.exe":        "high",
-    "permspoofer.exe":        "high",
+    # "permspoofer.exe" ja existe na secao HWID processos base
 
     # ===== KMS activators (processos) — LOW, contexto =====
     "kmsauto.exe":            "low",

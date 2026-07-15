@@ -47,8 +47,8 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
 
     # filtra só os que importam pro hero
     confirmed = [c for c in clusters if c.verdict == "CONFIRMED"]
-    detected  = [c for c in clusters if c.verdict == "DETECTED"]
-    suspect   = [c for c in clusters if c.verdict == "SUSPECT"]
+    detected = [c for c in clusters if c.verdict == "DETECTED"]
+    suspect = [c for c in clusters if c.verdict == "SUSPECT"]
 
     actionable = confirmed + detected
     if actionable:
@@ -82,7 +82,7 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=True)
         state_class = "hv-state-warn"
     else:
-        # Sem cluster acionável — limpo. SVG shield-check em verde,
+        # Sem cluster acionável - limpo. SVG shield-check em verde,
         # sem pulse (não há urgência), com glow sutil.
         icon_key, headline, color = ("shield-check", "NENHUM EXECUTOR DETECTADO", INK_CLEAN)
         global_conf = None
@@ -90,7 +90,7 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
         hero_icon = _svg_icon(icon_key, size=64, color=color, with_pulse=False)
         state_class = "hv-state-clean"
 
-    # Renderiza cards apenas pra clusters acionáveis (top 6 — mais já é ruído)
+    # Renderiza cards apenas pra clusters acionáveis (top 6 - mais já é ruído)
     cards_html = ""
     cards = (confirmed + detected + suspect)[:6]
     for c in cards:
@@ -147,10 +147,10 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
     if cards_html:
         cards_wrapper = f'<div class="hv-cards">{cards_html}</div>'
 
-    # Resumo em texto puro pro botão "Copiar" — supervisor cola no Discord.
+    # Resumo em texto puro pro botão "Copiar" - supervisor cola no Discord.
     # Inclui 3-bullets veredito staff no topo pra dar contexto imediato pro
     # canal (senão o supervisor cola só a lista de targets sem "o que fazer").
-    summary_lines = [f"TELADOR — {headline}"]
+    summary_lines = [f"TELADOR - {headline}"]
     if global_conf is not None:
         summary_lines[0] += f" ({global_conf}%)"
     try:
@@ -167,7 +167,7 @@ def _render_hero_verdict(clusters: list, verdict: dict) -> str:
     for c in (confirmed + detected + suspect)[:6]:
         srcs = ", ".join(_src_label(s) for s in sorted(c.sources))
         summary_lines.append(
-            f"- {c.label} [{c.verdict} {c.confidence_pct}%] — {c.n_sources} fonte(s): {srcs}"
+            f"- {c.label} [{c.verdict} {c.confidence_pct}%] - {c.n_sources} fonte(s): {srcs}"
         )
     if not (confirmed or detected or suspect):
         summary_lines.append("- Nenhum target detectado acima do limite de falso-positivo.")
@@ -222,7 +222,7 @@ def _render_section(finding: dict) -> str:
     name = _escape(finding["name"])
     desc = _escape(finding["description"])
     status = finding["status"]
-    # Items informativos (meta_only=True) NÃO são suspeitos — são contexto
+    # Items informativos (meta_only=True) NÃO são suspeitos - são contexto
     # (ex: "Roblox está rodando", "15 domínios na allowlist"). Se um scanner
     # ficou só com meta_only pós-FP, o card não deve gritar "SUSPEITO".
     all_items = finding.get("items", [])
@@ -256,7 +256,7 @@ def _render_section(finding: dict) -> str:
                                 f'↓ era {_escape(orig_sev.upper())}</span>')
         elif item.get("meta_only"):
             downgrade_badge = (
-                '<span class="fp-badge" title="Informativo — não conta no veredito">'
+                '<span class="fp-badge" title="Informativo - não conta no veredito">'
                 'info</span>'
             )
 
@@ -335,7 +335,7 @@ def _render_section(finding: dict) -> str:
 
 
 def _render_system(info: dict) -> str:
-    # session_* têm card próprio (Verificação de Sessão) — não repetir aqui.
+    # session_* têm card próprio (Verificação de Sessão) - não repetir aqui.
     rows = "".join(
         f"<tr><th>{_escape(k)}</th><td>{_escape(v)}</td></tr>"
         for k, v in info.items()
@@ -352,7 +352,7 @@ def _render_system(info: dict) -> str:
 def _render_session(info: dict, exe_hash: str = "") -> str:
     """
     Card de verificação de sessão (prova de SS ao vivo).
-    O código é ditado pelo supervisor no início e digitado pelo telado —
+    O código é ditado pelo supervisor no início e digitado pelo telado - 
     prova que o relatório é desta sessão, não um reaproveitado.
     """
     session_id = info.get("session_id", "")
@@ -365,8 +365,8 @@ def _render_session(info: dict, exe_hash: str = "") -> str:
         code_html = (f'<span class="sess-code">{_escape(code)}</span>'
                      '<span class="sess-ok">✓ código informado pelo supervisor</span>')
     else:
-        code_html = ('<span class="sess-code sess-none">—</span>'
-                     '<span class="sess-warn">⚠ sem código — sessão NÃO verificada '
+        code_html = ('<span class="sess-code sess-none"> - </span>'
+                     '<span class="sess-warn">⚠ sem código - sessão NÃO verificada '
                      '(rode com --codigo XYZ ditado pelo supervisor)</span>')
 
     hash_row = ""
@@ -377,7 +377,7 @@ def _render_session(info: dict, exe_hash: str = "") -> str:
     return f"""
     <section class="card session" id="session">
         <h2>🔐 Verificação de Sessão</h2>
-        <p class="desc">Prova de que este relatório foi gerado nesta SS ao vivo —
+        <p class="desc">Prova de que este relatório foi gerado nesta SS ao vivo - 
         não é um relatório antigo reaproveitado.</p>
         <div class="sess-grid">
             <div class="sess-row"><span class="sess-k">ID da sessão</span><code>{_escape(session_id)}</code></div>
@@ -391,16 +391,16 @@ def _render_session(info: dict, exe_hash: str = "") -> str:
 
 def _render_summary(findings: list[dict], verdict: dict = None) -> str:
     # Conta só items "reais" (ignora meta_only, que são contexto informativo,
-    # não hits — bate com o cálculo de items_out no fp_filter).
+    # não hits - bate com o cálculo de items_out no fp_filter).
     total = sum(1 for f in findings for i in f["items"] if not i.get("meta_only"))
     errors = sum(1 for f in findings if f["status"] == "error")
 
     if verdict is None:
-        # Fallback: usa contagem simples se não passou verdict — igual, ignora meta.
+        # Fallback: usa contagem simples se não passou verdict - igual, ignora meta.
         def _real(items): return [i for i in items if not i.get("meta_only")]
         high = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "high")
-        med  = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "medium")
-        low  = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "low")
+        med = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "medium")
+        low = sum(1 for f in findings for i in _real(f["items"]) if i.get("severity") == "low")
         verdict = {
             "verdict": "LIMPO" if not (high + med + low) else "REVISAR",
             "color": INK_CLEAN,
@@ -409,9 +409,9 @@ def _render_summary(findings: list[dict], verdict: dict = None) -> str:
         }
 
     score_html = f'<div class="stat"><div class="num" style="color:{verdict["color"]}">{verdict["score"]}</div><div>Score</div></div>'
-    recent = verdict.get("most_recent_hit") or "—"
+    recent = verdict.get("most_recent_hit") or " - "
 
-    # `critical` opcional — só aparece se houver
+    # `critical` opcional - só aparece se houver
     crit_n = verdict.get("critical", 0)
     crit_stat = ""
     if crit_n:
@@ -423,7 +423,7 @@ def _render_summary(findings: list[dict], verdict: dict = None) -> str:
             <h2>Detalhes técnicos do veredito</h2>
             <span class="text-verdict" style="color:{verdict['color']}">{_escape(verdict['verdict'])}</span>
         </div>
-        <p class="desc">Estatísticas brutas do scan — abaixo do veredito por correlação acima. Hit mais recente: <code>{_escape(recent)}</code>.</p>
+        <p class="desc">Estatísticas brutas do scan - abaixo do veredito por correlação acima. Hit mais recente: <code>{_escape(recent)}</code>.</p>
         <div class="stats">
             {crit_stat}
             <div class="stat"><div class="num" style="color:{INK_HIGH}">{verdict['high']}</div><div>High</div></div>
@@ -587,7 +587,7 @@ def _render_pe_section(findings: list) -> str:
         hash_match = info.get("hash_match")
         packed = pe.get("is_packed")
         packer = pe.get("packer_name")
-        compile_ts = pe.get("compile_timestamp", "—")
+        compile_ts = pe.get("compile_timestamp", " - ")
         machine = pe.get("machine", "?")
         sections = ", ".join(pe.get("sections", [])[:8])
 
@@ -604,7 +604,7 @@ def _render_pe_section(findings: list) -> str:
             <td>{_escape(compile_ts)}</td>
             <td>{_escape(machine)}</td>
             <td><code style="font-size:11px">{_escape(sections)}</code></td>
-            <td>{''.join(flags) or '<span style="color:#888">—</span>'}</td>
+            <td>{''.join(flags) or '<span style="color:#888"> - </span>'}</td>
         </tr>""")
 
     return f"""
@@ -620,7 +620,7 @@ def _render_pe_section(findings: list) -> str:
 
 
 def _real_items(items: list) -> list:
-    """Hits reais — ignora meta_only (contexto informativo, não detecção)."""
+    """Hits reais - ignora meta_only (contexto informativo, não detecção)."""
     return [i for i in (items or []) if not i.get("meta_only")]
 
 
@@ -645,15 +645,15 @@ def _render_sidebar(findings: list, verdict: dict = None) -> str:
     scanner_links = []
     for f in findings:
         # 3 categorias de item:
-        #   - real hit          : não meta_only              → conta badge, cor pela severity
-        #   - fp_suppressed     : meta_only + fp_suppressed  → conta badge (dual-use), cor cinza
-        #   - pure meta         : meta_only sem fp_suppressed → NÃO conta (info tipo "roblox-running")
-        # Sidebar precisa sinalizar hits reais E dual-use — só ignora pura info.
+        # - real hit : não meta_only → conta badge, cor pela severity
+        # - fp_suppressed : meta_only + fp_suppressed → conta badge (dual-use), cor cinza
+        # - pure meta : meta_only sem fp_suppressed → NÃO conta (info tipo "roblox-running")
+        # Sidebar precisa sinalizar hits reais E dual-use - só ignora pura info.
         all_items = f.get("items", [])
-        real_items = _real_items(all_items)          # não meta_only
+        real_items = _real_items(all_items) # não meta_only
         suppressed = [i for i in all_items if i.get("fp_suppressed")]
         n_real = len(real_items)
-        n_signal = n_real + len(suppressed)          # badge = real + dual-use
+        n_signal = n_real + len(suppressed) # badge = real + dual-use
         slug = f["name"].lower().replace(" ", "-").replace("(", "").replace(")", "").replace("/", "-")
         worst = "none"
         if any(i.get("severity") == "critical" for i in real_items):
@@ -710,7 +710,7 @@ def _render_charts(findings: list, verdict: dict) -> str:
     total = max(1, high + med + low)
 
     # Donut chart com SVG inline (stroke-dasharray)
-    circumference = 2 * 3.14159 * 50  # raio 50
+    circumference = 2 * 3.14159 * 50 # raio 50
     high_pct = high / total
     med_pct = med / total
     low_pct = low / total
@@ -777,7 +777,7 @@ def _render_charts(findings: list, verdict: dict) -> str:
 
 
 def _render_empty_state() -> str:
-    """Sistema limpo — SVG vector, sem emoji."""
+    """Sistema limpo - SVG vector, sem emoji."""
     return """
     <section class="card empty-state" aria-label="Sistema limpo">
         <svg class="empty-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -790,7 +790,7 @@ def _render_empty_state() -> str:
         <p>Nenhum hit nas categorias de detecção. Este sistema não apresenta
         indícios de executores Roblox conhecidos, scripts de exploit,
         ou ferramentas de cheating.</p>
-        <p class="empty-sub">Detecção é heurística — cheat novo ou renomeado pode escapar.
+        <p class="empty-sub">Detecção é heurística - cheat novo ou renomeado pode escapar.
         Conduza SS visual também.</p>
     </section>
     """
@@ -820,11 +820,11 @@ def _render_high_confidence(high_confidence: dict) -> str:
     return f"""
     <section class="card high-confidence">
         <div class="card-head">
-            <h2>🎯 Cross-Correlation — ALTA CONFIANÇA</h2>
+            <h2>🎯 Cross-Correlation - ALTA CONFIANÇA</h2>
             <span class="badge" style="background:{INK_HIGH}">CHEATER</span>
         </div>
         <p class="desc">Keywords que apareceram em 3+ categorias diferentes. Praticamente
-        impossível ser falso positivo — cara tentou apagar mas deixou rastro em várias fontes.</p>
+        impossível ser falso positivo - cara tentou apagar mas deixou rastro em várias fontes.</p>
         <table>
             <thead>
                 <tr>
@@ -846,15 +846,15 @@ def _render_controls() -> str:
         <div class="controls-row">
             <label for="search" class="sr-only">Buscar nos hits</label>
             <input type="text" id="search"
-                   placeholder="Buscar (krnl, wave, .lua, downloads...)   ·   atalho: /"
+                   placeholder="Buscar (krnl, wave, .lua, downloads...) · atalho: /"
                    aria-label="Buscar nos hits" />
             <div class="filters" role="group" aria-label="Filtrar por severidade">
-                <button class="filter-btn" data-sev="high"   aria-pressed="true" style="--c:oklch(0.62 0.21 28)">High</button>
+                <button class="filter-btn" data-sev="high" aria-pressed="true" style="--c:oklch(0.62 0.21 28)">High</button>
                 <button class="filter-btn" data-sev="medium" aria-pressed="true" style="--c:oklch(0.72 0.14 28)">Medium</button>
-                <button class="filter-btn" data-sev="low"    aria-pressed="true" style="--c:oklch(0.78 0.02 240)">Low</button>
+                <button class="filter-btn" data-sev="low" aria-pressed="true" style="--c:oklch(0.78 0.02 240)">Low</button>
                 <button id="show-all" class="filter-btn solid">Reset</button>
                 <span class="control-divider" aria-hidden="true"></span>
-                <button id="expand-all"   class="filter-btn ghost" type="button">Expandir tudo</button>
+                <button id="expand-all" class="filter-btn ghost" type="button">Expandir tudo</button>
                 <button id="collapse-all" class="filter-btn ghost" type="button">Recolher</button>
             </div>
         </div>
@@ -884,7 +884,7 @@ CONTROLS_JS = """
                 }
             }
             if (!tr.classList.contains('row-high') && !tr.classList.contains('row-medium') && !tr.classList.contains('row-low')) {
-                sevOk = true;  // linhas sem severidade (system info, high-conf) sempre visíveis
+                sevOk = true; // linhas sem severidade (system info, high-conf) sempre visíveis
             }
 
             // Filtro de search
@@ -932,7 +932,7 @@ CONTROLS_JS = """
         setTimeout(() => t.remove(), 1600);
     }
     // Copia com fallback. Aberto como file://, navigator.clipboard pode ser
-    // undefined — sem essa checagem o acesso lança TypeError síncrono (o
+    // undefined - sem essa checagem o acesso lança TypeError síncrono (o
     // .catch da promise não pega). Cai pra execCommand nesse caso.
     function safeCopy(text, onOk) {
         function fb() {
@@ -949,7 +949,7 @@ CONTROLS_JS = """
         } else { fb(); }
     }
     document.querySelectorAll('code').forEach(c => {
-        if (c.classList.contains('clamp')) return;  // truncável tem handler próprio
+        if (c.classList.contains('clamp')) return; // truncável tem handler próprio
         c.style.cursor = 'pointer';
         c.title = 'Clique pra copiar';
         c.addEventListener('click', (e) => {
@@ -1077,7 +1077,7 @@ CONTROLS_JS = """
             if (opening) {
                 det.open = true;
                 const full = det.scrollHeight + 'px';
-                const top  = det.querySelector('summary').scrollHeight + 'px';
+                const top = det.querySelector('summary').scrollHeight + 'px';
                 det.style.overflow = 'hidden';
                 const a = det.animate([{ height: top }, { height: full }],
                     { duration: 220, easing: 'cubic-bezier(0.16,1,0.3,1)' });
@@ -1085,9 +1085,9 @@ CONTROLS_JS = """
                 a.onfinish = () => { det.style.overflow = ''; det.style.height = ''; anims.delete(det); };
             } else {
                 const start = det.scrollHeight + 'px';
-                const end   = det.querySelector('summary').scrollHeight + 'px';
+                const end = det.querySelector('summary').scrollHeight + 'px';
                 det.style.overflow = 'hidden';
-                det.style.height   = start;
+                det.style.height = start;
                 const a = det.animate([{ height: start }, { height: end }],
                     { duration: 180, easing: 'ease-in' });
                 anims.set(det, a);
@@ -1100,7 +1100,7 @@ CONTROLS_JS = """
                 animateDetails(det, !det.open);
             });
         });
-        // Expose for expand/collapse-all (no animation — instant)
+        // Expose for expand/collapse-all (no animation - instant)
         window._setAllDetails = function(open) {
             document.querySelectorAll('section.card details').forEach(d => {
                 const prev = anims.get(d);
@@ -1123,9 +1123,9 @@ CONTROLS_JS = """
         if (!tbody) return;
         const rows = Array.from(tbody.querySelectorAll('tr'));
         const getKey = (row) => {
-            if (colKey === 'sev')  return parseInt(row.dataset.sev || '0', 10);
+            if (colKey === 'sev') return parseInt(row.dataset.sev || '0', 10);
             if (colKey === 'conf') return parseInt(row.dataset.conf || '0', 10);
-            if (colKey === 'ts')   return row.dataset.ts || '';
+            if (colKey === 'ts') return row.dataset.ts || '';
             // label / match: pega texto da td correspondente
             const idx = { label: 1, match: 3 }[colKey];
             return row.children[idx]?.textContent.trim().toLowerCase() || '';
@@ -1229,15 +1229,15 @@ def _render_coverage_panel(coverage: dict | None, verdict: dict | None) -> str:
     rows = ""
     for e in errored[:12]:
         rows += (
-            f"<li><code>{_escape(e.get('name', '?'))}</code> — "
+            f"<li><code>{_escape(e.get('name', '?'))}</code> - "
             f"{_escape((e.get('error') or 'erro')[:120])}</li>"
         )
     if len(errored) > 12:
-        rows += f"<li>… +{len(errored) - 12} checagens com erro</li>"
+        rows += f"<li>... +{len(errored) - 12} checagens com erro</li>"
     soft_rows = ""
     for e in soft[:8]:
         soft_rows += (
-            f"<li><code>{_escape(e.get('name', '?'))}</code> — "
+            f"<li><code>{_escape(e.get('name', '?'))}</code> - "
             f"{_escape((e.get('error') or 'skip')[:120])} "
             f"<em>(opcional, não cega forensics)</em></li>"
         )
@@ -1278,10 +1278,9 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
                                  coverage: dict | None) -> tuple[str, str, str]:
     """Retorna 3 strings pro veredito staff: (o_que, por_que, o_que_fazer).
 
-    Usadas tanto no HTML quanto no console — mesma mensagem, dois canais.
+    Usadas tanto no HTML quanto no console - mesma mensagem, dois canais.
     Regra: cada bullet responde uma pergunta que o staff faz na call de SS.
     """
-    v = (verdict or {}).get("verdict", "?")
     confirmed = [c for c in (clusters or []) if getattr(c, "verdict", "") == "CONFIRMED"]
     detected = [c for c in (clusters or []) if getattr(c, "verdict", "") == "DETECTED"]
     suspect = [c for c in (clusters or []) if getattr(c, "verdict", "") == "SUSPECT"]
@@ -1321,7 +1320,7 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
                    f"(precisa cruzamento pra virar DETECTADO)")
     elif is_inconclusive:
         # inconclusive_reason vem como "; "-joined; pega só o primeiro (mais
-        # relevante — coverage.reasons ordena por importância).
+        # relevante - coverage.reasons ordena por importância).
         reason = (verdict or {}).get("inconclusive_reason", "")
         first_reason = reason.split(";")[0].strip() if reason else ""
         cov_reasons = (coverage or {}).get("reasons") or []
@@ -1362,9 +1361,9 @@ def build_staff_verdict_bullets(clusters: list, verdict: dict | None,
 
 
 def _render_operator_tldr(clusters: list, verdict: dict | None, coverage: dict | None) -> str:
-    """Bloco 'Veredito do staff' — 3 bullets estruturados (O quê / Por quê / O que fazer).
+    """Bloco 'Veredito do staff' - 3 bullets estruturados (O quê / Por quê / O que fazer).
 
-    Pareado com print_staff_verdict_console() em telador.py — mesma mensagem em
+    Pareado com print_staff_verdict_console() em telador.py - mesma mensagem em
     2 canais (call de SS lê o console; supervisor abre o HTML).
     """
     v = (verdict or {}).get("verdict", "?")
@@ -1411,7 +1410,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
                           output_path: str = None) -> str:
     """Gera HTML e retorna o caminho do arquivo salvo.
 
-    `clusters` (opcional): lista de evidence.Cluster — quando passado, o
+    `clusters` (opcional): lista de evidence.Cluster - quando passado, o
     relatório inclui a seção de Confidence Engine no topo. Por enquanto
     backward-compatible: se None, o relatório usa o caminho legado.
     """
@@ -1431,15 +1430,15 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     tldr_html = _render_operator_tldr(clusters or [], verdict or {}, coverage)
     coverage_html = _render_coverage_panel(coverage, verdict or {})
 
-    # Aviso de scan limitado (sem admin) — banner no topo do relatório.
+    # Aviso de scan limitado (sem admin) - banner no topo do relatório.
     admin_warn_html = ""
     if sys_info.get("admin") is False or (coverage and coverage.get("blind_strong")):
         admin_warn_html = (
             '<div class="admin-warn" role="alert">'
-            '<strong>⚠ SCAN LIMITADO — cobertura incompleta.</strong> '
+            '<strong>⚠ SCAN LIMITADO - cobertura incompleta.</strong> '
             'As fontes forenses mais fortes (Prefetch, Amcache, BAM, Defender) '
             'podem não ter sido lidas. Um resultado sem detecções aqui é '
-            '<strong>inconclusivo</strong>, não inocenta — rode de novo como '
+            '<strong>inconclusivo</strong>, não inocenta - rode de novo como '
             'administrador e sem --quick pra ter um veredito confiável.'
             '</div>'
         )
@@ -1605,7 +1604,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         background: #ff4d4f; color: #000; padding: 2px 8px;
         border-radius: 10px; font-size: 11px; font-weight: 700;
     }
-    /* Sidebar de contexto (só dual-use/info) — badge cinza em vez de vermelho */
+    /* Sidebar de contexto (só dual-use/info) - badge cinza em vez de vermelho */
     .nav-link.nav-context .nav-badge {
         background: #6b6b6b; color: #eee;
     }
@@ -1845,7 +1844,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         --ease: cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Typography upgrade — Segoe UI Variable (Win11) cai bonito */
+    /* Typography upgrade - Segoe UI Variable (Win11) cai bonito */
     body, .nav-link, .sidebar-head h3, .page-header h1, button, input {
         font-family: 'Inter', 'Segoe UI Variable', -apple-system,
                      BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -1865,19 +1864,19 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     /* === Animations === */
     @keyframes fadeUp {
         from { opacity: 0; transform: translateY(8px); }
-        to   { opacity: 1; transform: translateY(0); }
+        to { opacity: 1; transform: translateY(0); }
     }
     @keyframes pulse {
         0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.5); }
-        50%      { box-shadow: 0 0 0 14px rgba(255, 77, 79, 0); }
+        50% { box-shadow: 0 0 0 14px rgba(255, 77, 79, 0); }
     }
     @keyframes shimmer {
-        0%   { background-position: -200% 0; }
+        0% { background-position: -200% 0; }
         100% { background-position: 200% 0; }
     }
     @keyframes scaleIn {
         from { opacity: 0; transform: scale(0.96); }
-        to   { opacity: 1; transform: scale(1); }
+        to { opacity: 1; transform: scale(1); }
     }
 
     /* Apply stagger to cards */
@@ -1995,7 +1994,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
 
 
     /* ================================================================
-       === Calm pass — quieter, more deliberate
+       === Calm pass - quieter, more deliberate
        ================================================================ */
 
     color-scheme: dark;
@@ -2004,7 +2003,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         accent-color: var(--c-red);
     }
 
-    /* Tabular figures + slashed zero — números alinhados verticalmente,
+    /* Tabular figures + slashed zero - números alinhados verticalmente,
        sem confundir 0/O. Diferença sutil mas notável em stats grandes. */
     .stat .num, .conf-val, .hc-count, code, time,
     .verdict-sub, .donut text, .bar-count,
@@ -2012,7 +2011,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         font-variant-numeric: tabular-nums lining-nums slashed-zero;
     }
 
-    /* Headings — peso mais variado, tracking refinado */
+    /* Headings - peso mais variado, tracking refinado */
     h1, h2, h3 {
         font-weight: 600;
         letter-spacing: -0.011em;
@@ -2030,20 +2029,20 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         color: var(--c-red);
     }
 
-    /* Animations mínimas — só de entrada, sem loops infinitos */
+    /* Animations mínimas - só de entrada, sem loops infinitos */
     @keyframes drift {
         from { opacity: 0; transform: translateY(6px); }
-        to   { opacity: 1; transform: translateY(0); }
+        to { opacity: 1; transform: translateY(0); }
     }
     @keyframes barGrow {
         from { width: 0; }
-        to   { width: var(--final-width, 100%); }
+        to { width: var(--final-width, 100%); }
     }
     @keyframes donutDraw {
         from { stroke-dashoffset: 314; }
     }
 
-    /* Cards — sem hover lift, sem ring, sem gradient. Só border-color shift. */
+    /* Cards - sem hover lift, sem ring, sem gradient. Só border-color shift. */
     .card {
         position: relative;
         animation: drift 0.45s var(--ease-out) both;
@@ -2062,7 +2061,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         border-radius: 0 1px 1px 0;
     }
 
-    /* Sidebar — entrada simples, sem stagger */
+    /* Sidebar - entrada simples, sem stagger */
     .sidebar { animation: drift 0.4s var(--ease-out) both; }
     .nav-link {
         position: relative;
@@ -2079,7 +2078,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         font-weight: 700;
     }
 
-    /* Stats — pop simples, sem shimmer overlay */
+    /* Stats - pop simples, sem shimmer overlay */
     .stat { animation: drift 0.4s var(--ease-out) both; }
     .stat:nth-child(1) { animation-delay: 30ms; }
     .stat:nth-child(2) { animation-delay: 60ms; }
@@ -2097,14 +2096,14 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         font-feature-settings: "tnum", "lnum", "zero";
     }
 
-    /* Verdict — sem 3D, sem halo, sem magnet. Só uma entrada limpa. */
+    /* Verdict - sem 3D, sem halo, sem magnet. Só uma entrada limpa. */
     .big-verdict {
         animation: drift 0.5s var(--ease-out) both;
         font-weight: 700;
         letter-spacing: -0.025em;
     }
 
-    /* Bars — cor sólida quente, anima 1x */
+    /* Bars - cor sólida quente, anima 1x */
     .bar-fill {
         background: var(--c-red);
         animation: barGrow 1s 0.2s var(--ease-out) both;
@@ -2115,14 +2114,14 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         color: var(--c-text-mute);
     }
 
-    /* Donut — fade + draw 1x, sem loops */
+    /* Donut - fade + draw 1x, sem loops */
     .donut circle:not(:first-child) {
         stroke-dasharray: 314;
         animation: donutDraw 0.9s 0.3s var(--ease-out) both;
         animation-fill-mode: backwards;
     }
 
-    /* Timeline dots — apenas hover scale, sem pop entry confuso */
+    /* Timeline dots - apenas hover scale, sem pop entry confuso */
     .timeline .tl-dot {
         transition: transform 0.15s var(--ease), box-shadow 0.15s;
     }
@@ -2132,22 +2131,22 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         z-index: 50;
     }
 
-    /* Empty state — sem float infinito */
+    /* Empty state - sem float infinito */
     .empty-state .empty-icon { display: inline-block; opacity: 0.9; }
 
-    /* Charts — entry simples */
+    /* Charts - entry simples */
     .chart-card { animation: drift 0.5s var(--ease-out) both; }
     .chart-card:nth-child(2) { animation-delay: 80ms; }
     .chart-card:hover { border-color: var(--c-bg-4); }
 
-    /* Filter buttons — sem ::before sweep, hover só com opacity */
+    /* Filter buttons - sem ::before sweep, hover só com opacity */
     .filter-btn {
         transition: opacity 0.12s, background 0.12s;
     }
     .filter-btn:hover { opacity: 0.85; }
     .filter-btn:active { transform: scale(0.97); }
 
-    /* Search input focus — só border, sem ring */
+    /* Search input focus - só border, sem ring */
     .controls input {
         transition: border-color 0.15s, background 0.15s;
     }
@@ -2161,17 +2160,17 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
     tbody tr.row-high:hover { background: rgba(255, 77, 79, 0.06); }
 
-    /* Code — sem ripple, hover só com bg shift */
+    /* Code - sem ripple, hover só com bg shift */
     code {
         transition: background 0.12s, color 0.12s;
     }
 
-    /* High-confidence card — borda vermelha sólida, sem gradient animado */
+    /* High-confidence card - borda vermelha sólida, sem gradient animado */
     .high-confidence {
         border-color: rgba(255, 77, 79, 0.5);
     }
 
-    /* Details summary — só rotate do triângulo, sem slide do título */
+    /* Details summary - só rotate do triângulo, sem slide do título */
     details > summary::before {
         transition: transform 0.2s var(--ease);
     }
@@ -2187,19 +2186,19 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         letter-spacing: 0;
     }
 
-    /* Lightbox close — sem rotate gimmick */
+    /* Lightbox close - sem rotate gimmick */
     .lightbox-close {
         transition: background 0.15s;
     }
     .lightbox-close:hover { background: rgba(255, 255, 255, 0.18); }
 
-    /* Toast — sombra discreta */
+    /* Toast - sombra discreta */
     .toast {
         animation: drift 0.25s var(--ease-out) both;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     }
 
-    /* Smooth scroll — só se user não preferir reduzido */
+    /* Smooth scroll - só se user não preferir reduzido */
     @media (prefers-reduced-motion: no-preference) {
         html { scroll-behavior: smooth; }
     }
@@ -2234,7 +2233,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     }
 
     /* ================================================================
-       === Functional pass — usability features
+       === Functional pass - usability features
        ================================================================ */
 
     /* Skip link (a11y) */
@@ -2306,10 +2305,10 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         border-radius: 50%; flex-shrink: 0;
     }
     .mini-critical { background: var(--c-red); box-shadow: 0 0 6px var(--c-red); }
-    .mini-high   { background: var(--c-red);    }
+    .mini-high { background: var(--c-red); }
     .mini-medium { background: var(--c-orange); }
-    .mini-low    { background: var(--c-yellow); }
-    .mini-none   { background: transparent; border: 1px solid var(--c-border); }
+    .mini-low { background: var(--c-yellow); }
+    .mini-none { background: transparent; border: 1px solid var(--c-border); }
 
     /* Zebra stripes sutis nas tabelas */
     tbody tr:nth-child(even) {
@@ -2359,11 +2358,11 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         padding: 4px 12px; border-radius: 6px;
     }
     .sess-code.sess-none { color: var(--c-text-faint); }
-    .sess-ok   { color: var(--c-green); font-size: 12px; }
+    .sess-ok { color: var(--c-green); font-size: 12px; }
     .sess-warn { color: var(--c-orange); font-size: 12px; }
 
     /* ================================================================
-       === Readability pass — pills, sticky headers, clamp, hero
+       === Readability pass - pills, sticky headers, clamp, hero
        ================================================================ */
 
     /* Severity como PILL sólida (substitui dot+texto) */
@@ -2373,18 +2372,18 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         line-height: 1.4; white-space: nowrap;
         border: 1px solid transparent;
     }
-    .pill-high   { background: rgba(255,77,79,0.16);  color: #ff7173; border-color: rgba(255,77,79,0.35); }
+    .pill-high { background: rgba(255,77,79,0.16); color: #ff7173; border-color: rgba(255,77,79,0.35); }
     .pill-medium { background: rgba(255,176,32,0.14); color: #ffc04d; border-color: rgba(255,176,32,0.3); }
-    .pill-low    { background: rgba(255,224,102,0.12);color: #ffe066; border-color: rgba(255,224,102,0.25); }
+    .pill-low { background: rgba(255,224,102,0.12);color: #ffe066; border-color: rgba(255,224,102,0.25); }
     .sev { white-space: nowrap; }
 
     /* Linhas: faixa lateral colorida em vez de fundo gritante */
-    tr.row-high   { background: transparent; box-shadow: inset 3px 0 0 var(--c-red); }
+    tr.row-high { background: transparent; box-shadow: inset 3px 0 0 var(--c-red); }
     tr.row-medium { background: transparent; box-shadow: inset 3px 0 0 var(--c-orange); }
-    tr.row-low    { box-shadow: inset 3px 0 0 rgba(255,224,102,0.4); }
+    tr.row-low { box-shadow: inset 3px 0 0 rgba(255,224,102,0.4); }
     td.sev { padding-left: 14px; }
 
-    /* Sticky table header — não perde o cabeçalho em tabela longa */
+    /* Sticky table header - não perde o cabeçalho em tabela longa */
     table.sortable thead th {
         position: sticky; top: 0; z-index: 5;
         background: var(--c-bg-4);
@@ -2405,9 +2404,9 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     /* Coluna de severidade enxuta */
     th[data-sort="sev"] { width: 120px; }
     th[data-sort="conf"] { width: 80px; }
-    th[data-sort="ts"]   { width: 150px; }
+    th[data-sort="ts"] { width: 150px; }
 
-    /* Hero do veredito — mais presença, sóbrio */
+    /* Hero do veredito - mais presença, sóbrio */
     .overview {
         display: grid; grid-template-columns: 1fr auto; gap: 20px;
         align-items: center;
@@ -2471,11 +2470,11 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         --c-bg-4: #1a1a1d;
         --c-border: #242420;
         --c-border-soft: #1a1a18;
-        --c-text: #d8d2c4;        /* off-white quente */
+        --c-text: #d8d2c4; /* off-white quente */
         --c-text-mute: #8f897b;
         --c-text-soft: #6a655a;
         --c-text-faint: #4a463e;
-        --c-amber: #e8b339;       /* cor de marca */
+        --c-amber: #e8b339; /* cor de marca */
         --c-red: #ff5f56;
         --c-orange: #e8b339;
         --c-yellow: #d8c47a;
@@ -2483,7 +2482,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         accent-color: #e8b339;
     }
 
-    /* Monospace em toda a interface — núcleo da identidade */
+    /* Monospace em toda a interface - núcleo da identidade */
     body, .nav-link, .sidebar-head h3, .page-header h1, button, input,
     h1, h2, h3, .big-verdict, .stat .num, kbd, .pill, code, .sub, .desc,
     .summary, th, td, .wordmark, .nav-group-title {
@@ -2519,7 +2518,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         color: var(--c-text);
         font-size: 14px; text-transform: lowercase; letter-spacing: 0.5px;
     }
-    /* Sem prefixos decorativos nos títulos — texto direto. */
+    /* Sem prefixos decorativos nos títulos - texto direto. */
     .card h2::before { content: none; }
     .status-suspicious h2::before { content: none; }
 
@@ -2572,17 +2571,17 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         border: 1px solid currentColor; background: transparent;
     }
     .pill::before { content: "["; } .pill::after { content: "]"; }
-    .pill-high   { color: #ff5f56; }
+    .pill-high { color: #ff5f56; }
     .pill-medium { color: #e8b339; }
-    .pill-low    { color: #9c8f6a; }
+    .pill-low { color: #9c8f6a; }
 
     /* Tabela */
     th { background: var(--c-bg-3); color: var(--c-text-mute);
          text-transform: lowercase; letter-spacing: 0.5px; }
     table.sortable thead th { background: var(--c-bg-3); }
-    tr.row-high   { box-shadow: inset 2px 0 0 #ff5f56; }
+    tr.row-high { box-shadow: inset 2px 0 0 #ff5f56; }
     tr.row-medium { box-shadow: inset 2px 0 0 #e8b339; }
-    tr.row-low    { box-shadow: inset 2px 0 0 #9c8f6a; }
+    tr.row-low { box-shadow: inset 2px 0 0 #9c8f6a; }
     code {
         background: var(--c-bg-1); border: 1px solid var(--c-border);
         color: var(--c-amber); border-radius: 2px;
@@ -2641,7 +2640,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
 
         /* Os três dots da barra acendem em sequência */
         @keyframes dotOn { from { opacity: 0; transform: scale(0.4); }
-                           to   { opacity: 1; transform: scale(1); } }
+                           to { opacity: 1; transform: scale(1); } }
         .term-bar .term-dot { animation: dotOn 0.25s var(--ease-out) both; }
         .term-bar .td-r { animation-delay: 0.00s; }
         .term-bar .td-y { animation-delay: 0.12s; }
@@ -2683,19 +2682,19 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         --radius: 2px;
 
         /* Paleta exata do site (oklch). Preto frio, papel quente. */
-        --site-bg:          oklch(0.14 0.004 260);
-        --site-card:        oklch(0.165 0.004 260);
-        --site-popover:     oklch(0.19 0.006 260);
-        --site-sidebar:     oklch(0.19 0.006 260);
-        --site-muted:       oklch(0.22 0.008 260);
-        --site-paper:       oklch(0.93 0.012 80);
-        --site-hazard:      oklch(0.95 0.005 80);
-        --site-muted-fg:    oklch(0.58 0.012 260);
-        --site-cold:        oklch(0.78 0.02 240);
+        --site-bg: oklch(0.14 0.004 260);
+        --site-card: oklch(0.165 0.004 260);
+        --site-popover: oklch(0.19 0.006 260);
+        --site-sidebar: oklch(0.19 0.006 260);
+        --site-muted: oklch(0.22 0.008 260);
+        --site-paper: oklch(0.93 0.012 80);
+        --site-hazard: oklch(0.95 0.005 80);
+        --site-muted-fg: oklch(0.58 0.012 260);
+        --site-cold: oklch(0.78 0.02 240);
         --site-destructive: oklch(0.62 0.21 28);
-        --site-evidence:    oklch(0.72 0.14 28);
-        --site-border:      oklch(1 0 0 / 8%);
-        --site-green:       oklch(0.72 0.14 160);
+        --site-evidence: oklch(0.72 0.14 28);
+        --site-border: oklch(1 0 0 / 8%);
+        --site-green: oklch(0.72 0.14 160);
 
         /* Remapeia os tokens internos do relatório -> paleta do site.
            Tudo que usa var(--c-*) herda automaticamente. */
@@ -2758,7 +2757,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     body::after {
         content: ""; position: fixed; inset: 0; pointer-events: none;
         z-index: 1; opacity: 0.025; mix-blend-mode: overlay;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
     }
 
     /* --- Cabeçalho: dossiê forense com faixa de perigo no topo --- */
@@ -2866,9 +2865,9 @@ def generate_html_report(findings: list[dict], sys_info: dict,
         text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px;
     }
     table.sortable thead th { background: var(--site-popover); }
-    tr.row-high   { box-shadow: inset 3px 0 0 var(--site-destructive); }
+    tr.row-high { box-shadow: inset 3px 0 0 var(--site-destructive); }
     tr.row-medium { box-shadow: inset 3px 0 0 var(--site-evidence); }
-    tr.row-low    { box-shadow: inset 3px 0 0 var(--site-cold); }
+    tr.row-low { box-shadow: inset 3px 0 0 var(--site-cold); }
     tbody tr:hover { background: color-mix(in oklch, var(--site-paper) 3%, transparent); }
     code {
         background: var(--site-popover);
@@ -3052,7 +3051,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
     .tldr-steps { margin: 0 0 8px; padding-left: 1.2rem; }
     .tldr-steps li { margin: 0.25rem 0; }
     .tldr-targets { margin: 8px 0 0; padding-left: 1.1rem; color: #e8e0d2; }
-    /* 3 bullets veredito staff — layout de FAQ apertado */
+    /* 3 bullets veredito staff - layout de FAQ apertado */
     .tldr-staff-bullets {
         margin: 4px 0 8px;
         display: grid;
@@ -3108,7 +3107,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Relatório do Telador — {_escape(sys_info.get('host', ''))}</title>
+    <title>Relatório do Telador - {_escape(sys_info.get('host', ''))}</title>
     <style>{CSS}{extra_css}</style>
 </head>
 <body>
@@ -3120,7 +3119,7 @@ def generate_html_report(findings: list[dict], sys_info: dict,
             <span class="term-dot td-r"></span>
             <span class="term-dot td-y"></span>
             <span class="term-dot td-g"></span>
-            <span class="term-bar-title">telador — relatório forense de screenshare</span>
+            <span class="term-bar-title">telador - relatório forense de screenshare</span>
         </div>
         <div class="term-body">
             <div class="h1line"><span class="typed">TELADOR</span><span class="term-cursor" aria-hidden="true"></span></div>
