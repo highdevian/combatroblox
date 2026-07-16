@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.55.3] - 2026-07-15
+
+**Patch: link do changelog na release + razao real do INCONCLUSIVO no Rapido.**
+
+- `release.yml`: notes da release agora apontam pro `docs/CHANGELOG.md`
+  (arquivo saiu da raiz no refactor 52b5382; link antigo estava morto).
+- `gui.py`: `skipped_groups` do modo Rapido inclui **forensics
+  (Prefetch/Amcache/BAM/JumpLists)** como primeiro item. O
+  `assemble_ss_live_scanners` ja pulava esses, mas a razao do
+  INCONCLUSIVO exibida ao staff omitia o grupo mais importante e so
+  citava perifericos (yara/pca/etc). Agora o staff ve o gap real
+  quando decide se roda Completo antes de fechar a SS.
+
 ## [3.55.2] - 2026-07-15
 
 **GUI premium + fixes criticos de confidence/cobertura (SS real).**
