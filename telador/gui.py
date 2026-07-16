@@ -380,6 +380,7 @@ def _run_scan_thread(
         else:
             chain = telador.assemble_ss_live_scanners()
             skipped_groups = [
+                "forensics (Prefetch/Amcache/BAM/JumpLists)",
                 "yara", "winevent", "extra_forensics", "anti_forensic_deep",
                 "pca", "task_execlog", "mplog", "cert_store", "shellbag",
                 "peripherals", "antievasion", "command_history",

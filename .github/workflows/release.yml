@@ -76,7 +76,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $notes = "Build automatico (CI).`n`nVeja o CHANGELOG.md para as mudancas.`n`n**Downloads (recomendado: telador-gui.exe):**`n- ``telador-gui.exe`` (janela sem terminal, duplo-clique -> UAC -> GUI) - SHA256: ``${{ steps.sha.outputs.gui_sha }}```n- ``Telador-${{ github.ref_name }}.zip`` (kit completo: 2 exes + bats + PLAYBOOK.md) - SHA256: ``${{ steps.zip.outputs.sha }}```n- ``telador.exe`` (CLI classico, terminal) - SHA256: ``${{ steps.sha.outputs.sha }}``"
+          $notes = "Build automatico (CI).`n`nVeja o [docs/CHANGELOG.md](https://github.com/highdevian/combatroblox/blob/main/docs/CHANGELOG.md) para as mudancas.`n`n**Downloads (recomendado: telador-gui.exe):**`n- ``telador-gui.exe`` (janela sem terminal, duplo-clique -> UAC -> GUI) - SHA256: ``${{ steps.sha.outputs.gui_sha }}```n- ``Telador-${{ github.ref_name }}.zip`` (kit completo: 2 exes + bats + PLAYBOOK.md) - SHA256: ``${{ steps.zip.outputs.sha }}```n- ``telador.exe`` (CLI classico, terminal) - SHA256: ``${{ steps.sha.outputs.sha }}``"
           gh release view ${{ github.ref_name }} --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release already exists. Updating assets and metadata..."
